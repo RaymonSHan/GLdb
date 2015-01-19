@@ -34,6 +34,8 @@
 
 volatile UINT RThreadResource::globalResourceOffset = 
   PAD_TRACE_INFO + SIZE_TRACE_INFO;
+volatile UINT RThreadResource::globalTime = 
+  time(NULL);
 
 INT StrCmp(STRING &one, STRING &two)
 {

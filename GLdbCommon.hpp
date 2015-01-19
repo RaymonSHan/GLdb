@@ -76,7 +76,7 @@ typedef     signed long long int*               PINT;
 typedef     unsigned long long int*             PUINT;
 typedef     void*                               PVOID;
 typedef     signed long long int*               PMONEY;
-typedef     long long int*                      PLOCK;
+typedef     volatile long long int*             PLOCK;
 
 typedef     union ADDR*                         PADDR;
 typedef     class CListItem*                    PLIST;
@@ -148,12 +148,11 @@ ADDR_COMPARE(<)
 ADDR_COMPARE(<=)
 
 #define ADDR_OPERATION(op)					\
-  ADDR inline operator op (ADDR &one, ADDR &two) {		\
-      ADDR ret;							\
-      ret.aLong = one.aLong op two.aLong;  return ret; };	\
+  UINT inline operator op (ADDR &one, ADDR &two) {		\
+    return (one.aLong op two.aLong); };				\
   ADDR inline operator op (ADDR &one, const UINT &two) {	\
-      ADDR ret;							\
-      ret.aLong = one.aLong op two;  return ret; };
+    ADDR ret;							\
+    ret.aLong = one.aLong op two;  return ret; };
 
 ADDR_OPERATION(+)
 ADDR_OPERATION(-)
@@ -178,7 +177,7 @@ typedef     struct STRING
     while (*this->strEnd++);
     this->strEnd --;
   };
-  void operator = (const char *pchar) {
+  void operator = (const PCHAR pchar) {
     return operator = ((PUCHAR)pchar);
   };
 }STRING;
@@ -195,6 +194,15 @@ STR_STR_COMPARE(>)
 STR_STR_COMPARE(>=)
 STR_STR_COMPARE(<)
 STR_STR_COMPARE(<=)
+
+/*
+ * only little lazy
+ */
+typedef union SOCKADDR
+{
+  sockaddr_in saddrin;
+  sockaddr  saddr;
+}SOCKADDR;
 
 
 /*
@@ -260,6 +268,7 @@ STR_STR_COMPARE(<=)
 #define     SIZE_CACHE                          64LL
 #define     SIZE_NORMAL_PAGE                    (0x01LL << 12)  // 4K
 #define     SIZE_HUGE_PAGE                      (0x01LL << 21)  // 2M
+#define     PAD_THREAD_STACK                    SIZE_HUGE_PAGE
 #define     SIZE_THREAD_STACK                   (0x01LL << 24)  // 16M
 #define     NEG_SIZE_THREAD_STACK               (-1*SIZE_THREAD_STACK)
         
@@ -514,13 +523,18 @@ void      __MESSAGE(INT level, const char * _Format, ...);
  * volatile UINT RThreadResource::globalResourceOffset =
  *   PAD_TRACE_INFO + SIZE_TRACE_INFO;
  *   set in GLdbCommon.cpp
+ * All other static class var are Global use. for I not use global var is,
+ *   no extern requested
  */
-class       RThreadResource
+#define     GlobalTime                          RThreadResource::globalTime
+
+class       RThreadResource 
 {
 protected:
   UINT      nowOffset;
 public:
   static    volatile UINT globalResourceOffset;
+  static    volatile UINT globalTime;
 public:
   RThreadResource(UINT size) {
     SetResourceOffset(size);

@@ -54,8 +54,10 @@
 /*
  * The function get memroy from system
  */
-INT         GetMemory(ADDR &addr, UINT size, UINT flag = 0);
-INT         GetStack(ADDR &addr);
+#define     SEG_START_BUFFER                    (0x52LL << 40)  // 'R'
+
+UINT        GetMemory(ADDR &addr, UINT size, UINT flag = 0);
+UINT        GetStack(ADDR &addr);
 
 /*
  * TLS for memory pool
@@ -71,22 +73,24 @@ INT         GetStack(ADDR &addr);
 #define     MAX_LOCAL_CACHE                     16
 
 typedef     struct threadMemoryInfo {
-  UINT      getSize;
-  UINT      freeSize;
+  UINT      getSize;                            // size get from global
+  UINT      freeSize;                           // will back to global if >
   UINT      threadFlag;
   ADDR      localArrayStart;
-  ADDR      localFreeStart;
+  ADDR      localFreeStart;                     // free local item store here
   ADDR      localArrayEnd;
-  ADDR      localUsedList;
-  threadMemoryInfo *threadListNext;
+  ADDR      localUsedList;                      // usedList start
+  threadMemoryInfo *threadListNext;             // pointer to next TLS
   ADDR      localCache [MAX_LOCAL_CACHE];
 }threadMemoryInfo;
 
 /*
  * for NonDirectly free memory pool, link every used item by usedList
- * when used, countDown set to CurrentTime + TimeoutTime. when FutureTime equal
- *   countDown, set countDown to TIMEOUT_QUIT(2 for normal)
+ * when used, countDown set to CurrentTime + Timeout. when FutureTime equal
+ *   countDown, set countDown to TIMEOUT_QUIT
  */
+#define     TIMEOUT_QUIT                        2
+
 class       CListItem {
 public:
   ADDR      usedList;
@@ -94,7 +98,73 @@ public:
 };
 
 
+/*
+ * Memory Pool main class
+ *
+ * address of free item is store in address pointed by memoryArrayFree
+ */
+class       CMemoryAlloc : public RThreadResource {
+private:                                        // for total memory
+  ADDR      RealBlock;                          // address for memory start
+  UINT      BorderSize;                         // real byte size for one item
+  UINT      ArraySize;                          // number * sizeof(ADDR)
+  UINT      TotalSize;                          // Total memory size in byte
+
+private:                                        // for thread info
+  UINT      TotalNumber;
+  threadMemoryInfo *threadListStart;            // TLS list start
+  ADDR      memoryArrayStart;                   // array start
+  ADDR      memoryArrayFree;                    // free now
+  ADDR      memoryArrayEnd;                     // array end
+
+private:                                        // spin lock
+  LOCK      InProcess;                          // used for global GET/FREE
+  PLOCK     pInProcess;
+
+private:
+  UINT      DirectFree;
+  UINT      TimeoutInit;
+  UINT      BufferSize;
+
+public:
+  CMemoryAlloc();
+  ~CMemoryAlloc();
+
+private:
+  UINT      GetOneList(ADDR &nlist);
+  UINT      FreeOneList(ADDR nlist);
+  UINT      AddToUsed(ADDR nlist, UINT timeout);
+  UINT      GetListGroup(ADDR &groupbegin, UINT number);
+  UINT      FreeListGroup(ADDR &groupbegin, UINT number);
+  UINT      CountTimeout(ADDR usedStart);
+
+public:
+  UINT      SetThreadArea(UINT getsize, UINT maxsize,
+			  UINT freesize, UINT flag);
+  UINT      SetMemoryBuffer(UINT number, UINT size, UINT border, 
+			    UINT direct, UINT buffer = 0);
+  UINT      DelMemoryBuffer(void);
+  UINT      GetMemoryList(ADDR &nlist, UINT timeout);
+  UINT      FreeMemoryList(ADDR nlist);
+  UINT      TimeoutAll(void);
+  UINT      GetNumber() { return TotalNumber; };
+  
+  void      DisplayFree(void);
+
+#ifdef     _TESTCOUNT                           // for test function
+public:                                         // statistics info for debug
+  UINT      GetCount, GetSuccessCount;
+  UINT      FreeCount, FreeSuccessCount;
+  UINT      MinFree;  
+  void      DisplayLocal(threadMemoryInfo* info);
+  void      DisplayArray(void);
+  void      DisplayInfo(void);
+  void      DisplayContext(void);
+#endif  // _TESTCOUNT
+};
 
 
+#define UsedList                pList->usedList
+#define CountDown               pList->countDown
 
 #endif   // GLdb_MEMORY_HPP
