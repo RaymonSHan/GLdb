@@ -33,26 +33,26 @@
 #ifndef     GLdb_COMMON_HPP
 #define     GLdb_COMMON_HPP
 
-#include   <errno.h>
-#include   <fcntl.h> 
-#include   <sched.h>
-#include   <signal.h>
-#include   <stdio.h>
-#include   <stdlib.h>
-#include   <stdarg.h>
-#include   <string.h>
-#include   <time.h>
-#include   <unistd.h>
+#include    <errno.h>
+#include    <fcntl.h> 
+#include    <sched.h>
+#include    <signal.h>
+#include    <stdio.h>
+#include    <stdlib.h>
+#include    <stdarg.h>
+#include    <string.h>
+#include    <time.h>
+#include    <unistd.h>
 
-#include   <arpa/inet.h>
-#include   <netinet/in.h>
+#include    <arpa/inet.h>
+#include    <netinet/in.h>
 
-#include   <sys/epoll.h>
-#include   <sys/eventfd.h>
-#include   <sys/mman.h>
-#include   <sys/socket.h> 
-#include   <sys/types.h>
-#include   <sys/wait.h>
+#include    <sys/epoll.h>
+#include    <sys/eventfd.h>
+#include    <sys/mman.h>
+#include    <sys/socket.h> 
+#include    <sys/types.h>
+#include    <sys/wait.h>
 
 /*
  * BASIC typedef
