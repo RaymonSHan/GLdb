@@ -65,3 +65,69 @@
  * ERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#ifdef      GLdb_IOCP_HPP
+#define     GLdb_IOCP_HPP
+
+#inlucde    "GLdbCommon.hpp"
+
+
+/*
+ * This is buffered eventfd
+ */
+#define     MAX_HANDLE_LOCK                     31
+
+ADDR        CONSTADDR                         = {1};
+
+typedef     class RMultiEvent
+{
+private:
+  QUERY     eventQuery;
+  ADDR      handleBuffer[MAX_HANDLE_LOCK + 1];
+  int       eventFd;
+
+public:
+  UINT      InitArrayEvent(UINT num)
+  {
+  __TRY
+    ADDR    start;
+    __DO (num > MAX_HANDLE_LOCK);
+    start = &handleBuffer[0];
+    eventQuery.InitArrayQuery(start, num);
+    __DO1(eventFd,
+	  eventfd(0, EFD_SEMAPHORE));
+  __CATCH
+  }
+  UINT      operator += (ADDR addr)
+  {
+  __TRY
+    int status;
+    __DO (eventQuery += addr);
+    __DO1(status,
+	  write(eventFd, &CONSTADDR, SIZEADDR));
+  __CATCH
+  }
+  UINT      operator -= (ADDR &addr)
+  {
+  __TRY
+    int status;
+    __DO1(status,
+	  read(eventFd, &CONSTADDR, SIZEADDR));
+    __DO (eventQuery -= addr);
+  __CATCH
+  }
+}EVENT;
+
+
+/* 
+ * Basic thread, only finish clone, kill
+ */
+typedef   __class(RThread)
+private:
+}THREAD;
+
+typedef     class GLdbIOCP
+{
+}IOCP;
+
+#endif   // GLdb_IOCP_HPP

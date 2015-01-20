@@ -83,19 +83,13 @@ typedef     class CListItem*                    PLIST;
 typedef     class CContextItem*                 PCONT;
 typedef     class CBufferItem*                  PBUFF;
 
-/*
- * error return
- */
-#define    ERROR_OK                             0
-#define    ERROR_BASE                           0x50 * 0x10000
-#define    ERROR_STACK_NO_ITEMFREE             (ERROR_BASE + 1)
-#define    ERROR_STACK_FREE_MORE               (ERROR_BASE + 2)
-#define    ERROR_STACK_CHANGED                 (ERROR_BASE + 3)
 
 /*
  * most common struct
  * I create this, for do C-style in C++. 
  */
+#define     SIZEADDR                            sizeof(ADDR)
+
 #define     ADDR_SELF_OPERATION(op)				\
   void operator op (const UINT &one) {				\
     this->aLong op (one); };
@@ -575,23 +569,24 @@ public:
   {
     inProcess = NOT_IN_PROCESS;
     arrayStart = start;
-    arrayEnd = start + (number-1) * sizeof(ADDR);
-    arrayFree = start + number * sizeof(ADDR);
+    arrayEnd = start + (number-1) * SIZEADDR;
+    arrayFree = start + number * SIZEADDR;
     parentArray = parent;
     getSize = getsize;
     freeSize = freesize;
   };
   UINT      FullArrayStack(ADDR begin, UINT size)
   {
-    if (arrayFree - arrayEnd != sizeof(ADDR)) return ERROR_STACK_CHANGED;
+  __TRY
+    __DO (arrayFree - arrayEnd != SIZEADDR);
     __LOCK(inProcess);
     do {
-      arrayFree -= sizeof(ADDR);
+      arrayFree -= SIZEADDR;
       *(arrayFree.pAddr) = begin;
       begin += size;
     } while(arrayFree > arrayStart);
     __FREE(inProcess);
-    return ERROR_OK;
+  __CATCH
   };
 
 /*
@@ -602,10 +597,10 @@ public:
     UINT    getsize, getnumber;
     __LOCK(inProcess);
     getsize = arrayEnd - arrayFree;
-    getnumber = getsize / sizeof(ADDR);
+    getnumber = getsize / SIZEADDR;
     if (getnumber < number) number = getnumber;
     if (number) {
-      getsize = number * sizeof(ADDR);
+      getsize = number * SIZEADDR;
       addr -= getsize;
       memcpy(addr.pVoid, arrayFree.pVoid, getsize);
       arrayFree += getsize;
@@ -616,7 +611,7 @@ public:
   {
     UINT    freesize;
     __LOCK(inProcess);
-    freesize = number * sizeof(ADDR);
+    freesize = number * SIZEADDR;
     if (number) {
       arrayFree = freesize;
       memcpy(arrayFree.pVoid, addr.pVoid, freesize);
@@ -626,47 +621,90 @@ public:
   };
   UINT      operator += (ADDR addr) 
   {
+  __TRY
     __LOCK(inProcess);
     if ((arrayFree <= arrayStart) && parentArray)
       parentArray->FreeMulti(arrayFree, freeSize);
-    if (arrayFree <= arrayStart) {
-      __FREE(inProcess);
-      return ERROR_STACK_FREE_MORE;
-    } else {
-      arrayFree -= sizeof(ADDR);
-      *(arrayFree.pAddr) = addr;
-      __FREE(inProcess);
-      return ERROR_OK;
-    }
+    __DO (arrayFree <= arrayStart);
+    arrayFree -= SIZEADDR;
+    *(arrayFree.pAddr) = addr;
+    __FREE(inProcess);
+  __CATCH_BEGIN
+    __FREE(inProcess);
+  __CATCH_END
   };
   UINT      operator -= (ADDR &addr) 
   {
+  __TRY
     __LOCK(inProcess);
     if ((arrayFree > arrayEnd) && parentArray)
       parentArray->GetMulti(arrayFree, getSize);
-    if (arrayFree > arrayEnd) {
-      addr = *(arrayFree.pAddr);
-      arrayFree += sizeof(ADDR);
-      __FREE(inProcess);
-      return ERROR_OK;
-     } else {
-      __FREE(inProcess);
-      return ERROR_STACK_NO_ITEMFREE;
-    }
+    __DO (arrayFree > arrayEnd);
+    addr = *(arrayFree.pAddr);
+    arrayFree += SIZEADDR;
+    __FREE(inProcess);
+  __CATCH_BEGIN
+    __FREE(inProcess);
+  __CATCH_END
   };
-}STACK;
+  UINT      GetNumber(void)
+  {
+    return ((arrayEnd - arrayFree) / SIZEADDR + 1);
+  }
+}STACK, *PSTACK;
 
-class       RArrayQuery {
+typedef     class RArrayQuery 
+{
 private:
   LOCK      inProcess;
   ADDR      arrayStart;
   ADDR      arrayEnd;
   ADDR      freeStart;
+  ADDR      freeEnd;
 public:
-  UINT      InitArrayQuery(ADDR start, ADDR end);
-  UINT      operator += (ADDR addr);
-  UINT      operator -= (ADDR &addr);
-};
+  void      InitArrayQuery(ADDR start, UINT number) 
+  {
+    inProcess = NOT_IN_PROCESS;
+    arrayStart = freeStart = start;
+    freeEnd = start + (number-1) * SIZEADDR;
+    arrayEnd = start + number * SIZEADDR;
+  };
+  UINT      operator += (ADDR addr)
+  {
+  __TRY
+    __LOCK(inProcess);
+    __DO (freeStart == freeEnd);
+    freeStart += SIZEADDR;
+    if (freeStart == arrayEnd) freeStart = arrayStart;
+    *(freeStart.pAddr) = addr;
+    __FREE(inProcess);
+  __CATCH_BEGIN
+    __FREE(inProcess);
+  __CATCH_END
+  };
+  UINT      operator -= (ADDR &addr)
+  {
+  __TRY
+    ADDR    freeend;
+    __LOCK(inProcess);
+    freeend = freeEnd + SIZEADDR;
+    if (freeend == arrayEnd) freeend = arrayStart;
+    __DO (freeend == freeStart);
+    addr = *(freeend.pAddr);
+    freeEnd = freeend;
+    __FREE(inProcess);
+  __CATCH_BEGIN
+    __FREE(inProcess);
+  __CATCH_END
+  };
+  UINT      GetNumber(void)
+  {
+    if (freeStart > freeEnd) 
+      return ((freeStart-freeEnd) / SIZEADDR -1);
+    else 
+      return (((arrayEnd-freeEnd) + (freeStart-arrayStart)) / SIZEADDR - 1);
+  }
+}QUERY, *PQUERY;
 
 #endif   // GLdb_COMMON_HPP
 

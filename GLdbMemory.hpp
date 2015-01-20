@@ -110,13 +110,6 @@ private:                                        // for thread info
   UINT      TotalNumber;
   STACK     globalStack;
   threadMemoryInfo *threadListStart;            // TLS list start
-  ADDR      memoryArrayStart;                   // array start
-  ADDR      memoryArrayFree;                    // free now
-  ADDR      memoryArrayEnd;                     // array end
-
-private:                                        // spin lock
-  LOCK      InProcess;                          // used for global GET/FREE
-  PLOCK     pInProcess;
 
 private:
   UINT      DirectFree;

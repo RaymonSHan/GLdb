@@ -66,9 +66,6 @@ CMemoryAlloc::CMemoryAlloc()
   TotalNumber = BorderSize = ArraySize = TotalSize = 0;
   threadListStart = 0;
 
-  InProcess = NOT_IN_PROCESS;
-  pInProcess = &InProcess;
-
 #ifdef _TESTCOUNT
   GetCount = GetSuccessCount = FreeCount = FreeSuccessCount = 0;
 #endif // _TESTCOUNT
@@ -190,7 +187,7 @@ UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT dir
 {
   __TRY
     BorderSize = PAD_INT(size, 0, border);
-    ArraySize = number * sizeof(ADDR);
+    ArraySize = number * SIZEADDR;
     TotalSize = BorderSize * number + ArraySize;
     __DO(GetMemory(RealBlock, TotalSize));
     TotalNumber = number;
@@ -239,16 +236,18 @@ void        CMemoryAlloc::DisplayFree(void)
   INT       freenumber = 0, num = 0;;
   threadMemoryInfo *list;
   threadTraceInfo* info;
+  PSTACK    stack;
   ADDR      addr;
   INT       i = 0;
 
   // mainEnd point to size+1, while localEnd point to size ??? surley ???
   list = threadListStart;
   while(list) {
+    stack = &(list->memoryStack);
     addr.pVoid = list;
     addr.aLong = (addr.aLong & NEG_SIZE_THREAD_STACK) + PAD_TRACE_INFO;
     info = (threadTraceInfo*)addr.pVoid;
-    num = (list->localArrayEnd.aLong + sizeof(ADDR) - list->localFreeStart.aLong)/sizeof(ADDR);
+    num = stack->GetNumber();
     if (info->threadName)
       printf("Id:%2lld:%20s:%3llx;    ", i++, info->threadName, num);
     else 
@@ -259,7 +258,7 @@ void        CMemoryAlloc::DisplayFree(void)
   }
   if (i % 3) printf("\n");
 
-  num = (memoryArrayEnd.aLong - memoryArrayFree.aLong)/sizeof(ADDR);
+  num = globalStack.GetNumber();
   printf("Main Free:%4lld, Total Free:%4lld\n", num, freenumber + num);
 
 #ifdef _TESTCOUNT
@@ -301,7 +300,7 @@ void CMemoryAlloc::DisplayArray(void)
   for (i=0; i<TotalNumber; i++) {
     if (arr == memoryArrayFree) PRINT_COLOR("36");
       printf("%p, %p\n", arr.pVoid, (*arr.pAddr).pVoid);
-      arr += sizeof(ADDR);
+      arr += SIZEADDR;
   }
   RESTORE_COLOR;
 
