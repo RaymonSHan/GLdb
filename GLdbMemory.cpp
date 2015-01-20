@@ -87,13 +87,8 @@ UINT        CMemoryAlloc::GetOneList(ADDR &nlist)
 #ifdef _TESTCOUNT
     LockInc(GetCount);
 #endif // _TESTCOUNT
-    if (info->localFreeStart > info->localArrayEnd) {
-      GetListGroup(info->localFreeStart, info->getSize);
-    }
-    __DO_(info->localFreeStart > info->localArrayEnd,
+    __DO_(info->memoryStack -= nlist,
 	  "No more list CMemoryAlloc %p", this);
-    nlist = *(info->localFreeStart.pAddr);
-    info->localFreeStart += sizeof(ADDR);
 #ifdef _TESTCOUNT
    LockInc(GetSuccessCount);
 #endif // _TESTCOUNT
@@ -109,15 +104,11 @@ UINT        CMemoryAlloc::FreeOneList(ADDR nlist)
 #ifdef _TESTCOUNT
     LockInc(FreeCount);
 #endif // _TESTCOUNT
-    if (info->localFreeStart <= info->localArrayStart) {
-      FreeListGroup(info->localFreeStart, info->freeSize);
-    }
     __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
 	  "FreeList Twice %p\n", nlist.pList);
-
-    info->localFreeStart -= sizeof(ADDR);
-    *(info->localFreeStart.pAddr) = nlist; 
     nlist.UsedList = MARK_UNUSED;               // mark for unsed too
+    __DO_(info->memoryStack += nlist,
+	  "Free More\n");
 #ifdef _TESTCOUNT
     LockInc(FreeSuccessCount);
 #endif // _TESTCOUNT
@@ -135,43 +126,6 @@ UINT        CMemoryAlloc::AddToUsed(ADDR nlist, UINT timeout)
   nlist.UsedList = info->localUsedList;
   info->localUsedList = nlist;
   return 0;
-}
-
-/*
- * in GetListGroup & FreeListGroup, 
- *  groupbegin is local localFreeStart.
- */
-UINT        CMemoryAlloc::GetListGroup(ADDR &groupbegin, UINT number)
-{
-  UINT      getsize, getnumber;
-  __TRY__
-    __LOCKp(pInProcess)
-    getsize = memoryArrayEnd - memoryArrayFree;
-    getnumber = getsize / sizeof(ADDR);
-    if (getnumber < number) number = getnumber;
-    if (number) {
-      getsize = number * sizeof(ADDR);
-      groupbegin -= getsize;
-      memcpy(groupbegin.pVoid, memoryArrayFree.pVoid, getsize);
-      memoryArrayFree += getsize;
-    }
-    __FREEp(pInProcess)
-  __CATCH__
-}
-
-UINT        CMemoryAlloc::FreeListGroup(ADDR &groupbegin, UINT number)
-{
-  INT       freesize;
-  __TRY__
-    __LOCKp(pInProcess)
-    freesize = number * sizeof(ADDR);
-    if (number) {
-      memoryArrayFree -= freesize;
-      memcpy(memoryArrayFree.pVoid, groupbegin.pVoid, freesize);
-      groupbegin += freesize;
-    }
-    __FREEp(pInProcess)
-  __CATCH__
 }
 
 // process from CMemoryAlloc::UsedItem or threadMemoryInfo::usedListStart
@@ -216,15 +170,14 @@ UINT        CMemoryAlloc::CountTimeout(ADDR usedStart)
 UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesize, UINT flag)
 {
   static LOCK lockList = NOT_IN_PROCESS;
+  ADDR      start;
   GetThreadMemoryInfo();
 
   __TRY__
-    info->getSize = getsize;
-    info->freeSize = freesize;
+    start.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
+    info->memoryStack.InitArrayStack(start, maxsize, 
+				     &globalStack, getsize, freesize);
     info->threadFlag = flag;
-    info->localArrayStart.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
-    info->localFreeStart. pAddr = &(info->localCache[MAX_LOCAL_CACHE]);
-    info->localArrayEnd.  pAddr = &(info->localCache[MAX_LOCAL_CACHE - 1]);
     info->localUsedList = MARK_USED_END;
     __LOCK(lockList);
     info->threadListNext = threadListStart;
@@ -233,11 +186,8 @@ UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
   __CATCH__
 }
 
-UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT direct, UINT buffer)
+UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT direct)
 {
-  ADDR      memoryarray, memorylist;
-  UINT      i;
-
   __TRY
     BorderSize = PAD_INT(size, 0, border);
     ArraySize = number * sizeof(ADDR);
@@ -246,26 +196,8 @@ UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT dir
     TotalNumber = number;
     DirectFree = direct;
 
-    __DO_(!TotalNumber, "Must call SetMemoryBuffer before SetThreadLocalArray");
-    memoryArrayStart = memoryArrayFree = RealBlock + (TotalSize - ArraySize);
-    memoryArrayEnd =  memoryArrayStart + TotalNumber * sizeof(ADDR);
-    memoryarray = memoryArrayStart;
-    memorylist = RealBlock;
-
-    // Init global array
-    for(i=0; i<TotalNumber; i++) {
-      *(memoryarray.pAddr) = memorylist;
-      memoryarray += sizeof(ADDR);
-      memorylist += BorderSize; 
-    }
-    // Set otherBuffer
-    if (buffer) {
-      memorylist = RealBlock;
-      for(i=0; i<TotalNumber; i++) {
-	//	memorylist.LinkBuffer = memorylist + buffer;
-	memorylist += BorderSize; 
-      }
-    }
+    globalStack.InitArrayStack(RealBlock + (TotalSize - ArraySize), number);
+    __DO(globalStack.FullArrayStack(RealBlock, BorderSize));
   __CATCH
 }
 

@@ -26,7 +26,8 @@
  *   eventfd.
  * When eventfded, eventfd-thread always read socket, whether by epoll or application.
  *   if EAGAIN, continue wait; or trigger IOCP handle with CContextItem and buffer 
- *   pointer as the return value of IOCP for complete read.
+ *   pointer as the return value of IOCP for complete read. And of course, empty
+ *   the buffer pointer.g
  *
  * for WRITE :
  * Application WSASend() only trigger eventfd-thread. This thread write socket, 

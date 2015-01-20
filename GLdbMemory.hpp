@@ -73,15 +73,11 @@ UINT        GetStack(ADDR &addr);
 #define     MAX_LOCAL_CACHE                     16
 
 typedef     struct threadMemoryInfo {
-  UINT      getSize;                            // size get from global
-  UINT      freeSize;                           // will back to global if >
+  STACK     memoryStack;
+  ADDR      localCache [MAX_LOCAL_CACHE];
   UINT      threadFlag;
-  ADDR      localArrayStart;
-  ADDR      localFreeStart;                     // free local item store here
-  ADDR      localArrayEnd;
   ADDR      localUsedList;                      // usedList start
   threadMemoryInfo *threadListNext;             // pointer to next TLS
-  ADDR      localCache [MAX_LOCAL_CACHE];
 }threadMemoryInfo;
 
 /*
@@ -112,6 +108,7 @@ private:                                        // for total memory
 
 private:                                        // for thread info
   UINT      TotalNumber;
+  STACK     globalStack;
   threadMemoryInfo *threadListStart;            // TLS list start
   ADDR      memoryArrayStart;                   // array start
   ADDR      memoryArrayFree;                    // free now
@@ -141,8 +138,8 @@ private:
 public:
   UINT      SetThreadArea(UINT getsize, UINT maxsize,
 			  UINT freesize, UINT flag);
-  UINT      SetMemoryBuffer(UINT number, UINT size, UINT border, 
-			    UINT direct, UINT buffer = 0);
+  UINT      SetMemoryBuffer(UINT number, UINT size, 
+			    UINT border, UINT direct);
   UINT      DelMemoryBuffer(void);
   UINT      GetMemoryList(ADDR &nlist, UINT timeout);
   UINT      FreeMemoryList(ADDR nlist);

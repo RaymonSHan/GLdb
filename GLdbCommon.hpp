@@ -83,6 +83,14 @@ typedef     class CListItem*                    PLIST;
 typedef     class CContextItem*                 PCONT;
 typedef     class CBufferItem*                  PBUFF;
 
+/*
+ * error return
+ */
+#define    ERROR_OK                             0
+#define    ERROR_BASE                           0x50 * 0x10000
+#define    ERROR_STACK_NO_ITEMFREE             (ERROR_BASE + 1)
+#define    ERROR_STACK_FREE_MORE               (ERROR_BASE + 2)
+#define    ERROR_STACK_CHANGED                 (ERROR_BASE + 3)
 
 /*
  * most common struct
@@ -544,6 +552,120 @@ public:
 			PAD_INT(size, 0, 64));
     return nowOffset;
   };
+};
+
+
+/*
+ * classic data structure
+ *
+ * After init, ArrayStack is empty;
+ */
+typedef     class RArrayStack {
+private:
+  LOCK      inProcess;
+  ADDR      arrayStart;
+  ADDR      arrayEnd;
+  ADDR      arrayFree;                          // free local item store here
+  RArrayStack *parentArray;
+  UINT      getSize;                            // size get from global
+  UINT      freeSize;                           // will back to global if >
+public:
+  void      InitArrayStack(ADDR start, UINT number, 
+			   RArrayStack *parent = 0, UINT getsize = 0, UINT freesize = 0)
+  {
+    inProcess = NOT_IN_PROCESS;
+    arrayStart = start;
+    arrayEnd = start + (number-1) * sizeof(ADDR);
+    arrayFree = start + number * sizeof(ADDR);
+    parentArray = parent;
+    getSize = getsize;
+    freeSize = freesize;
+  };
+  UINT      FullArrayStack(ADDR begin, UINT size)
+  {
+    if (arrayFree - arrayEnd != sizeof(ADDR)) return ERROR_STACK_CHANGED;
+    __LOCK(inProcess);
+    do {
+      arrayFree -= sizeof(ADDR);
+      *(arrayFree.pAddr) = begin;
+      begin += size;
+    } while(arrayFree > arrayStart);
+    __FREE(inProcess);
+    return ERROR_OK;
+  };
+
+/*
+ * in GetMulti & FreeMulti, addr is child's freeStart.
+ */
+  void      GetMulti(ADDR &addr, UINT number)
+  {
+    UINT    getsize, getnumber;
+    __LOCK(inProcess);
+    getsize = arrayEnd - arrayFree;
+    getnumber = getsize / sizeof(ADDR);
+    if (getnumber < number) number = getnumber;
+    if (number) {
+      getsize = number * sizeof(ADDR);
+      addr -= getsize;
+      memcpy(addr.pVoid, arrayFree.pVoid, getsize);
+      arrayFree += getsize;
+    }
+    __FREE(inProcess);
+  };
+  void      FreeMulti(ADDR &addr, UINT number)
+  {
+    UINT    freesize;
+    __LOCK(inProcess);
+    freesize = number * sizeof(ADDR);
+    if (number) {
+      arrayFree = freesize;
+      memcpy(arrayFree.pVoid, addr.pVoid, freesize);
+      addr += freesize;
+    }
+    __FREE(inProcess);
+  };
+  UINT      operator += (ADDR addr) 
+  {
+    __LOCK(inProcess);
+    if ((arrayFree <= arrayStart) && parentArray)
+      parentArray->FreeMulti(arrayFree, freeSize);
+    if (arrayFree <= arrayStart) {
+      __FREE(inProcess);
+      return ERROR_STACK_FREE_MORE;
+    } else {
+      arrayFree -= sizeof(ADDR);
+      *(arrayFree.pAddr) = addr;
+      __FREE(inProcess);
+      return ERROR_OK;
+    }
+  };
+  UINT      operator -= (ADDR &addr) 
+  {
+    __LOCK(inProcess);
+    if ((arrayFree > arrayEnd) && parentArray)
+      parentArray->GetMulti(arrayFree, getSize);
+    if (arrayFree > arrayEnd) {
+      addr = *(arrayFree.pAddr);
+      arrayFree += sizeof(ADDR);
+      __FREE(inProcess);
+      return ERROR_OK;
+     } else {
+      __FREE(inProcess);
+      return ERROR_STACK_NO_ITEMFREE;
+    }
+  };
+}STACK;
+
+class       RArrayQuery {
+private:
+  LOCK      inProcess;
+  ADDR      arrayStart;
+  ADDR      arrayEnd;
+  ADDR      freeStart;
+public:
+  UINT      InitArrayQuery(ADDR start, ADDR end);
+  UINT      operator += (ADDR addr);
+  UINT      operator -= (ADDR &addr);
 };
 
 #endif   // GLdb_COMMON_HPP
