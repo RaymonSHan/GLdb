@@ -77,22 +77,27 @@
  */
 #define     MAX_HANDLE_LOCK                     31
 
-ADDR        CONSTADDR                         = {1};
+ADDR        WRITEADDR                         = {1};
+ADDR        READADDR                          = {1};
 
 typedef     class RMultiEvent
 {
 private:
   QUERY     eventQuery;
-  ADDR      handleBuffer[MAX_HANDLE_LOCK + 1];
+  ADDR      eventBuffer[MAX_HANDLE_LOCK + 1];
   int       eventFd;
 
 public:
+  RMultiEvent()
+  {
+    eventfd = 0;
+  }
   UINT      InitArrayEvent(UINT num)
   {
   __TRY
     ADDR    start;
     __DO (num > MAX_HANDLE_LOCK);
-    start = &handleBuffer[0];
+    start = &eventBuffer[0];
     eventQuery.InitArrayQuery(start, num);
     __DO1(eventFd,
 	  eventfd(0, EFD_SEMAPHORE));
@@ -104,7 +109,7 @@ public:
     int status;
     __DO (eventQuery += addr);
     __DO1(status,
-	  write(eventFd, &CONSTADDR, SIZEADDR));
+	  write(eventFd, &WRITEADDR, SIZEADDR));
   __CATCH
   }
   UINT      operator -= (ADDR &addr)
@@ -112,18 +117,72 @@ public:
   __TRY
     int status;
     __DO1(status,
-	  read(eventFd, &CONSTADDR, SIZEADDR));
+	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
   __CATCH
   }
-}EVENT;
+}EVENT, *PEVENT;
 
 
 /* 
- * Basic thread, only finish clone, kill
+ * Basic thread, only finish clone, init, loop, kill
  */
+#define     GlobalThreadNumber                  RThread::globalThreadNumber
+#define     GlobalShouldQuit                    RThread::globalShouldQuit
+#define     ThreadStartEvent                    RThread::threadStartEvent
+
+
 typedef   __class(RThread)
 private:
+  pid_t     threadId;
+  ADDR      threadStack;
+  UINT      shouldQuit;
+
+protected:
+  UINT      threadNumber;
+  threadTrraceInfo *threadInfo;
+public:
+  static    volatile UINT globalThreadNumber;
+  static    volatile UINT globalShouldQuit;
+  static    EVENT threadStartEvent;
+
+private:
+  RThread()
+  {
+    shouldQuit = 0;
+  }
+  UINT      ThreadClone(void)
+  {
+  __TRY
+    ADDR    result = {0};
+    if (ThreadStartEvent.event) ThreadStartEvent -= state;
+    else ThreadStartEvent.InitArrayEvent(1);
+    __DO (result);
+    LockInc(GlboalThradNumber);
+    __DO (GetStack(threadStack));
+    __DO1(threadId,
+	  clone(&(RThread::RThreadFunc), 
+		threadStack.pChar + REAL_SIZE_THREAD_STACK,
+		CLONE_VM | CLONE_FILES, this));
+  __CATCH
+  }
+  static    int RThreadFunc(void* point)
+  {
+  __TRY
+    RThread  *thread = (RThread*) point;
+    UINT      result;
+
+    result = thread->ThreadInit();
+    __DO (ThreadStartEvent += result || result);
+    while ((!thread->shouldQuit) && (!GlobalShouldQuit))
+      thread->ThreadDoing();
+  __CATCH
+  }
+  virtual   UINT ThreadInit(void) = 0;
+  virtual   UINT ThreadDoing(void) = 0;
+
+public:
+
 }THREAD;
 
 typedef     class GLdbIOCP

@@ -1,5 +1,5 @@
 /*
- * GLdb common implement file
+ * GLdb thread & IOCP implementy file
  *
  * GLdb is a Multi-thread customed Key-Value No-SQL memory database.
  * GLdb atomic insert voucher & update balance, provide interface for ERP.
@@ -30,57 +30,4 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include    "GLdbCommon.hpp"
 #include    "GLdbIOCP.hpp"
-
-// Following in RThreadResource
-// for every RThreadResource to register, record the now offset in TLS
-volatile    UINT GlobalResourceOffset         = PAD_TRACE_INFO + SIZE_TRACE_INFO;
-// current server time
-volatile    UINT GlobalTime                   = time(NULL);
-
-// Following in RThread
-// total number of thread inherit from RThread. 
-volatile    UINT GlobalThreadNumber           = 0;
-// for quit sign
-volatile    BOOL GlobalShouldQuit             = 0;
-// sequence thread initialized order
-class       RMultiEvent  ThreadStartEvent();
-
-INT StrCmp(STRING &one, STRING &two)
-{
-  INT onelen, twolen, shortlen, shortlen8, i;
-  ADDR oneaddr, twoaddr;
-
-  onelen = one.strEnd - one.strStart;
-  twolen = two.strEnd - two.strStart;
-  shortlen = onelen < twolen ? onelen : twolen;
-  shortlen8 = shortlen & (-1 * sizeof(INT));
-
-  oneaddr = one.strStart;
-  twoaddr = two.strStart;
-  for (i = 0; i < shortlen8; i += sizeof(INT), oneaddr += 8, twoaddr += 8)
-    if (*(oneaddr.pLong) != *(twoaddr.pLong)) break;
-  if ((i == shortlen) && (i == shortlen8)) return (onelen - twolen);
-
-  for (; i < shortlen; i++, oneaddr += 1, twoaddr += 1)
-    if (*oneaddr.pChar != *twoaddr.pChar)
-      return (*oneaddr.pChar - *twoaddr.pChar);
-
-  return (onelen - twolen);
-}
-
-void __MESSAGE(INT level, const char * _Format, ...) 
-{
-  va_list ap;
-  threadTraceInfo *info;
-
-  if (!level) return;
-  if (_Format) {
-    va_start(ap, _Format);
-    vprintf(_Format, ap);
-    va_end(ap);
-    printf("\n");
-    displayTraceInfo(info);
-  }
-}		

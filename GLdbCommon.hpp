@@ -273,6 +273,7 @@ typedef union SOCKADDR
 #define     PAD_THREAD_STACK                    SIZE_HUGE_PAGE
 #define     SIZE_THREAD_STACK                   (0x01LL << 24)  // 16M
 #define     NEG_SIZE_THREAD_STACK               (-1*SIZE_THREAD_STACK)
+#define     REAL_SIZE_THREAD_STACK              (SIZE_THREAD_STACK - PAD_THREAD_STACK)
         
 #define     PAD_TRACE_INFO                      SIZE_HUGE_PAGE
 #define     SIZE_TRACE_INFO                     sizeof(threadTraceInfo)
@@ -525,9 +526,11 @@ void      __MESSAGE(INT level, const char * _Format, ...);
  * volatile UINT RThreadResource::globalResourceOffset =
  *   PAD_TRACE_INFO + SIZE_TRACE_INFO;
  *   set in GLdbCommon.cpp
- * All other static class var are Global use. for I not use global var is,
- *   no extern requested
+ * All other static class var are Global use. instead of global var,
+ *   for no more extern requested
+ * The effect of these var in all class, is discribed in GLdbCommon.cpp 
  */
+#define     GlobalResourceOffset                RThreadResource::globalResourceOffset
 #define     GlobalTime                          RThreadResource::globalTime
 
 class       RThreadResource 
@@ -537,6 +540,7 @@ protected:
 public:
   static    volatile UINT globalResourceOffset;
   static    volatile UINT globalTime;
+
 public:
   RThreadResource(UINT size) {
     SetResourceOffset(size);
