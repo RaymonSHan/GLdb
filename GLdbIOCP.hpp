@@ -75,6 +75,9 @@
 
 /*
  * This is buffered eventfd
+ * TEST : continuous += & -=, loop in one thread about 460ns 
+ *        two thread nest, one loop is (2us, 3us, 6us)
+ *        ten thread nest, one loop is (4us, 8us, 23us)
  */
 #define     MAX_HANDLE_LOCK                     31
 
@@ -158,7 +161,7 @@ public:
   __TRY
     ADDR    result = {0};
     if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
-    else ThreadStartEvent.InitArrayEvent(1);
+    else ThreadStartEvent.InitArrayEvent(MIN_ARRAY_QUERY);
     __DO (result.aLong);
     LockInc(GlobalThreadNumber);
     __DO (GetStack(threadStack));
@@ -176,7 +179,7 @@ public:
     ADDR    result;
 
     result = thread->ThreadInit();
-    //    __DO (ThreadStartEvent += result);
+    __DO (ThreadStartEvent += result);
     __DO (result.aLong);
     //    while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       thread->ThreadDoing();
@@ -204,32 +207,31 @@ void SetupSIG(int num, SigHandle func);
 
 __class_    (RThreadTest, RThread)
 public:
-  EVENT     selfEvent;
-  ADDR      j;
+  PEVENT    WaitEvent, SetEvent;
+  ADDR      sign;
+  UINT      Id;
 public:
-  UINT      ThreadStart()
+UINT      ThreadStart(PEVENT waits, PEVENT sets, UINT id)
   {
-      selfEvent += j;
-      return 0;
+    WaitEvent = waits;
+    SetEvent = sets;
+    Id = id;
+    return 0;
   };
   UINT      ThreadInit(void)
   {
-    j.aLong = 0x11;
-    selfEvent.InitArrayEvent(5);
+    sign.aLong = 0x3fd;
     return 0;
   }
   UINT      ThreadDoing(void)
   {
-    printf("In RThreadTest::ThreadDoing\n");
-
-    UINT    i;
+    UINT    i = 0;
  
-    while (i++<10) {
-      printf("in doing %llx ", j.aLong);
-      selfEvent += j;
-      selfEvent -= j;
-      printf("in doing %llx \n", j.aLong);
+    while (i++ < 5000) {
+      *WaitEvent -= sign;
+      *SetEvent += sign;
     }
+
     return 0;
   }
 };

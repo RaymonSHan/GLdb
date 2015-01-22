@@ -660,6 +660,9 @@ public:
   }
 }STACK, *PSTACK;
 
+// ATTENTION number MUST great than 1.
+#define     MIN_ARRAY_QUERY                     2
+
 typedef     class RArrayQuery 
 {
 private:
@@ -713,6 +716,12 @@ public:
   }
 }QUERY, *PQUERY;
 
+
+/*
+ * continuous += CLOCK_THREAD_CPUTIME_ID 55,  90,  300
+ * continuous += CLOCK_MONOTONIC_RAW     33,  60,  180
+ * CLOCK_MONOTONIC_COARSE interval is 4ms, too long
+ */
 #define     MAX_TIME_QUERY                      64
 #define     NANO_SECOND                         (1000 * 1000 * 1000)
 

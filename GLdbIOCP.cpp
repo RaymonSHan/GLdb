@@ -65,40 +65,44 @@ void SetupSIG(int num, SigHandle func)
   sigaction(num, &sa, NULL);
 }
 
+#define     THREAD_NUM                          2
+
 int         main(int, char**)
 {
   int status;
+  UINT i;
+  ADDR addr;
   struct timespec timestruct;
+
   SetupSIG(SIGSEGV, SIGSEGV_Handle);                            // sign 11
   SetupSIG(SIGILL, SIGSEGV_Handle);                             // sign 4
   SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
 
-  TIME count, count2;
 __TRY__
+  class RThreadTest test[THREAD_NUM];
+  EVENT event[THREAD_NUM];
 
-  count.InitArrayTime(CLOCK_THREAD_CPUTIME_ID);
+  for (i=0; i<THREAD_NUM; i++) {
+    event[i].InitArrayEvent(5);
+  };
+  for (i=0; i<THREAD_NUM; i++) {
+    test[i].ThreadStart(&event[i], &event[(i+1) % THREAD_NUM], i);
+  };
+  for (i=0; i<THREAD_NUM; i++) {
+    test[i].ThreadClone(); 
+  };
+  usleep(100000);
+  printf("In main\n");
 
+  TIME count;
+  count.InitArrayTime(CLOCK_MONOTONIC_RAW);
+  event[0] += addr;
+
+
+  waitpid(-1, &status, __WCLONE);
   count += &timestruct;
-  sleep(1);
-  count += &timestruct; 
-
+  sleep(2);
   count.OutputTime();
-
-
-  count2.InitArrayTime(CLOCK_MONOTONIC);
-  count2 += &timestruct;
-
-  sleep(1);
-  count2 += &timestruct; 
-
-  count2.OutputTime();
-  // printf("sizeof %ld\n", sizeof(struct timespec));
-
-  // class RThreadTest test;
-  // test.ThreadClone();
-
-
-  // waitpid(-1, &status, __WCLONE);
 
 __CATCH__
 }
