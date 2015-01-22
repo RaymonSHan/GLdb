@@ -75,6 +75,7 @@
 
 /*
  * This is buffered eventfd
+ *
  * TEST : continuous += & -=, loop in one thread about 460ns 
  *        two thread nest, one loop is (2us, 3us, 6us)
  *        ten thread nest, one loop is (4us, 8us, 23us)
@@ -173,7 +174,6 @@ public:
   }
   static    int RThreadFunc(void* point)
   {
-
   __TRY
     RThread *thread = (RThread*) point;
     ADDR    result;
@@ -181,16 +181,71 @@ public:
     result = thread->ThreadInit();
     __DO (ThreadStartEvent += result);
     __DO (result.aLong);
-    //    while ((!thread->shouldQuit) && (!GlobalShouldQuit))
+    while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       thread->ThreadDoing();
   __CATCH
   }
   virtual   UINT ThreadInit(void) = 0;
   virtual   UINT ThreadDoing(void) = 0;
 
-public:
-
 }THREAD;
+
+/*
+ * The thread wait for epoll in GLdbIOCP
+ * 
+ * acceptBuffer only for AcceptEx use, There are only one buffer for PostReceive per socket,
+ *   but there are multi buffer for PostAccept per socket. There is a lazy way, for
+ *   I use same STACK for all listening.
+ */
+__class_    (RThreadEpoll, RThread)
+private:
+  int       epollHandle;
+  STACK     acceptBuffer;
+
+public:
+  RThreadEpoll()
+  {
+    epollHandle = 0;
+  }
+  UINT      ThreadInit(void)
+  { 
+  __TRY
+    __DO1_(epollHandle, epoll_create(1), "Error in create epoll");
+  __CATCH
+  };
+  UINT      ThreadDoing(void)
+  {
+    return 0;
+  };
+  UINT      CreateListen(SOCKADDR /*addr*/)
+  {
+  __TRY__
+  // int   evNumber, i;
+  // socklen_t clilen;
+  // struct epoll_event ev;
+  // ADDR  acceptaddr, listenaddr
+
+    // __DO_ (GetContent(listenAddr), 
+    // 	   "Error in getcontent");
+    // __DO1_(listenAddr.SHandle, 
+    // 	   socket(AF_INET, SOCK_STREAM, 0), 
+    // 	   "Error in create socket");
+
+    // ev.data.u64 = listenAddr.aLong;
+    // ev.events = EPOLLIN | EPOLLET;
+    // __DO1_(status, 
+    // 	   epoll_ctl(epollHandle, EPOLL_CTL_ADD, listenAddr.SHandle, &ev), 
+    // 	   "Error in epoll ctl");
+    // listenAddr.ServerSocket.saddr = serveraddr;
+    // __DO1_(status, 
+    // 	   bind(listenAddr.SHandle, &serveraddr, sizeof(sockaddr_in)), 
+    // 	   "Error in bind");
+    // __DO1_(status, 
+    // 	   listen(listenAddr.SHandle, query), 
+    // 	   "Error in begin listen");
+  __CATCH__
+  };
+};
 
 typedef     class GLdbIOCP
 {
@@ -220,7 +275,7 @@ UINT      ThreadStart(PEVENT waits, PEVENT sets, UINT id)
   };
   UINT      ThreadInit(void)
   {
-    sign.aLong = 0x3fd;
+    sign.aLong = 0x333;
     return 0;
   }
   UINT      ThreadDoing(void)

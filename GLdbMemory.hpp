@@ -80,19 +80,6 @@ typedef     struct threadMemoryInfo {
   threadMemoryInfo *threadListNext;             // pointer to next TLS
 }threadMemoryInfo;
 
-/*
- * for NonDirectly free memory pool, link every used item by usedList
- * when used, countDown set to CurrentTime + Timeout. when FutureTime equal
- *   countDown, set countDown to TIMEOUT_QUIT
- */
-#define     TIMEOUT_QUIT                        2
-
-class       CListItem {
-public:
-  ADDR      usedList;
-  UINT      countDown;
-};
-
 
 /*
  * Memory Pool main class
@@ -154,7 +141,45 @@ public:                                         // statistics info for debug
 };
 
 
-#define UsedList                pList->usedList
-#define CountDown               pList->countDown
+/*
+ * for NonDirectly free memory pool, link every used item by usedList
+ * when used, countDown set to CurrentTime + Timeout. when FutureTime equal
+ *   countDown, set countDown to TIMEOUT_QUIT
+ */
+#define     TIMEOUT_QUIT                        2
+
+typedef     class CListItem {
+public:
+  ADDR      usedList;
+  UINT      countDown;
+}LIST;
+
+typedef     class CContextItem : public CListItem
+{
+public:
+  int       bHandle;
+  SOCKADDR  localSocket;
+  SOCKADDR  remoteSocket;
+  PCONT     pPeer;
+  PCONT     nextPeer;
+  PBUFF     pBuffer;
+  CMemoryAlloc *contextType;
+}CONT;
+
+typedef     class CBufferItem : public CListItem
+{
+public:
+  INT       nSize;
+  INT       nOper;
+  CMemoryAlloc *bufferType;
+  PUCHAR    realStart;
+  PBUFF     nextBuffer;
+  STR_S     bufferName;
+  UCHAR     padData[CHAR_SMALL]; 
+  UCHAR     bufferData[]; 
+}BUFF;
+
+#define     UsedList                             pList->usedList
+#define     CountDown                            pList->countDown
 
 #endif   // GLdb_MEMORY_HPP

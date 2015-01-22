@@ -95,6 +95,7 @@ __TRY__
   printf("In main\n");
 
   TIME count;
+  GlobalShouldQuit = 1;
   count.InitArrayTime(CLOCK_MONOTONIC_RAW);
   event[0] += addr;
 

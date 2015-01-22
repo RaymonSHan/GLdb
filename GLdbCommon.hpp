@@ -167,30 +167,74 @@ ADDR_OPERATION(||)
 /*
  * a binary-safe string type
  */
-typedef     struct STRING
+#define     CHAR_SMALL                          ((2<<6)-2*SIZEADDR)
+#define     CHAR_MIDDLE                         ((2<<8)-2*SIZEADDR)
+#define     CHAR_LARGE                          ((2<<11)-2*SIZEADDR)
+
+typedef     class STRING
 {
+public:
   PUCHAR    strStart;
   PUCHAR    strEnd;
 
-  void operator = (STRING &one) {
+public:
+  void virtual operator = (STRING &one) {
     this->strStart = one.strStart;
     this->strEnd = one.strEnd;
   };
-  void operator = (const PUCHAR pchar) {
+  void virtual operator = (const PUCHAR pchar) {
     this->strEnd = this->strStart = pchar;
     while (*this->strEnd++);
     this->strEnd --;
   };
-  void operator = (const PCHAR pchar) {
+  void virtual operator = (const PCHAR pchar) {
     return operator = ((PUCHAR)pchar);
   };
 }STRING;
 
+#define     STRING_FUNCTION                                     \
+  public:							\
+  void virtual operator = (STRING &one) {			\
+    STRING::operator = (one);					\
+    UINT slen = strEnd - strStart + 1;				\
+    if (slen > sizeof(string)) slen = sizeof(string);		\
+    memcpy(string, strStart, slen);				\
+    strStart = strEnd = string;					\
+    strEnd += (slen - 1);					\
+    return;							\
+  };								\
+  void virtual operator = (const PUCHAR pchar) {		\
+    memcpy(string, pchar, sizeof(string));			\
+    STRING::operator = (pchar);					\
+    return;							\
+  };								\
+  void virtual operator = (const PCHAR pchar) {			\
+    return operator = ((PUCHAR)pchar);				\
+  };	
+
+typedef     class STR_S : public STRING
+{
+  UCHAR     string[CHAR_SMALL];                 // 48
+  STRING_FUNCTION;
+}STR_S, *PSTR_S;
+
+typedef     class STR_M : public STRING
+{
+  UCHAR     string[CHAR_MIDDLE];                // 240
+  STRING_FUNCTION;
+}STR_M, *PSTR_M;
+
+typedef     class STR_L : public STRING
+{
+  UCHAR     string[CHAR_LARGE];                 // 2032
+  STRING_FUNCTION;
+}STR_L, *PSTR_L;
+
 INT         StrCmp(STRING &one, STRING &two);
 
-#define     STR_STR_COMPARE(op)				         \
-  BOOL inline operator op (STRING one, STRING two) {		 \
-    return (StrCmp(one, two) op 0);				 \
+#define     STR_STR_COMPARE(op)				        \
+  BOOL inline operator op (STRING one, STRING two) {		\
+    return (StrCmp(one, two) op 0);				\
   }
 STR_STR_COMPARE(==)
 STR_STR_COMPARE(!=)
@@ -198,6 +242,7 @@ STR_STR_COMPARE(>)
 STR_STR_COMPARE(>=)
 STR_STR_COMPARE(<)
 STR_STR_COMPARE(<=)
+
 
 /*
  * only little lazy
@@ -277,8 +322,6 @@ typedef union SOCKADDR
 #define     SIZE_THREAD_STACK                   (0x01LL << 24)  // 16M
 #define     NEG_SIZE_THREAD_STACK               (-1*SIZE_THREAD_STACK)
 #define     REAL_SIZE_THREAD_STACK              (SIZE_THREAD_STACK - PAD_THREAD_STACK)
-        
-//#define     PAD_TRACE_INFO                      SIZE_HUGE_PAGE
 #define     SIZE_TRACE_INFO                     sizeof(threadTraceInfo)
 
 
@@ -718,8 +761,8 @@ public:
 
 
 /*
- * continuous += CLOCK_THREAD_CPUTIME_ID 55,  90,  300
- * continuous += CLOCK_MONOTONIC_RAW     33,  60,  180
+ * continuous += CLOCK_THREAD_CPUTIME_ID 55,  90,  300ns
+ * continuous += CLOCK_MONOTONIC_RAW     33,  60,  180ns
  * CLOCK_MONOTONIC_COARSE interval is 4ms, too long
  */
 #define     MAX_TIME_QUERY                      64

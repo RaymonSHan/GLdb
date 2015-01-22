@@ -83,4 +83,5 @@ void __MESSAGE(INT level, const char * _Format, ...)
     printf("\n");
     displayTraceInfo(info);
   }
-}		
+};
+		
