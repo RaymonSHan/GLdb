@@ -31,3 +31,74 @@
  */
 
 #include    "GLdbIOCP.hpp"
+
+void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
+{
+  ADDR  stack, erroraddr;
+  ucontext_t *uc = (ucontext_t *)secret;
+  threadTraceInfo *tinfo;
+
+  stack.pAddr = &stack;
+  stack &= NEG_SIZE_THREAD_STACK;
+  erroraddr.pVoid = info->si_addr;
+  erroraddr &= NEG_SIZE_THREAD_STACK;
+
+  if (stack == erroraddr) {
+    stack.pVoid = mmap (stack.pChar + PAD_THREAD_STACK, sizeof(threadTraceInfo), 
+			PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+  } else {
+    printf("Got signal %d, faulty address is %p, from %llx\n Calling: \n",
+	   sig, info->si_addr, uc->uc_mcontext.gregs[REG_RIP]);
+    if (sig != SIGTERM) displayTraceInfo(tinfo);
+    //    RpollApp.KillAllChild();
+    exit(-1);
+  }
+}
+void SetupSIG(int num, SigHandle func)
+{
+  struct sigaction sa;
+ 
+  sa.sa_sigaction = func;
+  sigemptyset (&sa.sa_mask);
+  sa.sa_flags = SA_RESTART | SA_SIGINFO;
+  sigaction(num, &sa, NULL);
+}
+
+int         main(int, char**)
+{
+  int status;
+  struct timespec timestruct;
+  SetupSIG(SIGSEGV, SIGSEGV_Handle);                            // sign 11
+  SetupSIG(SIGILL, SIGSEGV_Handle);                             // sign 4
+  SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
+
+  TIME count, count2;
+__TRY__
+
+  count.InitArrayTime(CLOCK_THREAD_CPUTIME_ID);
+
+  count += &timestruct;
+  sleep(1);
+  count += &timestruct; 
+
+  count.OutputTime();
+
+
+  count2.InitArrayTime(CLOCK_MONOTONIC);
+  count2 += &timestruct;
+
+  sleep(1);
+  count2 += &timestruct; 
+
+  count2.OutputTime();
+  // printf("sizeof %ld\n", sizeof(struct timespec));
+
+  // class RThreadTest test;
+  // test.ThreadClone();
+
+
+  // waitpid(-1, &status, __WCLONE);
+
+__CATCH__
+}

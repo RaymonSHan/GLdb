@@ -66,10 +66,11 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef      GLdb_IOCP_HPP
+#ifndef     GLdb_IOCP_HPP
 #define     GLdb_IOCP_HPP
 
-#inlucde    "GLdbCommon.hpp"
+#include    "GLdbCommon.hpp"
+#include    "GLdbMemory.hpp"
 
 
 /*
@@ -77,20 +78,19 @@
  */
 #define     MAX_HANDLE_LOCK                     31
 
-ADDR        WRITEADDR                         = {1};
-ADDR        READADDR                          = {1};
-
 typedef     class RMultiEvent
 {
 private:
   QUERY     eventQuery;
   ADDR      eventBuffer[MAX_HANDLE_LOCK + 1];
+
+public:
   int       eventFd;
 
 public:
   RMultiEvent()
   {
-    eventfd = 0;
+    eventFd = 0;
   }
   UINT      InitArrayEvent(UINT num)
   {
@@ -106,7 +106,8 @@ public:
   UINT      operator += (ADDR addr)
   {
   __TRY
-    int status;
+    ADDR    WRITEADDR = {1};
+    int     status;
     __DO (eventQuery += addr);
     __DO1(status,
 	  write(eventFd, &WRITEADDR, SIZEADDR));
@@ -115,7 +116,8 @@ public:
   UINT      operator -= (ADDR &addr)
   {
   __TRY
-    int status;
+    ADDR    READADDR;
+    int     status;
     __DO1(status,
 	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
@@ -140,13 +142,13 @@ private:
 
 protected:
   UINT      threadNumber;
-  threadTrraceInfo *threadInfo;
+  threadTraceInfo *threadInfo;
 public:
   static    volatile UINT globalThreadNumber;
   static    volatile UINT globalShouldQuit;
   static    EVENT threadStartEvent;
 
-private:
+public:
   RThread()
   {
     shouldQuit = 0;
@@ -155,10 +157,10 @@ private:
   {
   __TRY
     ADDR    result = {0};
-    if (ThreadStartEvent.event) ThreadStartEvent -= state;
+    if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
     else ThreadStartEvent.InitArrayEvent(1);
-    __DO (result);
-    LockInc(GlboalThradNumber);
+    __DO (result.aLong);
+    LockInc(GlobalThreadNumber);
     __DO (GetStack(threadStack));
     __DO1(threadId,
 	  clone(&(RThread::RThreadFunc), 
@@ -168,13 +170,15 @@ private:
   }
   static    int RThreadFunc(void* point)
   {
+
   __TRY
-    RThread  *thread = (RThread*) point;
-    UINT      result;
+    RThread *thread = (RThread*) point;
+    ADDR    result;
 
     result = thread->ThreadInit();
-    __DO (ThreadStartEvent += result || result);
-    while ((!thread->shouldQuit) && (!GlobalShouldQuit))
+    //    __DO (ThreadStartEvent += result);
+    __DO (result.aLong);
+    //    while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       thread->ThreadDoing();
   __CATCH
   }
@@ -188,5 +192,46 @@ public:
 typedef     class GLdbIOCP
 {
 }IOCP;
+
+
+/*
+ * Following line is for test, not request for other application
+ */
+
+typedef void SigHandle(int, siginfo_t *, void *);
+void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret);
+void SetupSIG(int num, SigHandle func);
+
+__class_    (RThreadTest, RThread)
+public:
+  EVENT     selfEvent;
+  ADDR      j;
+public:
+  UINT      ThreadStart()
+  {
+      selfEvent += j;
+      return 0;
+  };
+  UINT      ThreadInit(void)
+  {
+    j.aLong = 0x11;
+    selfEvent.InitArrayEvent(5);
+    return 0;
+  }
+  UINT      ThreadDoing(void)
+  {
+    printf("In RThreadTest::ThreadDoing\n");
+
+    UINT    i;
+ 
+    while (i++<10) {
+      printf("in doing %llx ", j.aLong);
+      selfEvent += j;
+      selfEvent -= j;
+      printf("in doing %llx \n", j.aLong);
+    }
+    return 0;
+  }
+};
 
 #endif   // GLdb_IOCP_HPP

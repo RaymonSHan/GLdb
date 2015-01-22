@@ -46,7 +46,7 @@ UINT        GetMemory(ADDR &addr, UINT size, UINT flag)
     addr = LockAdd(totalMemoryStart.aLong, padsize) + padsize - size;
     addr = mmap (addr.pVoid, size, PROT_READ | PROT_WRITE,
 		 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | flag, -1, 0);
-    __DO_(addr == MAP_FAILED, "Get memory error, size:0x%llx", size);
+    __DO_(addr == MAP_FAILED, "Get memory error, size:0x%llx\n", size);
   __CATCH
 }
 
@@ -54,7 +54,7 @@ UINT        GetStack(ADDR &stack)
 {
   __TRY
     __DO (GetMemory(stack, SIZE_THREAD_STACK - PAD_THREAD_STACK, MAP_GROWSDOWN));
-    __DO_(stack.aLong & (SIZE_THREAD_STACK - 1), 
+    __DO_((stack.aLong - PAD_THREAD_STACK) & (SIZE_THREAD_STACK - 1), 
 	  "Error stack place:%p", stack.pVoid);
   __CATCH
 }
@@ -245,7 +245,7 @@ void        CMemoryAlloc::DisplayFree(void)
   while(list) {
     stack = &(list->memoryStack);
     addr.pVoid = list;
-    addr.aLong = (addr.aLong & NEG_SIZE_THREAD_STACK) + PAD_TRACE_INFO;
+    addr.aLong = (addr.aLong & NEG_SIZE_THREAD_STACK) + PAD_THREAD_STACK;
     info = (threadTraceInfo*)addr.pVoid;
     num = stack->GetNumber();
     if (info->threadName)

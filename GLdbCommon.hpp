@@ -161,6 +161,8 @@ ADDR_OPERATION(-)
 ADDR_OPERATION(&)
 ADDR_OPERATION(|)
 ADDR_OPERATION(^)
+ADDR_OPERATION(&&)
+ADDR_OPERATION(||)
 
 /*
  * a binary-safe string type
@@ -253,7 +255,8 @@ typedef union SOCKADDR
  *   so set stack size to 2^(N+1), but only use 2^N in border by change RSP
  *
  * TLS only save info for thread, NOT save info for application. 
- * GLdb is statusless inherently, All application info is store in CContextItem & CBufferItem.
+ * GLdb is statusless inherently, All application info is store in CContextItem & 
+ *   CBufferItem. NO information in thread necessary.
  * Any thread process these struct when trigger event.
  * Now TLS save TraceInfo and per-Thread Buffer which base class RThreadResource.
  * and now, there are only one kind of TLS struct for all threads.
@@ -275,7 +278,7 @@ typedef union SOCKADDR
 #define     NEG_SIZE_THREAD_STACK               (-1*SIZE_THREAD_STACK)
 #define     REAL_SIZE_THREAD_STACK              (SIZE_THREAD_STACK - PAD_THREAD_STACK)
         
-#define     PAD_TRACE_INFO                      SIZE_HUGE_PAGE
+//#define     PAD_TRACE_INFO                      SIZE_HUGE_PAGE
 #define     SIZE_TRACE_INFO                     sizeof(threadTraceInfo)
 
 
@@ -313,7 +316,7 @@ typedef     struct threadTraceInfo {
 		: "i" (__FILE__), "i"(__PRETTY_FUNCTION__),	\
 		  "i" (__LINE__),				\
 		  "i" (NEG_SIZE_THREAD_STACK),			\
-		  "i" (PAD_TRACE_INFO),				\
+		  "i" (PAD_THREAD_STACK),			\
 		  "i" (sizeof(perTraceInfo))			\
 		: "%rcx");
 
@@ -329,7 +332,7 @@ typedef     struct threadTraceInfo {
 		"subq %2, (%%rcx);"				\
 		:						\
 		: "i" (NEG_SIZE_THREAD_STACK),			\
-		  "i" (PAD_TRACE_INFO),				\
+		"i" (PAD_THREAD_STACK),				\
 		  "i" (sizeof(perTraceInfo))			\
 		: "%rcx", "%rdx");
 
@@ -342,7 +345,7 @@ typedef     struct threadTraceInfo {
 		:						\
 		: "i" (__LINE__),				\
 		  "i" (NEG_SIZE_THREAD_STACK),			\
-		  "i" (PAD_TRACE_INFO)				\
+	 	  "i" (PAD_THREAD_STACK)			\
 		: "%rcx");
 
 #define     getTraceInfo(info)					\
@@ -351,7 +354,7 @@ typedef     struct threadTraceInfo {
 		"addq %2, %0;"					\
 		: "=r" (info)					\
 		: "i" (NEG_SIZE_THREAD_STACK),			\
-	          "i" (PAD_TRACE_INFO));
+	          "i" (PAD_THREAD_STACK));
 
 #define     displayTraceInfo(info)			        \
   getTraceInfo(info);						\
@@ -678,9 +681,9 @@ public:
   __TRY
     __LOCK(inProcess);
     __DO (freeStart == freeEnd);
+    *(freeStart.pAddr) = addr;
     freeStart += SIZEADDR;
     if (freeStart == arrayEnd) freeStart = arrayStart;
-    *(freeStart.pAddr) = addr;
     __FREE(inProcess);
   __CATCH_BEGIN
     __FREE(inProcess);
@@ -709,6 +712,53 @@ public:
       return (((arrayEnd-freeEnd) + (freeStart-arrayStart)) / SIZEADDR - 1);
   }
 }QUERY, *PQUERY;
+
+#define     MAX_TIME_QUERY                      64
+#define     NANO_SECOND                         (1000 * 1000 * 1000)
+
+typedef     class RArrayTime
+{
+private:
+  clockid_t timeType;
+  QUERY     timeQuery;
+  ADDR      timeArray[MAX_TIME_QUERY * 2 + 20];
+  struct    timespec timeStart;
+
+public:
+  void      InitArrayTime(clockid_t timetype)
+  {
+    ADDR    start;
+ 
+    timeType = timetype;
+    start.pAddr = &(timeArray[0]);
+    timeQuery.InitArrayQuery(start, MAX_TIME_QUERY * 2);
+    clock_gettime(timeType, &timeStart);
+  };
+  UINT      operator += (struct timespec *timenow)
+  {
+    ADDR    diff;
+    clock_gettime(timeType, timenow);
+    diff = (timenow->tv_sec - timeStart.tv_sec) * NANO_SECOND 
+          + timenow->tv_nsec - timeStart.tv_nsec;
+    return timeQuery += diff;
+  };
+  UINT      operator -= (ADDR &addr)
+  {
+    return timeQuery -= addr;
+  };
+  void      OutputTime(void)
+  {
+    ADDR    timelast = {0}, timenext;
+    UINT    i = 1;
+    while (!(timeQuery -= timenext)) {
+      printf("No. %2lld, time: %8lld, diff: %8lld\n", 
+	     i++, timenext.aLong, timenext - timelast);
+      timelast = timenext;
+    }
+  };
+
+
+}TIME;
 
 #endif   // GLdb_COMMON_HPP
 

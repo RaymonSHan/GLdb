@@ -35,7 +35,7 @@
 
 // Following in RThreadResource
 // for every RThreadResource to register, record the now offset in TLS
-volatile    UINT GlobalResourceOffset         = PAD_TRACE_INFO + SIZE_TRACE_INFO;
+volatile    UINT GlobalResourceOffset         = PAD_THREAD_STACK + SIZE_TRACE_INFO;
 // current server time
 volatile    UINT GlobalTime                   = time(NULL);
 
@@ -43,9 +43,9 @@ volatile    UINT GlobalTime                   = time(NULL);
 // total number of thread inherit from RThread. 
 volatile    UINT GlobalThreadNumber           = 0;
 // for quit sign
-volatile    BOOL GlobalShouldQuit             = 0;
+volatile    UINT GlobalShouldQuit             = 0;
 // sequence thread initialized order
-class       RMultiEvent  ThreadStartEvent();
+EVENT       ThreadStartEvent;
 
 INT StrCmp(STRING &one, STRING &two)
 {
