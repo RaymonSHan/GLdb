@@ -103,7 +103,6 @@ private:                                        // for thread info
   threadMemoryInfo *threadListStart;            // TLS list start
 
 private:
-  //  UINT      DirectFree;
   UINT      TimeoutInit;
   UINT      BufferSize;
 
@@ -142,7 +141,7 @@ public:                                         // statistics info for debug
   void      DisplayInfo(void);
   void      DisplayContext(void);
 #endif  // _TESTCOUNT
-};
+}ALLOC;
 
 
 /*
@@ -151,12 +150,6 @@ public:                                         // statistics info for debug
  *   countDown, set countDown to TIMEOUT_QUIT
  */
 #define     TIMEOUT_QUIT                        2
-
-typedef     class CListItem {
-public:
-  ADDR      usedList;
-  UINT      countDown;
-}LIST;
 
 typedef     class CContextItem : public CListItem
 {
@@ -167,7 +160,6 @@ public:
   PCONT     pPeer;
   PCONT     nextPeer;
   PBUFF     pBuffer;
-  CMemoryAlloc *contextType;
 }CONT;
 
 typedef     class CBufferItem : public CListItem
@@ -175,7 +167,6 @@ typedef     class CBufferItem : public CListItem
 public:
   INT       nSize;
   INT       nOper;
-  CMemoryAlloc *bufferType;
   PUCHAR    realStart;
   PBUFF     nextBuffer;
   STR_S     bufferName;

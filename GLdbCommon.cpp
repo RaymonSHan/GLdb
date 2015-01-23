@@ -31,6 +31,7 @@
  */
 
 #include    "GLdbCommon.hpp"
+#include    "GLdbMemory.hpp"
 #include    "GLdbIOCP.hpp"
 
 // Following in RThreadResource
@@ -68,7 +69,7 @@ INT StrCmp(STRING &one, STRING &two)
       return (*oneaddr.pChar - *twoaddr.pChar);
 
   return (onelen - twolen);
-}
+};
 
 void __MESSAGE(INT level, const char * _Format, ...) 
 {
@@ -84,4 +85,4 @@ void __MESSAGE(INT level, const char * _Format, ...)
     displayTraceInfo(info);
   }
 };
-		
+
