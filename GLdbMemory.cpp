@@ -119,6 +119,7 @@ UINT        CMemoryAlloc::FreeOneList(ADDR nlist)
 UINT        CMemoryAlloc::AddToUsed(ADDR nlist, UINT timeout)
 {
   GetThreadMemoryInfo();
+  if (!timeout) timeout = TimeoutInit;
   nlist.CountDown = GlobalTime + timeout;       // it is timeout time
   nlist.UsedList = info->localUsedList;
   info->localUsedList = nlist;
@@ -137,7 +138,8 @@ UINT        CMemoryAlloc::CountTimeout(ADDR usedStart)
     if (usedStart > MARK_MAX) {
       thisAddr = usedStart;
       nextAddr = thisAddr.UsedList;
-      if (thisAddr.CountDown <= TIMEOUT_QUIT) {                   // countdown first node but not free
+// countdown first node but not free
+      if (thisAddr.CountDown <= TIMEOUT_QUIT) {                   
 	if (thisAddr.CountDown) {
 	  if (thisAddr.CountDown-- <= 0) {
 	    thisAddr = thisAddr;                                  // only for cheat compiler
@@ -156,7 +158,8 @@ UINT        CMemoryAlloc::CountTimeout(ADDR usedStart)
 	  } }
 	else if (nextAddr.CountDown < GlobalTime) nextAddr.CountDown = TIMEOUT_QUIT;
 
-	if (thisAddr.UsedList == nextAddr) thisAddr = nextAddr;   // have do step one, no go next
+// have do step one, no go next
+	if (thisAddr.UsedList == nextAddr) thisAddr = nextAddr;   
 	nextAddr = thisAddr.UsedList;
       } }
     //    inCountDown = NOT_IN_PROCESS;
@@ -183,7 +186,10 @@ UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
   __CATCH__
 }
 
-UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT direct)
+/*
+ * in one memory block, real data ahead, stack array at last.
+ */
+UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT timeout)
 {
   __TRY
     BorderSize = PAD_INT(size, 0, border);
@@ -191,7 +197,7 @@ UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT dir
     TotalSize = BorderSize * number + ArraySize;
     __DO(GetMemory(RealBlock, TotalSize));
     TotalNumber = number;
-    DirectFree = direct;
+    TimeoutInit = timeout;
 
     globalStack.InitArrayStack(RealBlock + (TotalSize - ArraySize), number);
     __DO(globalStack.FullArrayStack(RealBlock, BorderSize));
@@ -200,21 +206,23 @@ UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT dir
 
 UINT        CMemoryAlloc::DelMemoryBuffer(void)
 {
-  return 0;
+  __TRY__
+    munmap (RealBlock.pVoid, TotalSize);
+  __CATCH__
 }
 
 UINT        CMemoryAlloc::GetMemoryList(ADDR &nlist, UINT timeout)
 {
   __TRY
     __DO (GetOneList(nlist))
-    AddToUsed(nlist, timeout);
+    if (TimeoutInit) AddToUsed(nlist, timeout);
   __CATCH
 }
 
 UINT        CMemoryAlloc::FreeMemoryList(ADDR nlist)
 {
   __TRY
-    if (!DirectFree) nlist.CountDown = TIMEOUT_QUIT;
+    if (TimeoutInit) nlist.CountDown = TIMEOUT_QUIT;
     else __DO(FreeOneList(nlist))
   __CATCH
 }

@@ -69,12 +69,13 @@ UINT        GetStack(ADDR &addr);
 /*
  * I have tested, three thread do nothing but GET/FREE, 
  * no performance improve after thread local cache large than 10.
+ * unable to use STACK_S for no constructor will be called
  */
-#define     MAX_LOCAL_CACHE                     16
+#define     MAX_LOCAL_CACHE                     15
 
 typedef     struct threadMemoryInfo {
   STACK     memoryStack;
-  ADDR      localCache [MAX_LOCAL_CACHE];
+  ADDR      localCache [MAX_LOCAL_CACHE + 1];
   UINT      threadFlag;
   ADDR      localUsedList;                      // usedList start
   threadMemoryInfo *threadListNext;             // pointer to next TLS
@@ -85,6 +86,9 @@ typedef     struct threadMemoryInfo {
  * Memory Pool main class
  *
  * address of free item is store in address pointed by memoryArrayFree
+ *
+ * if TimeoutInit = 0 means directly free.
+ * if timeout in AddToUsed = 0, use TimeoutInit for timeout
  */
 class       CMemoryAlloc : public RThreadResource {
 private:                                        // for total memory
@@ -99,7 +103,7 @@ private:                                        // for thread info
   threadMemoryInfo *threadListStart;            // TLS list start
 
 private:
-  UINT      DirectFree;
+  //  UINT      DirectFree;
   UINT      TimeoutInit;
   UINT      BufferSize;
 
@@ -119,9 +123,9 @@ public:
   UINT      SetThreadArea(UINT getsize, UINT maxsize,
 			  UINT freesize, UINT flag);
   UINT      SetMemoryBuffer(UINT number, UINT size, 
-			    UINT border, UINT direct);
+			    UINT border, UINT timeout);
   UINT      DelMemoryBuffer(void);
-  UINT      GetMemoryList(ADDR &nlist, UINT timeout);
+  UINT      GetMemoryList(ADDR &nlist, UINT timeout = 0);
   UINT      FreeMemoryList(ADDR nlist);
   UINT      TimeoutAll(void);
   UINT      GetNumber() { return TotalNumber; };

@@ -83,7 +83,11 @@ typedef     class CListItem*                    PLIST;
 typedef     class CContextItem*                 PCONT;
 typedef     class CBufferItem*                  PBUFF;
 
+#define    _TOSTRING(x)                         #x
+#define     TOSTRING(x)                        _TOSTRING(x)
 
+#define    _JOIN(x,y)                           x ## y
+#define     JOIN(x,y)                          _JOIN(x,y)
 /*
  * most common struct
  * I create this, for do C-style in C++. 
@@ -192,43 +196,52 @@ public:
   };
 }STRING;
 
-#define     STRING_FUNCTION                                     \
+#define     STRING_FUNCTION(classname, size)			\
+  typedef   class classname : public STRING			\
+  {								\
+  private:							\
+    UCHAR   string[size];					\
   public:							\
-  void virtual operator = (STRING &one) {			\
-    STRING::operator = (one);					\
-    UINT slen = strEnd - strStart + 1;				\
-    if (slen > sizeof(string)) slen = sizeof(string);		\
-    memcpy(string, strStart, slen);				\
-    strStart = strEnd = string;					\
-    strEnd += (slen - 1);					\
-    return;							\
-  };								\
-  void virtual operator = (const PUCHAR pchar) {		\
-    memcpy(string, pchar, sizeof(string));			\
-    STRING::operator = (pchar);					\
-    return;							\
-  };								\
-  void virtual operator = (const PCHAR pchar) {			\
-    return operator = ((PUCHAR)pchar);				\
-  };	
+    void virtual operator = (STRING &one) {			\
+      STRING::operator = (one);					\
+      UINT slen = strEnd - strStart + 1;			\
+      if (slen > sizeof(string)) slen = sizeof(string);		\
+      memcpy(string, strStart, slen);				\
+      strStart = strEnd = string;				\
+      strEnd += (slen - 1);					\
+      return;							\
+    };								\
+    void virtual operator = (const PUCHAR pchar) {		\
+      memcpy(string, pchar, sizeof(string));			\
+      STRING::operator = (pchar);				\
+      return;							\
+    };								\
+    void virtual operator = (const PCHAR pchar) {		\
+      return operator = ((PUCHAR)pchar);			\
+    };								\
+  }classname, *JOIN(P,classname);
 
-typedef     class STR_S : public STRING
-{
-  UCHAR     string[CHAR_SMALL];                 // 48
-  STRING_FUNCTION;
-}STR_S, *PSTR_S;
+STRING_FUNCTION(STR_S, CHAR_SMALL)
+STRING_FUNCTION(STR_M, CHAR_MIDDLE)
+STRING_FUNCTION(STR_L, CHAR_LARGE)
 
-typedef     class STR_M : public STRING
-{
-  UCHAR     string[CHAR_MIDDLE];                // 240
-  STRING_FUNCTION;
-}STR_M, *PSTR_M;
+// typedef     class STR_S : public STRING
+// {
+//   UCHAR     string[CHAR_SMALL];                 // 48
+//   STRING_FUNCTION;
+// }STR_S, *PSTR_S;
 
-typedef     class STR_L : public STRING
-{
-  UCHAR     string[CHAR_LARGE];                 // 2032
-  STRING_FUNCTION;
-}STR_L, *PSTR_L;
+// typedef     class STR_M : public STRING
+// {
+//   UCHAR     string[CHAR_MIDDLE];                // 240
+//   STRING_FUNCTION;
+// }STR_M, *PSTR_M;
+
+// typedef     class STR_L : public STRING
+// {
+//   UCHAR     string[CHAR_LARGE];                 // 2032
+//   STRING_FUNCTION;
+// }STR_L, *PSTR_L;
 
 INT         StrCmp(STRING &one, STRING &two);
 
@@ -449,12 +462,6 @@ typedef     struct threadTraceInfo {
  * Implement TraceInfo with ErrorControl
  * make TRY & CATCH and TraceInfo together
  */
-#define    _TOSTRING(x)                         #x
-#define     TOSTRING(x)                        _TOSTRING(x)
-
-#define    _JOIN(x,y)                           x ## y
-#define     JOIN(x,y)                          _JOIN(x,y)
-
 #define    _TO_MARK(x)                         _rm_ ## x
 #define    _rm_MarkMax                          0xffffffff      // for mark en
 
@@ -604,6 +611,10 @@ public:
  *
  * After init, ArrayStack is empty;
  */
+#define     LIST_SMALL                          ((2<<4)-1)
+#define     LIST_MIDDLE                         ((2<<6)-1)
+#define     LIST_LARGE                          ((2<<8)-1)
+
 typedef     class RArrayStack {
 private:
   LOCK      inProcess;
@@ -703,8 +714,28 @@ public:
   }
 }STACK, *PSTACK;
 
+
+
+#define     STACK_FUNCTION(classname, size)			\
+  typedef   class classname : public RArrayStack		\
+  {								\
+  private:							\
+    ADDR    stackData[size + 1];				\
+  public:							\
+    classname()							\
+    {								\
+      InitArrayStack(stackData[0], size);			\
+    };								\
+  }classname, *JOIN(P,classname);
+
+STACK_FUNCTION(STACK_S, LIST_SMALL)
+STACK_FUNCTION(STACK_M, LIST_MIDDLE)
+STACK_FUNCTION(STACK_L, LIST_LARGE)
+
+
+
 // ATTENTION number MUST great than 1.
-#define     MIN_ARRAY_QUERY                     2
+#define     MIN_ARRAY_QUERY                     1
 
 typedef     class RArrayQuery 
 {
@@ -718,6 +749,8 @@ public:
   void      InitArrayQuery(ADDR start, UINT number) 
   {
     inProcess = NOT_IN_PROCESS;
+    if (number <= MIN_ARRAY_QUERY) number++;
+
     arrayStart = freeStart = start;
     freeEnd = start + (number-1) * SIZEADDR;
     arrayEnd = start + number * SIZEADDR;
@@ -759,31 +792,52 @@ public:
   }
 }QUERY, *PQUERY;
 
+#define     QUERY_FUNCTION(classname, size)                     \
+  typedef   class classname : public RArrayQuery		\
+  {								\
+  private:							\
+    ADDR    queryData[size + 1];				\
+  public:							\
+    classname()							\
+    {								\
+      InitArrayQuery(queryData[0], size);			\
+    };								\
+  }classname, *JOIN(P,classname);
+
+QUERY_FUNCTION(QUERY_S, LIST_SMALL)
+QUERY_FUNCTION(QUERY_M, LIST_MIDDLE)
+QUERY_FUNCTION(QUERY_L, LIST_LARGE)
+
+// typedef     class QUERY_S : public RArrayQuery
+// {
+// private:
+//   ADDR      queryData[LIST_SMALL];
+// public:
+//   QUERY_S()
+//   {
+//     InitArrayQuery(queryData[0], LIST_SMALL);
+//   }
+// }QUERY_S, *PQUERY_S;
 
 /*
  * continuous += CLOCK_THREAD_CPUTIME_ID 55,  90,  300ns
  * continuous += CLOCK_MONOTONIC_RAW     33,  60,  180ns
  * CLOCK_MONOTONIC_COARSE interval is 4ms, too long
  */
-#define     MAX_TIME_QUERY                      64
+#define     MAX_TIME_QUERY                      LIST_MIDDLE
 #define     NANO_SECOND                         (1000 * 1000 * 1000)
 
 typedef     class RArrayTime
 {
-private:
+ private:
   clockid_t timeType;
-  QUERY     timeQuery;
-  ADDR      timeArray[MAX_TIME_QUERY * 2 + 20];
+  QUERY_M   timeQuery;
   struct    timespec timeStart;
 
 public:
   void      InitArrayTime(clockid_t timetype)
   {
-    ADDR    start;
- 
     timeType = timetype;
-    start.pAddr = &(timeArray[0]);
-    timeQuery.InitArrayQuery(start, MAX_TIME_QUERY * 2);
     clock_gettime(timeType, &timeStart);
   };
   UINT      operator += (struct timespec *timenow)
@@ -808,8 +862,6 @@ public:
       timelast = timenext;
     }
   };
-
-
 }TIME;
 
 #endif   // GLdb_COMMON_HPP

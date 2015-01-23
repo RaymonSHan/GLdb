@@ -86,7 +86,7 @@ typedef     class RMultiEvent
 {
 private:
   QUERY     eventQuery;
-  ADDR      eventBuffer[MAX_HANDLE_LOCK + 1];
+  ADDR      eventBuffer[MAX_HANDLE_LOCK + 2];
 
 public:
   int       eventFd;
