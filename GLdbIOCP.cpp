@@ -65,13 +65,16 @@ void SetupSIG(int num, SigHandle func)
   sigaction(num, &sa, NULL);
 }
 
-#define     THREAD_NUM                          2
+#define     THREAD_NUM                          1
 
+CMemoryAlloc globalMemory;
+EVENT globalWait;
 int         main(int, char**)
 {
   int status;
   UINT i;
   ADDR addr;
+  TIME rtime;
   struct timespec timestruct;
 
   SetupSIG(SIGSEGV, SIGSEGV_Handle);                            // sign 11
@@ -80,30 +83,25 @@ int         main(int, char**)
 
 __TRY__
   class RThreadTest test[THREAD_NUM];
-  EVENT event[THREAD_NUM];
+  globalMemory.SetMemoryBuffer(1000, 4*1024, 64, 0);
+  globalWait.InitArrayEvent(5);
 
-  for (i=0; i<THREAD_NUM; i++) {
-    event[i].InitArrayEvent(5);
-  };
-  for (i=0; i<THREAD_NUM; i++) {
-    test[i].ThreadStart(&event[i], &event[(i+1) % THREAD_NUM], i);
-  };
   for (i=0; i<THREAD_NUM; i++) {
     test[i].ThreadClone(); 
   };
   usleep(100000);
   printf("In main\n");
 
-  TIME count;
+  rtime.InitArrayTime(CLOCK_MONOTONIC_RAW);
+  for (i=0; i<THREAD_NUM; i++) 
+    globalWait += addr;
+
   GlobalShouldQuit = 1;
-  count.InitArrayTime(CLOCK_MONOTONIC_RAW);
-  event[0] += addr;
 
+  for (i=0; i<THREAD_NUM; i++)
+    waitpid(-1, &status, __WCLONE);
+  rtime += &timestruct;
 
-  waitpid(-1, &status, __WCLONE);
-  count += &timestruct;
-  sleep(2);
-  count.OutputTime();
-
+  rtime.OutputTime();
 __CATCH__
 }

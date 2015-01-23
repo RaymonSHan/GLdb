@@ -41,23 +41,33 @@ UINT        GetMemory(ADDR &addr, UINT size, UINT flag)
   static ADDR totalMemoryStart = {SEG_START_BUFFER};
   UINT      padsize;
 
-  __TRY
-    padsize = PAD_INT(size, 0, SIZE_THREAD_STACK);
-    addr = LockAdd(totalMemoryStart.aLong, padsize) + padsize - size;
-    addr = mmap (addr.pVoid, size, PROT_READ | PROT_WRITE,
-		 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | flag, -1, 0);
-    __DO_(addr == MAP_FAILED, "Get memory error, size:0x%llx\n", size);
-  __CATCH
-}
+__TRY
+  padsize = PAD_INT(size, PAD_THREAD_STACK, SIZE_THREAD_STACK);
+  addr = LockAdd(totalMemoryStart.aLong, padsize) + PAD_THREAD_STACK;
+  addr = mmap (addr.pVoid, size, PROT_READ | PROT_WRITE,
+	       MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | flag, -1, 0);
+  __DO_(addr == MAP_FAILED, "Get memory error, size:0x%llx\n", size);
+__CATCH
+};
 
 UINT        GetStack(ADDR &stack) 
 {
-  __TRY
-    __DO (GetMemory(stack, SIZE_THREAD_STACK - PAD_THREAD_STACK, MAP_GROWSDOWN));
-    __DO_((stack.aLong - PAD_THREAD_STACK) & (SIZE_THREAD_STACK - 1), 
-	  "Error stack place:%p", stack.pVoid);
-  __CATCH
-}
+__TRY
+  __DO (GetMemory(stack, SIZE_THREAD_STACK - PAD_THREAD_STACK, MAP_GROWSDOWN));
+  __DO_((stack.aLong - PAD_THREAD_STACK) & (SIZE_THREAD_STACK - 1), 
+       "Error stack place:%p", stack.pVoid);
+__CATCH
+};
+
+UINT        CListItem::FreeListItem()
+{
+__TRY
+  ADDR      item;
+  item.pList = this;
+  if (allocType) 
+    __DO (allocType->FreeMemoryList(item));
+__CATCH
+};
 
 CMemoryAlloc::CMemoryAlloc() 
   : RThreadResource(sizeof(threadMemoryInfo))
@@ -69,48 +79,53 @@ CMemoryAlloc::CMemoryAlloc()
 #ifdef _TESTCOUNT
   GetCount = GetSuccessCount = FreeCount = FreeSuccessCount = 0;
 #endif // _TESTCOUNT
-}
+};
 
 CMemoryAlloc::~CMemoryAlloc()
 {
   DelMemoryBuffer();
-}
+};
 
 UINT        CMemoryAlloc::GetOneList(ADDR &nlist)
 {
   GetThreadMemoryInfo();
 
-  __TRY
+__TRY
 #ifdef _TESTCOUNT
-    LockInc(GetCount);
+  LockInc(GetCount);
 #endif // _TESTCOUNT
-    __DO_(info->memoryStack -= nlist,
-	  "No more list CMemoryAlloc %p", this);
+  __DO_(info->memoryStack -= nlist,
+	"No more list CMemoryAlloc %p", this);
+
+  nlist.UsedList = 0;
+  nlist.AllocType = this;
+  nlist.RefCount = INIT_REFCOUNT;
+
 #ifdef _TESTCOUNT
-   LockInc(GetSuccessCount);
+  LockInc(GetSuccessCount);
 #endif // _TESTCOUNT
    
-  __CATCH
-}
+__CATCH
+};
 
 UINT        CMemoryAlloc::FreeOneList(ADDR nlist)
 {
   GetThreadMemoryInfo();
 
-  __TRY
+__TRY
 #ifdef _TESTCOUNT
-    LockInc(FreeCount);
+  LockInc(FreeCount);
 #endif // _TESTCOUNT
-    __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
-	  "FreeList Twice %p\n", nlist.pList);
-    nlist.UsedList = MARK_UNUSED;               // mark for unsed too
-    __DO_(info->memoryStack += nlist,
-	  "Free More\n");
+  __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
+	"FreeList Twice %p\n", nlist.pList);
+  nlist.UsedList = MARK_UNUSED;               // mark for unsed too
+  __DO_(info->memoryStack += nlist,
+	"Free More\n");
 #ifdef _TESTCOUNT
-    LockInc(FreeSuccessCount);
+  LockInc(FreeSuccessCount);
 #endif // _TESTCOUNT
-  __CATCH
-}
+__CATCH
+};
 
 /*
  * need NOT lock, schedule thread will NOT change usedLocalStart, 
@@ -122,50 +137,50 @@ UINT        CMemoryAlloc::AddToUsed(ADDR nlist, UINT timeout)
   if (!timeout) timeout = TimeoutInit;
   nlist.CountDown = GlobalTime + timeout;       // it is timeout time
   nlist.UsedList = info->localUsedList;
-  info->localUsedList = nlist;
+  info->localUsedList = nlist.pList;
   return 0;
-}
+};
 
 // process from CMemoryAlloc::UsedItem or threadMemoryInfo::usedListStart
 // it will not change the in para, and do NOT remove first node even countdowned.
-UINT        CMemoryAlloc::CountTimeout(ADDR usedStart)
+UINT        CMemoryAlloc::CountTimeout(PLIST usedStart)
 {
   static volatile INT inCountDown = NOT_IN_PROCESS;
   ADDR      thisAddr, nextAddr;
 
-  __TRY
-    __DO(__LOCK__TRY(inCountDown));
-    if (usedStart > MARK_MAX) {
-      thisAddr = usedStart;
-      nextAddr = thisAddr.UsedList;
-// countdown first node but not free
-      if (thisAddr.CountDown <= TIMEOUT_QUIT) {                   
-	if (thisAddr.CountDown) {
-	  if (thisAddr.CountDown-- <= 0) {
-	    thisAddr = thisAddr;                                  // only for cheat compiler
-	    // DO close thisAddr.Handle
-	    // and thisAddr.Handle = 0;
-	  } } }
-      else if (thisAddr.CountDown < GlobalTime) thisAddr.CountDown = TIMEOUT_QUIT;
+__TRY
+//   __DO(__LOCK__TRY(inCountDown));
+//   if (usedStart > MARK_MAX) {
+//     thisAddr = usedStart;
+//     nextAddr = thisAddr.UsedList;
+// // countdown first node but not free
+//     if (thisAddr.CountDown <= TIMEOUT_QUIT) {                   
+//       if (thisAddr.CountDown) {
+// 	if (thisAddr.CountDown-- <= 0) {
+// 	  thisAddr = thisAddr;                                  // only for cheat compiler
+// 	  // DO close thisAddr.Handle
+// 	  // and thisAddr.Handle = 0;
+// 	} } }
+//     else if (thisAddr.CountDown < GlobalTime) thisAddr.CountDown = TIMEOUT_QUIT;
 
-      while (nextAddr > MARK_MAX) {
-	if (nextAddr.CountDown <= TIMEOUT_QUIT) {
-	  if (nextAddr.CountDown-- <= 0) {                        // maybe -1
-	    thisAddr.UsedList = nextAddr.UsedList;                // step one
-	    // DO close nextAddr.Handle
-	    // and nextAddr.Handle = 0;
-	    __DO (FreeOneList(nextAddr));
-	  } }
-	else if (nextAddr.CountDown < GlobalTime) nextAddr.CountDown = TIMEOUT_QUIT;
+//     while (nextAddr > MARK_MAX) {
+//       if (nextAddr.CountDown <= TIMEOUT_QUIT) {
+// 	if (nextAddr.CountDown-- <= 0) {                        // maybe -1
+// 	  thisAddr.UsedList = nextAddr.UsedList;                // step one
+// 	  // DO close nextAddr.Handle
+// 	  // and nextAddr.Handle = 0;
+// 	  __DO (FreeOneList(nextAddr));
+// 	} }
+//       else if (nextAddr.CountDown < GlobalTime) nextAddr.CountDown = TIMEOUT_QUIT;
 
-// have do step one, no go next
-	if (thisAddr.UsedList == nextAddr) thisAddr = nextAddr;   
-	nextAddr = thisAddr.UsedList;
-      } }
-    //    inCountDown = NOT_IN_PROCESS;
-    __FREE(inCountDown);
-  __CATCH
-}
+// // have do step one, no go next
+//       if (thisAddr.UsedList == nextAddr) thisAddr = nextAddr;   
+//       nextAddr = thisAddr.UsedList;
+//     } }
+//   //    inCountDown = NOT_IN_PROCESS;
+//   __FREE(inCountDown);
+__CATCH
+};
 
 UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesize, UINT flag)
 {
@@ -173,71 +188,73 @@ UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
   ADDR      start;
   GetThreadMemoryInfo();
 
-  __TRY__
-    start.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
-    info->memoryStack.InitArrayStack(start, maxsize, 
-				     &globalStack, getsize, freesize);
-    info->threadFlag = flag;
-    info->localUsedList = MARK_USED_END;
-    __LOCK(lockList);
-    info->threadListNext = threadListStart;
-    threadListStart = info;
-    __FREE(lockList);
-  __CATCH__
-}
+__TRY__
+  //  start.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
+  start.pAddr = &(info->localCache[0]);
+  info->memoryStack.InitArrayStack(start, maxsize, 
+				   &globalStack, getsize, freesize);
+  info->threadFlag = flag;
+  info->localUsedList = MARK_USED_END;
+  __LOCK(lockList);
+  info->threadListNext = threadListStart;
+  threadListStart = info;
+  __FREE(lockList);
+__CATCH__
+};
 
 /*
  * in one memory block, real data ahead, stack array at last.
  */
 UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT timeout)
 {
-  __TRY
-    BorderSize = PAD_INT(size, 0, border);
-    ArraySize = number * SIZEADDR;
-    TotalSize = BorderSize * number + ArraySize;
-    __DO(GetMemory(RealBlock, TotalSize));
-    TotalNumber = number;
-    TimeoutInit = timeout;
+__TRY
+  BorderSize = PAD_INT(size, 0, border);
+  ArraySize = number * SIZEADDR;
+  TotalSize = BorderSize * number + ArraySize;
 
-    globalStack.InitArrayStack(RealBlock + (TotalSize - ArraySize), number);
-    __DO(globalStack.FullArrayStack(RealBlock, BorderSize));
-  __CATCH
-}
+  __DO (GetMemory(RealBlock, TotalSize));
+  TotalNumber = number;
+  TimeoutInit = timeout;
+
+  globalStack.InitArrayStack(RealBlock + (TotalSize - ArraySize), number);
+  __DO (globalStack.FullArrayStack(RealBlock, BorderSize));
+__CATCH
+};
 
 UINT        CMemoryAlloc::DelMemoryBuffer(void)
 {
-  __TRY__
-    munmap (RealBlock.pVoid, TotalSize);
-  __CATCH__
-}
+__TRY__
+  munmap (RealBlock.pVoid, TotalSize);
+__CATCH__
+};
 
 UINT        CMemoryAlloc::GetMemoryList(ADDR &nlist, UINT timeout)
 {
-  __TRY
-    __DO (GetOneList(nlist))
-    if (TimeoutInit) AddToUsed(nlist, timeout);
-  __CATCH
-}
+__TRY
+  __DO (GetOneList(nlist))
+  if (TimeoutInit) AddToUsed(nlist, timeout);
+__CATCH
+};
 
 UINT        CMemoryAlloc::FreeMemoryList(ADDR nlist)
 {
-  __TRY
-    if (TimeoutInit) nlist.CountDown = TIMEOUT_QUIT;
-    else __DO(FreeOneList(nlist))
-  __CATCH
-}
+__TRY
+  if (TimeoutInit) nlist.CountDown = TIMEOUT_QUIT;
+  else __DO(FreeOneList(nlist))
+__CATCH
+};
 
 UINT        CMemoryAlloc::TimeoutAll(void)
 {
-  __TRY
-    GlobalTime = time(NULL);
-    threadMemoryInfo *list = threadListStart;
-    while (list) {
-      __DO (CountTimeout(list->localUsedList));
-      list = list->threadListNext;
-    }
-  __CATCH
-}
+__TRY
+  GlobalTime = time(NULL);
+  threadMemoryInfo *list = threadListStart;
+  while (list) {
+    __DO (CountTimeout(list->localUsedList));
+    list = list->threadListNext;
+  }
+__CATCH
+};
 
 void        CMemoryAlloc::DisplayFree(void)
 {
@@ -273,7 +290,7 @@ void        CMemoryAlloc::DisplayFree(void)
   printf("Get  :%10lld, Succ:%10lld\n", GetCount, GetSuccessCount);
   printf("Free :%10lld, Succ:%10lld\n", FreeCount, FreeSuccessCount);
 #endif // _TESTCOUNT
-}
+};
 
 #ifdef _TESTCOUNT
 
@@ -295,7 +312,7 @@ void CMemoryAlloc::DisplayLocal(threadMemoryInfo* info)
       printf("%p, %p, (nil)\n", list.pVoid, list.pAddr->pVoid);
   }
   RESTORE_COLOR;
-}
+};
 
 void CMemoryAlloc::DisplayArray(void)
 {
@@ -319,7 +336,7 @@ void CMemoryAlloc::DisplayArray(void)
     list = list->threadListNext;
   }
   printf("\n");
-}
+};
 
 void CMemoryAlloc::DisplayInfo(void)
 {
@@ -333,7 +350,7 @@ void CMemoryAlloc::DisplayInfo(void)
       printf("%5d:%p, %p,\n", i, item.pList, item.pList->usedList.pVoid);
       item.aLong += BorderSize;
   }
-}
+};
 
 void CMemoryAlloc::DisplayContext(void)
 {
@@ -355,6 +372,7 @@ void CMemoryAlloc::DisplayContext(void)
     }
     info = info->threadListNext;
   }
-}
+};
+
 #endif // _TESTCOUNT
 

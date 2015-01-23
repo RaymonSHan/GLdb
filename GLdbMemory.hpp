@@ -45,11 +45,11 @@
 /*
  * const for MARK memory alloc
  */
-#define     MARK_USED_END                        0x30
-#define     MARK_UNUSED                          0x28
-#define     MARK_FREE_END                        0x20
-#define     MARK_USED                            0x10
-#define     MARK_MAX	                         0x100
+#define     MARK_USED_END                        (PLIST)0x30
+#define     MARK_UNUSED                          (PLIST)0x28
+#define     MARK_FREE_END                        (PLIST)0x20
+#define     MARK_USED                            (PLIST)0x10
+#define     MARK_MAX	                         (PLIST)0x100
 
 /*
  * The function get memroy from system
@@ -77,7 +77,7 @@ typedef     struct threadMemoryInfo {
   STACK     memoryStack;
   ADDR      localCache [MAX_LOCAL_CACHE + 1];
   UINT      threadFlag;
-  ADDR      localUsedList;                      // usedList start
+  PLIST     localUsedList;                      // usedList start
   threadMemoryInfo *threadListNext;             // pointer to next TLS
 }threadMemoryInfo;
 
@@ -90,7 +90,7 @@ typedef     struct threadMemoryInfo {
  * if TimeoutInit = 0 means directly free.
  * if timeout in AddToUsed = 0, use TimeoutInit for timeout
  */
-class       CMemoryAlloc : public RThreadResource {
+typedef     class CMemoryAlloc : public RThreadResource {
 private:                                        // for total memory
   ADDR      RealBlock;                          // address for memory start
   UINT      BorderSize;                         // real byte size for one item
@@ -116,7 +116,7 @@ private:
   UINT      AddToUsed(ADDR nlist, UINT timeout);
   UINT      GetListGroup(ADDR &groupbegin, UINT number);
   UINT      FreeListGroup(ADDR &groupbegin, UINT number);
-  UINT      CountTimeout(ADDR usedStart);
+  UINT      CountTimeout(PLIST usedStart);
 
 public:
   UINT      SetThreadArea(UINT getsize, UINT maxsize,
@@ -174,7 +174,6 @@ public:
   UCHAR     bufferData[]; 
 }BUFF;
 
-#define     UsedList                             pList->usedList
-#define     CountDown                            pList->countDown
+
 
 #endif   // GLdb_MEMORY_HPP

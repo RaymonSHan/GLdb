@@ -255,6 +255,8 @@ typedef     class GLdbIOCP
 /*
  * Following line is for test, not request for other application
  */
+extern CMemoryAlloc globalMemory;
+extern EVENT globalWait;
 
 typedef void SigHandle(int, siginfo_t *, void *);
 void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret);
@@ -262,33 +264,37 @@ void SetupSIG(int num, SigHandle func);
 
 __class_    (RThreadTest, RThread)
 public:
-  PEVENT    WaitEvent, SetEvent;
-  ADDR      sign;
-  UINT      Id;
+
 public:
-UINT      ThreadStart(PEVENT waits, PEVENT sets, UINT id)
-  {
-    WaitEvent = waits;
-    SetEvent = sets;
-    Id = id;
-    return 0;
-  };
+
   UINT      ThreadInit(void)
   {
-    sign.aLong = 0x333;
-    return 0;
-  }
+  __TRY
+    setClassName();
+    __DO (globalMemory.SetThreadArea(4,8,4,0));
+  __CATCH
+  };
   UINT      ThreadDoing(void)
   {
-    UINT    i = 0;
- 
-    while (i++ < 5000) {
-      *WaitEvent -= sign;
-      *SetEvent += sign;
-    }
+  __TRY
+    QUERY_S mquery;
+    int i, j;
+    ADDR    addr;
 
-    return 0;
-  }
+    globalWait -= addr;
+
+    for (j=0; j<2; j++) {
+      for (i=0; i<150; i++) {
+	__DO (globalMemory.GetMemoryList(addr));
+	__DO (mquery += addr);
+      }
+      while (!(mquery -= addr)) {
+     	if (addr.AllocType)
+     	  __DO (addr.AllocType->FreeMemoryList(addr));
+      }
+    }
+  __CATCH
+  };
 };
 
 #endif   // GLdb_IOCP_HPP

@@ -172,9 +172,9 @@ ADDR_OPERATION(||)
 /*
  * a binary-safe string type
  */
-#define     CHAR_SMALL                          ((2<<6)-2*SIZEADDR)
-#define     CHAR_MIDDLE                         ((2<<8)-2*SIZEADDR)
-#define     CHAR_LARGE                          ((2<<11)-2*SIZEADDR)
+#define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR)
+#define     CHAR_MIDDLE                         ((1<<8)-2*SIZEADDR)
+#define     CHAR_LARGE                          ((1<<11)-2*SIZEADDR)
 
 typedef     class STRING
 {
@@ -595,9 +595,9 @@ public:
  *
  * After init, ArrayStack is empty;
  */
-#define     LIST_SMALL                          ((2<<4)-1)
-#define     LIST_MIDDLE                         ((2<<6)-1)
-#define     LIST_LARGE                          ((2<<8)-1)
+#define     LIST_SMALL                          ((1<<4)-1)
+#define     LIST_MIDDLE                         ((1<<6)-1)
+#define     LIST_LARGE                          ((1<<8)-1)
 
 typedef     class RArrayStack {
 private:
@@ -658,7 +658,7 @@ public:
     __LOCK(inProcess);
     freesize = number * SIZEADDR;
     if (number) {
-      arrayFree = freesize;
+      arrayFree -= freesize;
       memcpy(arrayFree.pVoid, addr.pVoid, freesize);
       addr += freesize;
     }
@@ -708,7 +708,9 @@ public:
   public:							\
     classname()							\
     {								\
-      InitArrayStack(stackData[0], size);			\
+      ADDR  start;						\
+      start = &(stackData[0]);					\
+      InitArrayStack(start, size);				\
     };								\
   }classname, *JOIN(P,classname);
 
@@ -784,7 +786,9 @@ public:
   public:							\
     classname()							\
     {								\
-      InitArrayQuery(queryData[0], size);			\
+      ADDR  start;						\
+      start = &(queryData[0]);					\
+      InitArrayQuery(start, size);				\
     };								\
   }classname, *JOIN(P,classname);
 
@@ -839,8 +843,6 @@ public:
 }TIME, *PTIME;
 
 #define     INIT_REFCOUNT                       0x100001
-#define     __IS_INREF(result)			\
-  if (refCount < INIT_REFCOUNT) break;
 
 typedef     class CListItem {
 public:
@@ -856,32 +858,39 @@ public:
   UINT      DecRefCount(void)
   {
     UINT    nowref = LockDec(refCount);
-    if (nowref == INIT_REFCOUNT) return FreeObject();                  // old val return
+    if (nowref == INIT_REFCOUNT) return FreeListItem();         // old val return
     else return 0;
-  }
-
-  virtual   UINT GetObject() = 0;
-  virtual   UINT FreeObject() = 0;
+  };
+  virtual   UINT InitListItem()
+  {
+    refCount = INIT_REFCOUNT;                                   // have one ref
+    return 0;
+  };
+  virtual   UINT FreeListItem();
 
 }LIST;
+
+#define     UsedList                             pList->usedList
+#define     CountDown                            pList->countDown
+#define     AllocType                            pList->allocType
+#define     RefCount                             pList->refCount
+#define     FreeSelf                             pList->FreeListItem
 
 // return 0 for is equal
 typedef     UINT(*FUNCCMP)(PLIST, ADDR);
 
-typedef     class RListQuery : public CListItem {
+typedef     class RListQuery {
 private:
   LOCK      inProcess;
   PLIST     listStart;
   FUNCCMP   funcCmp;
 
 public:
-  virtual   UINT GetObject(void)
+  void InitListQuery(void)
   {
     inProcess = NOT_IN_PROCESS;
     listStart = NULL;
-    refCount = INIT_REFCOUNT;                                   // have one ref
     funcCmp = NULL;
-    return 0;
   };
   void      SetFuncCmp(FUNCCMP funccmp)
   {
@@ -896,16 +905,14 @@ public:
   };
   PLIST     operator == (ADDR addr)
   {
-    IncRefCount();
     PLIST nowlist = listStart;
     while (nowlist) {
       if (!(*funcCmp)(nowlist, addr)) break;
       nowlist = nowlist->usedList;
     }
-    if (DecRefCount()) return NULL;
     return nowlist;
   };
-  virtual   UINT FreeObject(void)
+  void FreeListQuery(void)
   {
     PLIST   nowlist = listStart;
     PLIST   nextlist;
@@ -914,9 +921,8 @@ public:
       nowlist-> DecRefCount();
       nowlist = nextlist;
     } 
-    return 1;                                                     // normal return 1;
   };
-
 }LQUERY, *PLQUERY;
+
 #endif   // GLdb_COMMON_HPP
 
