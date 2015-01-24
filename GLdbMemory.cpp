@@ -59,16 +59,6 @@ __TRY
 __CATCH
 };
 
-UINT        CListItem::FreeListItem()
-{
-__TRY
-  ADDR      item;
-  item.pList = this;
-  if (allocType) 
-    __DO (allocType->FreeMemoryList(item));
-__CATCH
-};
-
 CMemoryAlloc::CMemoryAlloc() 
   : RThreadResource(sizeof(threadMemoryInfo))
 { 
@@ -96,8 +86,8 @@ __TRY
 #endif // _TESTCOUNT
   __DO_(info->memoryStack -= nlist,
 	"No more list CMemoryAlloc %p", this);
-
-  nlist.UsedList = 0;
+  nlist.UsedList = MARK_USED;
+  nlist.CountDown = /*should set*/ 0;
   nlist.AllocType = this;
   nlist.RefCount = INIT_REFCOUNT;
 
@@ -136,49 +126,49 @@ UINT        CMemoryAlloc::AddToUsed(ADDR nlist, UINT timeout)
   GetThreadMemoryInfo();
   if (!timeout) timeout = TimeoutInit;
   nlist.CountDown = GlobalTime + timeout;       // it is timeout time
-  nlist.UsedList = info->localUsedList;
+  nlist.UsedList = info->localUsedList.pList;
   info->localUsedList = nlist.pList;
   return 0;
 };
 
 // process from CMemoryAlloc::UsedItem or threadMemoryInfo::usedListStart
 // it will not change the in para, and do NOT remove first node even countdowned.
-UINT        CMemoryAlloc::CountTimeout(PLIST usedStart)
+UINT        CMemoryAlloc::CountTimeout(ADDR usedStart)
 {
   static volatile INT inCountDown = NOT_IN_PROCESS;
   ADDR      thisAddr, nextAddr;
 
 __TRY
-//   __DO(__LOCK__TRY(inCountDown));
-//   if (usedStart > MARK_MAX) {
-//     thisAddr = usedStart;
-//     nextAddr = thisAddr.UsedList;
-// // countdown first node but not free
-//     if (thisAddr.CountDown <= TIMEOUT_QUIT) {                   
-//       if (thisAddr.CountDown) {
-// 	if (thisAddr.CountDown-- <= 0) {
-// 	  thisAddr = thisAddr;                                  // only for cheat compiler
-// 	  // DO close thisAddr.Handle
-// 	  // and thisAddr.Handle = 0;
-// 	} } }
-//     else if (thisAddr.CountDown < GlobalTime) thisAddr.CountDown = TIMEOUT_QUIT;
+  __DO(__LOCK__TRY(inCountDown));
+  if (usedStart > MARK_MAX) {
+    thisAddr = usedStart;
+    nextAddr = thisAddr.UsedList;
+// countdown first node but not free
+    if (thisAddr.CountDown <= TIMEOUT_QUIT) {                   
+      if (thisAddr.CountDown) {
+	if (thisAddr.CountDown-- <= 0) {
+	  thisAddr = thisAddr;                                  // only for cheat compiler
+	  // DO close thisAddr.Handle
+	  // and thisAddr.Handle = 0;
+	} } }
+    else if (thisAddr.CountDown < GlobalTime) thisAddr.CountDown = TIMEOUT_QUIT;
 
-//     while (nextAddr > MARK_MAX) {
-//       if (nextAddr.CountDown <= TIMEOUT_QUIT) {
-// 	if (nextAddr.CountDown-- <= 0) {                        // maybe -1
-// 	  thisAddr.UsedList = nextAddr.UsedList;                // step one
-// 	  // DO close nextAddr.Handle
-// 	  // and nextAddr.Handle = 0;
-// 	  __DO (FreeOneList(nextAddr));
-// 	} }
-//       else if (nextAddr.CountDown < GlobalTime) nextAddr.CountDown = TIMEOUT_QUIT;
+    while (nextAddr > MARK_MAX) {
+      if (nextAddr.CountDown <= TIMEOUT_QUIT) {
+	if (nextAddr.CountDown-- <= 0) {                        // maybe -1
+	  thisAddr.UsedList = nextAddr.UsedList;                // step one
+	  // DO close nextAddr.Handle
+	  // and nextAddr.Handle = 0;
+	  __DO (FreeOneList(nextAddr));
+	} }
+      else if (nextAddr.CountDown < GlobalTime) nextAddr.CountDown = TIMEOUT_QUIT;
 
-// // have do step one, no go next
-//       if (thisAddr.UsedList == nextAddr) thisAddr = nextAddr;   
-//       nextAddr = thisAddr.UsedList;
-//     } }
-//   //    inCountDown = NOT_IN_PROCESS;
-//   __FREE(inCountDown);
+// have do step one, no go next
+      if (thisAddr.UsedList == nextAddr.pList) thisAddr = nextAddr;   
+      nextAddr = thisAddr.UsedList;
+    } }
+  //    inCountDown = NOT_IN_PROCESS;
+  __FREE(inCountDown);
 __CATCH
 };
 
@@ -191,7 +181,7 @@ UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
 __TRY__
   //  start.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
   start.pAddr = &(info->localCache[0]);
-  info->memoryStack.InitArrayStack(start, maxsize, 
+  info->memoryStack.InitArrayStack(start, maxsize, SINGLE_THREAD,
 				   &globalStack, getsize, freesize);
   info->threadFlag = flag;
   info->localUsedList = MARK_USED_END;

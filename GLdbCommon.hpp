@@ -69,6 +69,7 @@ typedef     unsigned long long int              UINT;
 typedef     signed long long int                MONEY;
 typedef     volatile long long int              LOCK;
 typedef     bool                                BOOL;
+typedef     int                                 RESULT;
 
 typedef     signed char*                        PCHAR;
 typedef     unsigned char*                      PUCHAR;
@@ -580,12 +581,8 @@ public:
 
 public:
   RThreadResource(UINT size) {
-    SetResourceOffset(size);
-  };
-  UINT      SetResourceOffset(UINT size) {
     nowOffset = LockAdd(RThreadResource::globalResourceOffset, 
 			PAD_INT(size, 0, 64));
-    return nowOffset;
   };
 };
 
@@ -599,8 +596,10 @@ public:
 #define     LIST_MIDDLE                         ((1<<6)-1)
 #define     LIST_LARGE                          ((1<<8)-1)
 
+#define     SINGLE_THREAD                       1
+
 typedef     class RArrayStack {
-private:
+public:
   LOCK      inProcess;
   ADDR      arrayStart;
   ADDR      arrayEnd;
@@ -608,8 +607,9 @@ private:
   RArrayStack *parentArray;
   UINT      getSize;                            // size get from global
   UINT      freeSize;                           // will back to global if >
+  BOOL      singleThread;
 public:
-  void      InitArrayStack(ADDR start, UINT number, 
+  void      InitArrayStack(ADDR start, UINT number, BOOL singlethread = 0,
 			   RArrayStack *parent = 0, UINT getsize = 0, UINT freesize = 0)
   {
     inProcess = NOT_IN_PROCESS;
@@ -619,6 +619,7 @@ public:
     parentArray = parent;
     getSize = getsize;
     freeSize = freesize;
+    singleThread = singlethread;
   };
   UINT      FullArrayStack(ADDR begin, UINT size)
   {
@@ -667,21 +668,21 @@ public:
   UINT      operator += (ADDR addr) 
   {
   __TRY
-    __LOCK(inProcess);
+    if (!singleThread) __LOCK(inProcess);
     if ((arrayFree <= arrayStart) && parentArray)
       parentArray->FreeMulti(arrayFree, freeSize);
     __DO (arrayFree <= arrayStart);
     arrayFree -= SIZEADDR;
     *(arrayFree.pAddr) = addr;
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
   UINT      operator -= (ADDR &addr) 
   {
   __TRY
-    __LOCK(inProcess);
+    if (!singleThread) __LOCK(inProcess);
     if ((arrayFree > arrayEnd) && parentArray)
       parentArray->GetMulti(arrayFree, getSize);
     __DO (arrayFree > arrayEnd);
@@ -689,7 +690,7 @@ public:
     arrayFree += SIZEADDR;
     __FREE(inProcess);
   __CATCH_BEGIN
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
   UINT      GetNumber(void)
@@ -698,26 +699,27 @@ public:
   };
 }STACK, *PSTACK;
 
-
-
-#define     STACK_FUNCTION(classname, size)			\
+#define     STACK_CLASS(classname, size, singlethread)		\
   typedef   class classname : public RArrayStack		\
   {								\
-  private:							\
+  public:							\
     ADDR    stackData[size + 1];				\
   public:							\
     classname()							\
     {								\
       ADDR  start;						\
       start = &(stackData[0]);					\
-      InitArrayStack(start, size);				\
+      InitArrayStack(start, size, singlethread);		\
     };								\
   }classname, *JOIN(P,classname);
 
-STACK_FUNCTION(STACK_S, LIST_SMALL)
-STACK_FUNCTION(STACK_M, LIST_MIDDLE)
-STACK_FUNCTION(STACK_L, LIST_LARGE)
+STACK_CLASS(STACK_S, LIST_SMALL, 0)
+STACK_CLASS(STACK_M, LIST_MIDDLE, 0)
+STACK_CLASS(STACK_L, LIST_LARGE, 0)
 
+STACK_CLASS(STACK_s, LIST_SMALL, SINGLE_THREAD)
+STACK_CLASS(STACK_m, LIST_MIDDLE, SINGLE_THREAD)
+STACK_CLASS(STACK_l, LIST_LARGE, SINGLE_THREAD)
 
 
 // ATTENTION number MUST great than 1.
@@ -725,14 +727,15 @@ STACK_FUNCTION(STACK_L, LIST_LARGE)
 
 typedef     class RArrayQuery 
 {
-private:
+public:
   LOCK      inProcess;
   ADDR      arrayStart;
   ADDR      arrayEnd;
   ADDR      freeStart;
   ADDR      freeEnd;
+  BOOL      singleThread;
 public:
-  void      InitArrayQuery(ADDR start, UINT number) 
+  void      InitArrayQuery(ADDR start, UINT number, BOOL singlethread = 0) 
   {
     inProcess = NOT_IN_PROCESS;
     if (number <= MIN_ARRAY_QUERY) number++;
@@ -740,33 +743,34 @@ public:
     arrayStart = freeStart = start;
     freeEnd = start + (number-1) * SIZEADDR;
     arrayEnd = start + number * SIZEADDR;
+    singleThread = singlethread;
   };
   UINT      operator += (ADDR addr)
   {
   __TRY
-    __LOCK(inProcess);
+    if (!singleThread) __LOCK(inProcess);
     __DO (freeStart == freeEnd);
     *(freeStart.pAddr) = addr;
     freeStart += SIZEADDR;
     if (freeStart == arrayEnd) freeStart = arrayStart;
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
   UINT      operator -= (ADDR &addr)
   {
   __TRY
     ADDR    freeend;
-    __LOCK(inProcess);
+    if (!singleThread) __LOCK(inProcess);
     freeend = freeEnd + SIZEADDR;
     if (freeend == arrayEnd) freeend = arrayStart;
     __DO (freeend == freeStart);
     addr = *(freeend.pAddr);
     freeEnd = freeend;
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
   UINT      GetNumber(void)
@@ -778,23 +782,27 @@ public:
   };
 }QUERY, *PQUERY;
 
-#define     QUERY_FUNCTION(classname, size)                     \
+#define     QUERY_CLASS(classname, size, singlethread)		\
   typedef   class classname : public RArrayQuery		\
   {								\
-  private:							\
+  public:							\
     ADDR    queryData[size + 1];				\
   public:							\
     classname()							\
     {								\
       ADDR  start;						\
       start = &(queryData[0]);					\
-      InitArrayQuery(start, size);				\
+      InitArrayQuery(start, size, singlethread);		\
     };								\
   }classname, *JOIN(P,classname);
 
-QUERY_FUNCTION(QUERY_S, LIST_SMALL)
-QUERY_FUNCTION(QUERY_M, LIST_MIDDLE)
-QUERY_FUNCTION(QUERY_L, LIST_LARGE)
+QUERY_CLASS(QUERY_S, LIST_SMALL, 0)
+QUERY_CLASS(QUERY_M, LIST_MIDDLE, 0)
+QUERY_CLASS(QUERY_L, LIST_LARGE, 0)
+
+QUERY_CLASS(QUERY_s, LIST_SMALL, SINGLE_THREAD)
+QUERY_CLASS(QUERY_m, LIST_MIDDLE, SINGLE_THREAD)
+QUERY_CLASS(QUERY_l, LIST_LARGE, SINGLE_THREAD)
 
 
 /*
@@ -805,15 +813,16 @@ QUERY_FUNCTION(QUERY_L, LIST_LARGE)
 #define     MAX_TIME_QUERY                      LIST_MIDDLE
 #define     NANO_SECOND                         (1000 * 1000 * 1000)
 
+
 typedef     class RArrayTime
 {
- private:
+public:
   clockid_t timeType;
-  QUERY_M   timeQuery;
+  QUERY_m   timeQuery;
   struct    timespec timeStart;
 
 public:
-  void      InitArrayTime(clockid_t timetype)
+  RArrayTime(clockid_t timetype)
   {
     timeType = timetype;
     clock_gettime(timeType, &timeStart);
@@ -835,94 +844,12 @@ public:
     ADDR    timelast = {0}, timenext;
     UINT    i = 1;
     while (!(timeQuery -= timenext)) {
-      printf("No. %2lld, time: %8lld, diff: %8lld\n", 
-	     i++, timenext.aLong, timenext - timelast);
+      printf("No. %2lld, time: %8lld, diff: %8f\n", 
+	     i++, timenext.aLong, ((double)(timenext - timelast))/(1000*1000));
       timelast = timenext;
     };
   };
 }TIME, *PTIME;
-
-#define     INIT_REFCOUNT                       0x100001
-
-typedef     class CListItem {
-public:
-  PLIST     usedList;
-  UINT      countDown;
-  PALLOC    allocType;
-  UINT      refCount;
-
-  void      IncRefCount(void)
-  {
-    LockInc(refCount);
-  };
-  UINT      DecRefCount(void)
-  {
-    UINT    nowref = LockDec(refCount);
-    if (nowref == INIT_REFCOUNT) return FreeListItem();         // old val return
-    else return 0;
-  };
-  virtual   UINT InitListItem()
-  {
-    refCount = INIT_REFCOUNT;                                   // have one ref
-    return 0;
-  };
-  virtual   UINT FreeListItem();
-
-}LIST;
-
-#define     UsedList                             pList->usedList
-#define     CountDown                            pList->countDown
-#define     AllocType                            pList->allocType
-#define     RefCount                             pList->refCount
-#define     FreeSelf                             pList->FreeListItem
-
-// return 0 for is equal
-typedef     UINT(*FUNCCMP)(PLIST, ADDR);
-
-typedef     class RListQuery {
-private:
-  LOCK      inProcess;
-  PLIST     listStart;
-  FUNCCMP   funcCmp;
-
-public:
-  void InitListQuery(void)
-  {
-    inProcess = NOT_IN_PROCESS;
-    listStart = NULL;
-    funcCmp = NULL;
-  };
-  void      SetFuncCmp(FUNCCMP funccmp)
-  {
-    funcCmp = funccmp;
-  };
-  void      operator += (PLIST list)
-  {
-    __LOCK(inProcess);
-    list->usedList = listStart;
-    listStart = list;
-    __FREE(inProcess);
-  };
-  PLIST     operator == (ADDR addr)
-  {
-    PLIST nowlist = listStart;
-    while (nowlist) {
-      if (!(*funcCmp)(nowlist, addr)) break;
-      nowlist = nowlist->usedList;
-    }
-    return nowlist;
-  };
-  void FreeListQuery(void)
-  {
-    PLIST   nowlist = listStart;
-    PLIST   nextlist;
-    while (nowlist) {
-      nextlist = nowlist->usedList;
-      nowlist-> DecRefCount();
-      nowlist = nextlist;
-    } 
-  };
-}LQUERY, *PLQUERY;
 
 #endif   // GLdb_COMMON_HPP
 

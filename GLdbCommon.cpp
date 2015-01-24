@@ -86,3 +86,15 @@ void __MESSAGE(INT level, const char * _Format, ...)
   }
 };
 
+UINT        CListItem::DecRefCount(void)
+{
+  UINT      nowref = LockDec(refCount);         // old val return
+  if (nowref != INIT_REFCOUNT) return 0;
+__TRY
+  ADDR      addr;
+  addr.pList = this;
+  __DO(allocType->FreeMemoryList(addr));
+__CATCH
+};
+
+

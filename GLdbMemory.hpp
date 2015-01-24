@@ -43,15 +43,6 @@
 #include   "GLdbCommon.hpp"
 
 /*
- * const for MARK memory alloc
- */
-#define     MARK_USED_END                        (PLIST)0x30
-#define     MARK_UNUSED                          (PLIST)0x28
-#define     MARK_FREE_END                        (PLIST)0x20
-#define     MARK_USED                            (PLIST)0x10
-#define     MARK_MAX	                         (PLIST)0x100
-
-/*
  * The function get memroy from system
  */
 #define     SEG_START_BUFFER                    (0x52LL << 40)  // 'R'
@@ -77,10 +68,93 @@ typedef     struct threadMemoryInfo {
   STACK     memoryStack;
   ADDR      localCache [MAX_LOCAL_CACHE + 1];
   UINT      threadFlag;
-  PLIST     localUsedList;                      // usedList start
+  ADDR      localUsedList;                      // usedList start
   threadMemoryInfo *threadListNext;             // pointer to next TLS
 }threadMemoryInfo;
 
+
+/*
+ * const for MARK memory alloc
+ */
+#define     MARK_USED_END                       (PLIST)0x30
+#define     MARK_UNUSED                         (PLIST)0x28
+#define     MARK_FREE_END                       (PLIST)0x20
+#define     MARK_USED                           (PLIST)0x10
+#define     MARK_MAX	                        (PLIST)0x100
+
+
+#define     INIT_REFCOUNT                       0x100001
+/*
+ * ATTENTION every CListItem, must set init value
+ */
+typedef     class CListItem {
+public:
+  PLIST     usedList;                           // MUST be != MARK_UNUSED
+  UINT      countDown;                          // MUST be time() will free
+  PALLOC    allocType;                          // MUST be PALLOC value
+  UINT      refCount;                           // MUST be INIT_REFCOUNT, means 1 ref
+
+  void      IncRefCount(void)
+  {
+    LockInc(refCount);
+  };
+  UINT      DecRefCount(void);
+}LIST;
+
+#define     UsedList                             pList->usedList
+#define     CountDown                            pList->countDown
+#define     AllocType                            pList->allocType
+#define     RefCount                             pList->refCount
+#define     FreeSelf                             pList->FreeListItem
+
+
+// return 0 for is equal
+typedef     UINT(*FUNCCMP)(PLIST, ADDR);
+
+typedef     class RListQuery {
+private:
+  LOCK      inProcess;
+  PLIST     listStart;
+  FUNCCMP   funcCmp;
+
+public:
+  void InitListQuery(void)
+  {
+    inProcess = NOT_IN_PROCESS;
+    listStart = NULL;
+    funcCmp = NULL;
+  };
+  void      SetFuncCmp(FUNCCMP funccmp)
+  {
+    funcCmp = funccmp;
+  };
+  void      operator += (PLIST list)
+  {
+    __LOCK(inProcess);
+    list->usedList = listStart;
+    listStart = list;
+    __FREE(inProcess);
+  };
+  PLIST     operator == (ADDR addr)
+  {
+    PLIST nowlist = listStart;
+    while (nowlist) {
+      if (!(*funcCmp)(nowlist, addr)) break;
+      nowlist = nowlist->usedList;
+    }
+    return nowlist;
+  };
+  void FreeListQuery(void)
+  {
+    PLIST   nowlist = listStart;
+    PLIST   nextlist;
+    while (nowlist) {
+      nextlist = nowlist->usedList;
+      nowlist-> DecRefCount();
+      nowlist = nextlist;
+    } 
+  };
+}LQUERY, *PLQUERY;
 
 /*
  * Memory Pool main class
@@ -116,7 +190,7 @@ private:
   UINT      AddToUsed(ADDR nlist, UINT timeout);
   UINT      GetListGroup(ADDR &groupbegin, UINT number);
   UINT      FreeListGroup(ADDR &groupbegin, UINT number);
-  UINT      CountTimeout(PLIST usedStart);
+  UINT      CountTimeout(ADDR usedStart);
 
 public:
   UINT      SetThreadArea(UINT getsize, UINT maxsize,

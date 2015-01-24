@@ -74,7 +74,7 @@ int         main(int, char**)
   int status;
   UINT i;
   ADDR addr;
-  TIME rtime;
+  TIME rtime(CLOCK_MONOTONIC_RAW);
   struct timespec timestruct;
 
   SetupSIG(SIGSEGV, SIGSEGV_Handle);                            // sign 11
@@ -84,7 +84,7 @@ int         main(int, char**)
 __TRY__
   class RThreadTest test[THREAD_NUM];
   globalMemory.SetMemoryBuffer(1000, 4*1024, 64, 0);
-  globalWait.InitArrayEvent(5);
+  globalWait.InitArrayEvent();
 
   for (i=0; i<THREAD_NUM; i++) {
     test[i].ThreadClone(); 
@@ -92,7 +92,7 @@ __TRY__
   usleep(100000);
   printf("In main\n");
 
-  rtime.InitArrayTime(CLOCK_MONOTONIC_RAW);
+  rtime += &timestruct;
   for (i=0; i<THREAD_NUM; i++) 
     globalWait += addr;
 

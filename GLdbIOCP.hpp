@@ -80,13 +80,12 @@
  *        two thread nest, one loop is (2us, 3us, 6us)
  *        ten thread nest, one loop is (4us, 8us, 23us)
  */
-#define     MAX_HANDLE_LOCK                     31
+#define     MAX_HANDLE_LOCK                     30
 
 typedef     class RMultiEvent
 {
 private:
-  QUERY     eventQuery;
-  ADDR      eventBuffer[MAX_HANDLE_LOCK + 2];
+  QUERY_S   eventQuery;
 
 public:
   int       eventFd;
@@ -95,18 +94,18 @@ public:
   RMultiEvent()
   {
     eventFd = 0;
-  }
-  UINT      InitArrayEvent(UINT num)
+  };
+  ~RMultiEvent()
+  {
+    if (eventFd) close(eventFd);
+  };
+  UINT      InitArrayEvent()
   {
   __TRY
-    ADDR    start;
-    __DO (num > MAX_HANDLE_LOCK);
-    start = &eventBuffer[0];
-    eventQuery.InitArrayQuery(start, num);
     __DO1(eventFd,
 	  eventfd(0, EFD_SEMAPHORE));
   __CATCH
-  }
+  };
   UINT      operator += (ADDR addr)
   {
   __TRY
@@ -116,7 +115,7 @@ public:
     __DO1(status,
 	  write(eventFd, &WRITEADDR, SIZEADDR));
   __CATCH
-  }
+  };
   UINT      operator -= (ADDR &addr)
   {
   __TRY
@@ -126,7 +125,7 @@ public:
 	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
   __CATCH
-  }
+  };
 }EVENT, *PEVENT;
 
 
@@ -156,13 +155,13 @@ public:
   RThread()
   {
     shouldQuit = 0;
-  }
+  };
   UINT      ThreadClone(void)
   {
   __TRY
     ADDR    result = {0};
     if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
-    else ThreadStartEvent.InitArrayEvent(MIN_ARRAY_QUERY);
+    else ThreadStartEvent.InitArrayEvent();
     __DO (result.aLong);
     LockInc(GlobalThreadNumber);
     __DO (GetStack(threadStack));
@@ -171,7 +170,7 @@ public:
 		threadStack.pChar + REAL_SIZE_THREAD_STACK,
 		CLONE_VM | CLONE_FILES, this));
   __CATCH
-  }
+  };
   static    int RThreadFunc(void* point)
   {
   __TRY
@@ -184,7 +183,7 @@ public:
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       thread->ThreadDoing();
   __CATCH
-  }
+  };
   virtual   UINT ThreadInit(void) = 0;
   virtual   UINT ThreadDoing(void) = 0;
 
@@ -206,7 +205,7 @@ public:
   RThreadEpoll()
   {
     epollHandle = 0;
-  }
+  };
   UINT      ThreadInit(void)
   { 
   __TRY
@@ -283,14 +282,15 @@ public:
 
     globalWait -= addr;
 
-    for (j=0; j<2; j++) {
-      for (i=0; i<150; i++) {
+    for (j=0; j<1000*1000; j++) {
+      for (i=0; i<4; i++) {
 	__DO (globalMemory.GetMemoryList(addr));
 	__DO (mquery += addr);
       }
       while (!(mquery -= addr)) {
      	if (addr.AllocType)
-     	  __DO (addr.AllocType->FreeMemoryList(addr));
+	__DO (globalMemory.FreeMemoryList(addr));
+	  //     	  __DO (addr.AllocType->FreeMemoryList(addr));
       }
     }
   __CATCH
