@@ -398,6 +398,7 @@ typedef     struct threadTraceInfo {
 		: "i" (NEG_SIZE_THREAD_STACK),			\
 	          "i" (PAD_THREAD_STACK));
 
+
 #define     displayTraceInfo(info)			        \
   getTraceInfo(info);						\
   if (info->threadName)						\
@@ -600,7 +601,7 @@ public:
 #define     SINGLE_THREAD                       1
 
 typedef     class RArrayStack {
-public:
+private:
   LOCK      inProcess;
   ADDR      arrayStart;
   ADDR      arrayEnd;
@@ -704,7 +705,7 @@ public:
 #define     STACK_CLASS(classname, size, singlethread)		\
   typedef   class classname : public RArrayStack		\
   {								\
-  public:							\
+  private:							\
     ADDR    stackData[size + 1];				\
   public:							\
     classname()							\
@@ -729,7 +730,7 @@ STACK_CLASS(STACK_l, LIST_LARGE, SINGLE_THREAD)
 
 typedef     class RArrayQuery 
 {
-public:
+private:
   LOCK      inProcess;
   ADDR      arrayStart;
   ADDR      arrayEnd;
@@ -787,7 +788,7 @@ public:
 #define     QUERY_CLASS(classname, size, singlethread)		\
   typedef   class classname : public RArrayQuery		\
   {								\
-  public:							\
+  private:							\
     ADDR    queryData[size + 1];				\
   public:							\
     classname()							\
@@ -818,7 +819,7 @@ QUERY_CLASS(QUERY_l, LIST_LARGE, SINGLE_THREAD)
 
 typedef     class RArrayTime
 {
-public:
+private:
   clockid_t timeType;
   QUERY_m   timeQuery;
   struct    timespec timeStart;

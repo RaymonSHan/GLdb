@@ -71,63 +71,11 @@ __CATCH
 };
 
 
-CMemoryAlloc::CMemoryAlloc() 
-  : RThreadResource(sizeof(threadMemoryInfo))
-{ 
-  RealBlock = (UINT)0;
-  TotalNumber = BorderSize = ArraySize = TotalSize = 0;
-  threadListStart = 0;
 
-#ifdef _TESTCOUNT
-  GetCount = GetSuccessCount = FreeCount = FreeSuccessCount = 0;
-#endif // _TESTCOUNT
-};
 
-CMemoryAlloc::~CMemoryAlloc()
-{
-  DelMemoryBuffer();
-};
 
-UINT        CMemoryAlloc::GetOneList(ADDR &nlist)
-{
-  GetThreadMemoryInfo();
 
-__TRY
-#ifdef _TESTCOUNT
-  LockInc(GetCount);
-#endif // _TESTCOUNT
-  __DO_(info->memoryStack -= nlist,
-	"No more list CMemoryAlloc %p", this);
-  nlist.UsedList = MARK_USED;
-  nlist.CountDown = /*should set*/ 0;
-  nlist.AllocType = this;
-  nlist.RefCount = INIT_REFCOUNT;
 
-#ifdef _TESTCOUNT
-  LockInc(GetSuccessCount);
-#endif // _TESTCOUNT
-   
-__CATCH
-};
-
-UINT        CMemoryAlloc::FreeOneList(ADDR nlist)
-{
-  GetThreadMemoryInfo();
-
-__TRY
-#ifdef _TESTCOUNT
-  LockInc(FreeCount);
-#endif // _TESTCOUNT
-  __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
-	"FreeList Twice %p\n", nlist.pList);
-  nlist.UsedList = MARK_UNUSED;               // mark for unsed too
-  __DO_(info->memoryStack += nlist,
-	"Free More\n");
-#ifdef _TESTCOUNT
-  LockInc(FreeSuccessCount);
-#endif // _TESTCOUNT
-__CATCH
-};
 
 /*
  * need NOT lock, schedule thread will NOT change usedLocalStart, 
@@ -226,26 +174,12 @@ __CATCH
 UINT        CMemoryAlloc::DelMemoryBuffer(void)
 {
 __TRY__
-  printf("in munmap() \n\n\n");
+  printf("in munmap() \n");
   munmap (RealBlock.pVoid, TotalSize);
 __CATCH__
 };
 
-UINT        CMemoryAlloc::GetMemoryList(ADDR &nlist, UINT timeout)
-{
-__TRY
-  __DO (GetOneList(nlist))
-  if (TimeoutInit) AddToUsed(nlist, timeout);
-__CATCH
-};
 
-UINT        CMemoryAlloc::FreeMemoryList(ADDR nlist)
-{
-__TRY
-  if (TimeoutInit) nlist.CountDown = TIMEOUT_QUIT;
-  else __DO(FreeOneList(nlist))
-__CATCH
-};
 
 UINT        CMemoryAlloc::TimeoutAll(void)
 {

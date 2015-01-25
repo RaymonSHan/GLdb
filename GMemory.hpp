@@ -163,6 +163,9 @@ public:
  * if TimeoutInit = 0 means directly free.
  * if timeout in AddToUsed = 0, use TimeoutInit for timeout
  */
+
+#define     TIMEOUT_QUIT                        2
+
 typedef     class CMemoryAlloc : public RThreadResource {
 private:                                        // for total memory
   ADDR      RealBlock;                          // address for memory start
@@ -180,12 +183,63 @@ private:
   UINT      BufferSize;
 
 public:
-  CMemoryAlloc();
-  ~CMemoryAlloc();
+  CMemoryAlloc()
+  : RThreadResource(sizeof(threadMemoryInfo))
+  { 
+    RealBlock = (UINT)0;
+    TotalNumber = BorderSize = ArraySize = TotalSize = 0;
+    threadListStart = 0;
+
+#ifdef _TESTCOUNT
+    GetCount = GetSuccessCount = FreeCount = FreeSuccessCount = 0;
+#endif // _TESTCOUNT
+  };
+  ~CMemoryAlloc()
+  {
+    DelMemoryBuffer();
+  };
 
 private:
-  UINT      GetOneList(ADDR &nlist);
-  UINT      FreeOneList(ADDR nlist);
+  UINT       GetOneList(ADDR &nlist)
+  {
+    GetThreadMemoryInfo();
+
+  __TRY
+#ifdef _TESTCOUNT
+    LockInc(GetCount);
+#endif // _TESTCOUNT
+    __DO_(info->memoryStack -= nlist,
+	  "No more list CMemoryAlloc %p", this);
+    nlist.UsedList = MARK_USED;
+    nlist.CountDown = /*should set*/ 0;
+    nlist.AllocType = this;
+    nlist.RefCount = INIT_REFCOUNT;
+
+#ifdef _TESTCOUNT
+    LockInc(GetSuccessCount);
+#endif // _TESTCOUNT
+   
+  __CATCH
+  };
+
+  UINT        FreeOneList(ADDR nlist)
+  {
+    GetThreadMemoryInfo();
+
+  __TRY
+#ifdef _TESTCOUNT
+    LockInc(FreeCount);
+#endif // _TESTCOUNT
+    __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
+          "FreeList Twice %p\n", nlist.pList);
+    nlist.UsedList = MARK_UNUSED;               // mark for unsed too
+    __DO_(info->memoryStack += nlist,
+	"Free More\n");
+#ifdef _TESTCOUNT
+    LockInc(FreeSuccessCount);
+#endif // _TESTCOUNT
+  __CATCH
+};
   UINT      AddToUsed(ADDR nlist, UINT timeout);
   UINT      GetListGroup(ADDR &groupbegin, UINT number);
   UINT      FreeListGroup(ADDR &groupbegin, UINT number);
@@ -197,8 +251,40 @@ public:
   UINT      SetMemoryBuffer(UINT number, UINT size, 
 			    UINT border, UINT timeout);
   UINT      DelMemoryBuffer(void);
-  UINT      GetMemoryList(ADDR &nlist, UINT timeout = 0);
-  UINT      FreeMemoryList(ADDR nlist);
+
+  UINT        GetMemoryList(ADDR &nlist, UINT timeout = 0)
+  {
+    GetThreadMemoryInfo();
+  __TRY
+  //  __DO (GetOneList(nlist))
+    __DO_(info->memoryStack -= nlist,
+         "No more list CMemoryAlloc %p", this);
+    nlist.UsedList = MARK_USED;
+    nlist.CountDown = /*should set*/ 0;
+    nlist.AllocType = this;
+    nlist.RefCount = INIT_REFCOUNT;
+
+    if (TimeoutInit) AddToUsed(nlist, timeout);
+  __CATCH
+  };
+
+  UINT        FreeMemoryList(ADDR nlist)
+  {
+    GetThreadMemoryInfo();
+  __TRY
+    if (TimeoutInit) nlist.CountDown = TIMEOUT_QUIT;
+    else {
+      __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
+	    "FreeList Twice %p\n", nlist.pList);
+      nlist.UsedList = MARK_UNUSED;               // mark for unsed too
+      __DO_(info->memoryStack += nlist,
+	    "Free More\n");
+    }
+    //__DO(FreeOneList(nlist))
+  __CATCH
+  };
+
+
   UINT      TimeoutAll(void);
   UINT      GetNumber() { return TotalNumber; };
   
@@ -222,7 +308,7 @@ public:                                         // statistics info for debug
  * when used, countDown set to CurrentTime + Timeout. when FutureTime equal
  *   countDown, set countDown to TIMEOUT_QUIT
  */
-#define     TIMEOUT_QUIT                        2
+
 
 typedef     class CContextItem : public CListItem
 {

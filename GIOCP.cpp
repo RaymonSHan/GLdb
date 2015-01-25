@@ -63,18 +63,32 @@ void SetupSIG(int num, SigHandle func)
   sigemptyset (&sa.sa_mask);
   sa.sa_flags = SA_RESTART | SA_SIGINFO;
   sigaction(num, &sa, NULL);
-}
+};
 
 #define     THREAD_NUM                          1
 
 
+class TEST
+{
+private:
+  UINT a;
+public:
+  UINT b;
+public:
+  void SetA(UINT v) {a = v;};
+  void SetB(UINT v) {b = v;};
+  UINT *GetA(void) {return &a;};
+  UINT *GetB(void) {return &b;};
+};
+
+char testbuffer [sizeof(class TEST)*2];
 
 CMemoryAlloc globalMemory;
 EVENT globalWait;
 int         main(int, char**)
 {
   int status;
-  UINT i;
+  UINT i, j;
   ADDR addr;
   TIME rtime(CLOCK_MONOTONIC_RAW);
   struct timespec timestruct;
@@ -83,9 +97,32 @@ int         main(int, char**)
   SetupSIG(SIGILL, SIGSEGV_Handle);                             // sign 4
   SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
 
+  /* 
+
+  class TEST *classtest = (class TEST*)testbuffer;
+  rtime += &timestruct;
+  for (i=0; i<1000*1000*1000; i++) {
+    j = i*i - i/2;
+    classtest->SetA(j);
+  }
+  rtime += &timestruct;
+  for (i=0; i<1000*1000*1000; i++) {
+    j = i*i - i/2;
+    classtest->SetB(j);
+  }
+  rtime += &timestruct;
+  rtime.OutputTime();
+  PUINT ap, bp;
+  ap = classtest->GetA();
+  bp = classtest->GetB();
+
+  printf("ap %p, bp %p, *ap %lld, *bp %lld, sizoof %ld\n", ap, bp, *ap, *bp, sizeof(class TEST));
+  return 0;
+  */
 __TRY__
+
   class RThreadTest test[THREAD_NUM];
-  globalMemory.SetMemoryBuffer(1000, 4*1024, 64, 0);
+  globalMemory.SetMemoryBuffer(1000, 64, 64, 0);
   globalWait.InitArrayEvent();
 
   for (i=0; i<THREAD_NUM; i++) {
@@ -104,4 +141,4 @@ __TRY__
 
   rtime.OutputTime();
 __CATCH__
-}
+};
