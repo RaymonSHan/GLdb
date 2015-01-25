@@ -30,7 +30,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include    "GLdbIOCP.hpp"
+#include    "GIOCP.hpp"
 
 void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 {
@@ -45,8 +45,8 @@ void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 
   if (stack == erroraddr) {
     stack.pVoid = mmap (stack.pChar + PAD_THREAD_STACK, sizeof(threadTraceInfo), 
-			PROT_READ | PROT_WRITE,
-			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+  			PROT_READ | PROT_WRITE,
+  			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
   } else {
     printf("Got signal %d, faulty address is %p, from %llx\n Calling: \n",
 	   sig, info->si_addr, uc->uc_mcontext.gregs[REG_RIP]);
@@ -66,6 +66,8 @@ void SetupSIG(int num, SigHandle func)
 }
 
 #define     THREAD_NUM                          1
+
+
 
 CMemoryAlloc globalMemory;
 EVENT globalWait;
@@ -90,14 +92,12 @@ __TRY__
     test[i].ThreadClone(); 
   };
   usleep(100000);
-  printf("In main\n");
 
   rtime += &timestruct;
   for (i=0; i<THREAD_NUM; i++) 
     globalWait += addr;
 
   GlobalShouldQuit = 1;
-
   for (i=0; i<THREAD_NUM; i++)
     waitpid(-1, &status, __WCLONE);
   rtime += &timestruct;

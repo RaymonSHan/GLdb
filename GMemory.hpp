@@ -40,7 +40,7 @@
 #ifndef     GLdb_MEMORY_HPP
 #define     GLdb_MEMORY_HPP
 
-#include   "GLdbCommon.hpp"
+#include   "GCommon.hpp"
 
 /*
  * The function get memroy from system
@@ -105,7 +105,6 @@ public:
 #define     CountDown                            pList->countDown
 #define     AllocType                            pList->allocType
 #define     RefCount                             pList->refCount
-#define     FreeSelf                             pList->FreeListItem
 
 
 // return 0 for is equal

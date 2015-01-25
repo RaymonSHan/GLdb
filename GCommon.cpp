@@ -30,9 +30,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include    "GLdbCommon.hpp"
-#include    "GLdbMemory.hpp"
-#include    "GLdbIOCP.hpp"
+#include    "GCommon.hpp"
+#include    "GMemory.hpp"
+#include    "GIOCP.hpp"
 
 // Following in RThreadResource
 // for every RThreadResource to register, record the now offset in TLS
@@ -85,16 +85,3 @@ void __MESSAGE(INT level, const char * _Format, ...)
     displayTraceInfo(info);
   }
 };
-
-UINT        CListItem::DecRefCount(void)
-{
-  UINT      nowref = LockDec(refCount);         // old val return
-  if (nowref != INIT_REFCOUNT) return 0;
-__TRY
-  ADDR      addr;
-  addr.pList = this;
-  __DO(allocType->FreeMemoryList(addr));
-__CATCH
-};
-
-

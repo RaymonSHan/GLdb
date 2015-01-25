@@ -30,7 +30,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include    "GLdbMemory.hpp"
+#include    "GMemory.hpp"
 
 /*
  * In Linux, I get memory by mmap(), all memory are MAP_FIXED.
@@ -58,6 +58,18 @@ __TRY
        "Error stack place:%p", stack.pVoid);
 __CATCH
 };
+
+UINT        CListItem::DecRefCount(void)
+{
+  UINT      nowref = LockDec(refCount);         // old val return
+  if (nowref != INIT_REFCOUNT) return 0;
+__TRY
+  ADDR      addr;
+  addr.pList = this;
+  __DO(allocType->FreeMemoryList(addr));
+__CATCH
+};
+
 
 CMemoryAlloc::CMemoryAlloc() 
   : RThreadResource(sizeof(threadMemoryInfo))
@@ -179,8 +191,8 @@ UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
   GetThreadMemoryInfo();
 
 __TRY__
-  //  start.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
-  start.pAddr = &(info->localCache[0]);
+  start.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
+  //start.pAddr = &(info->localCache[0]);
   info->memoryStack.InitArrayStack(start, maxsize, SINGLE_THREAD,
 				   &globalStack, getsize, freesize);
   info->threadFlag = flag;
@@ -214,6 +226,7 @@ __CATCH
 UINT        CMemoryAlloc::DelMemoryBuffer(void)
 {
 __TRY__
+  printf("in munmap() \n\n\n");
   munmap (RealBlock.pVoid, TotalSize);
 __CATCH__
 };

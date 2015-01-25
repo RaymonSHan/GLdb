@@ -173,9 +173,9 @@ ADDR_OPERATION(||)
 /*
  * a binary-safe string type
  */
-#define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR)
-#define     CHAR_MIDDLE                         ((1<<8)-2*SIZEADDR)
-#define     CHAR_LARGE                          ((1<<11)-2*SIZEADDR)
+#define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR-1)
+#define     CHAR_MIDDLE                         ((1<<8)-2*SIZEADDR-1)
+#define     CHAR_LARGE                          ((1<<11)-2*SIZEADDR-1)
 
 typedef     class STRING
 {
@@ -201,7 +201,7 @@ public:
 #define     STRING_FUNCTION(classname, size)			\
   typedef   class classname : public STRING			\
   {								\
-  private:							\
+  public:							\
     UCHAR   string[size];					\
   public:							\
     void virtual operator = (STRING &one) {			\
@@ -215,7 +215,8 @@ public:
     };								\
     void virtual operator = (const PUCHAR pchar) {		\
       memcpy(string, pchar, sizeof(string));			\
-      STRING::operator = (pchar);				\
+      string[sizeof(string)] = 0;				\
+      STRING::operator = (string);				\
       return;							\
     };								\
     void virtual operator = (const PCHAR pchar) {		\
@@ -272,7 +273,7 @@ typedef     union SOCKADDR
   while(!CmpExg(&lock, NOT_IN_PROCESS, IN_PROCESS));
 #define   __LOCK__TRY(lock)		        	        \
   !CmpExg(&lock, NOT_IN_PROCESS, IN_PROCESS)
-#define   __FREE(lock)                                          \
+#define   __FREE(lock)	                			\
   lock = NOT_IN_PROCESS;
 
 
@@ -373,7 +374,7 @@ typedef     struct threadTraceInfo {
 		"subq %2, (%%rcx);"				\
 		:						\
 		: "i" (NEG_SIZE_THREAD_STACK),			\
-		"i" (PAD_THREAD_STACK),				\
+		  "i" (PAD_THREAD_STACK),			\
 		  "i" (sizeof(perTraceInfo))			\
 		: "%rcx", "%rdx");
 
@@ -428,7 +429,7 @@ typedef     struct threadTraceInfo {
     return #name; };                                      	\
   private:
 
-#define     setClassName()			               	\
+#define     setThreadName()			               	\
   getTraceInfo(threadInfo);					\
   threadInfo->threadName = (PUCHAR)getThreadName();
 
@@ -605,9 +606,10 @@ public:
   ADDR      arrayEnd;
   ADDR      arrayFree;                          // free local item store here
   RArrayStack *parentArray;
+  BOOL      singleThread;
   UINT      getSize;                            // size get from global
   UINT      freeSize;                           // will back to global if >
-  BOOL      singleThread;
+
 public:
   void      InitArrayStack(ADDR start, UINT number, BOOL singlethread = 0,
 			   RArrayStack *parent = 0, UINT getsize = 0, UINT freesize = 0)
@@ -617,9 +619,9 @@ public:
     arrayEnd = start + (number-1) * SIZEADDR;
     arrayFree = start + number * SIZEADDR;
     parentArray = parent;
+    singleThread = singlethread;
     getSize = getsize;
     freeSize = freesize;
-    singleThread = singlethread;
   };
   UINT      FullArrayStack(ADDR begin, UINT size)
   {
@@ -832,7 +834,7 @@ public:
     ADDR    diff;
     clock_gettime(timeType, timenow);
     diff = (timenow->tv_sec - timeStart.tv_sec) * NANO_SECOND 
-          + timenow->tv_nsec - timeStart.tv_nsec;
+         + timenow->tv_nsec - timeStart.tv_nsec;
     return timeQuery += diff;
   };
   UINT      operator -= (ADDR &addr)
@@ -845,7 +847,8 @@ public:
     UINT    i = 1;
     while (!(timeQuery -= timenext)) {
       printf("No. %2lld, time: %8lld, diff: %8f\n", 
-	     i++, timenext.aLong, ((double)(timenext - timelast))/(1000*1000));
+	     i++, timenext.aLong, 
+	     ((double)(timenext - timelast))/(1000*1000));
       timelast = timenext;
     };
   };

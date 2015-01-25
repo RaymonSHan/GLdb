@@ -69,8 +69,8 @@
 #ifndef     GLdb_IOCP_HPP
 #define     GLdb_IOCP_HPP
 
-#include    "GLdbCommon.hpp"
-#include    "GLdbMemory.hpp"
+#include    "GCommon.hpp"
+#include    "GMemory.hpp"
 
 
 /*
@@ -97,7 +97,7 @@ public:
   };
   ~RMultiEvent()
   {
-    if (eventFd) close(eventFd);
+    //    if (eventFd) close(eventFd);
   };
   UINT      InitArrayEvent()
   {
@@ -165,6 +165,7 @@ public:
     __DO (result.aLong);
     LockInc(GlobalThreadNumber);
     __DO (GetStack(threadStack));
+    sleep(1);
     __DO1(threadId,
 	  clone(&(RThread::RThreadFunc), 
 		threadStack.pChar + REAL_SIZE_THREAD_STACK,
@@ -176,12 +177,11 @@ public:
   __TRY
     RThread *thread = (RThread*) point;
     ADDR    result;
-
     result = thread->ThreadInit();
     __DO (ThreadStartEvent += result);
     __DO (result.aLong);
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
-      thread->ThreadDoing();
+   __DO (      thread->ThreadDoing() );
   __CATCH
   };
   virtual   UINT ThreadInit(void) = 0;
@@ -269,29 +269,30 @@ public:
   UINT      ThreadInit(void)
   {
   __TRY
-    setClassName();
+    setThreadName();
     __DO (globalMemory.SetThreadArea(4,8,4,0));
   __CATCH
   };
   UINT      ThreadDoing(void)
   {
   __TRY
-    QUERY_S mquery;
+    QUERY_s mquery;
     int i, j;
     ADDR    addr;
-
     globalWait -= addr;
-
-    for (j=0; j<1000*1000; j++) {
-      for (i=0; i<4; i++) {
-	__DO (globalMemory.GetMemoryList(addr));
-	__DO (mquery += addr);
-      }
-      while (!(mquery -= addr)) {
-     	if (addr.AllocType)
-	__DO (globalMemory.FreeMemoryList(addr));
-	  //     	  __DO (addr.AllocType->FreeMemoryList(addr));
-      }
+    for (j=0; j<1000*1000*25*4; j++) {
+      globalMemory.GetMemoryList(addr);
+      addr.pList->DecRefCount();
+      //      globalMemory.FreeMemoryList(addr);
+      // for (i=0; i<4; i++) {
+      // 	__DO (globalMemory.GetMemoryList(addr));
+      // 	__DO (mquery += addr);
+      // }
+      // while (!(mquery -= addr)) {
+      // 	if (addr.AllocType)
+      // 	__DO (globalMemory.FreeMemoryList(addr));
+      // 	  //     	  __DO (addr.AllocType->FreeMemoryList(addr));
+      // }
     }
   __CATCH
   };
