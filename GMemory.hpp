@@ -83,7 +83,15 @@ typedef     struct threadMemoryInfo {
 #define     MARK_MAX	                        (PLIST)0x100
 
 
+/*
+ * for NonDirectly free memory pool, link every used item by usedList
+ * when used, countDown set to CurrentTime + Timeout. when FutureTime equal
+ *   countDown, set countDown to TIMEOUT_QUIT
+ */
+#define     TIMEOUT_QUIT                        2
 #define     INIT_REFCOUNT                       0x100001
+
+
 /*
  * ATTENTION every CListItem, must set init value
  */
@@ -105,7 +113,6 @@ public:
 #define     CountDown                            pList->countDown
 #define     AllocType                            pList->allocType
 #define     RefCount                             pList->refCount
-
 
 // return 0 for is equal
 typedef     UINT(*FUNCCMP)(PLIST, ADDR);
@@ -155,6 +162,7 @@ public:
   };
 }LQUERY, *PLQUERY;
 
+
 /*
  * Memory Pool main class
  *
@@ -163,9 +171,6 @@ public:
  * if TimeoutInit = 0 means directly free.
  * if timeout in AddToUsed = 0, use TimeoutInit for timeout
  */
-
-#define     TIMEOUT_QUIT                        2
-
 typedef     class CMemoryAlloc : public RThreadResource {
 private:                                        // for total memory
   ADDR      RealBlock;                          // address for memory start
@@ -189,7 +194,6 @@ public:
     RealBlock = (UINT)0;
     TotalNumber = BorderSize = ArraySize = TotalSize = 0;
     threadListStart = 0;
-
 #ifdef _TESTCOUNT
     GetCount = GetSuccessCount = FreeCount = FreeSuccessCount = 0;
 #endif // _TESTCOUNT
@@ -214,14 +218,11 @@ private:
     nlist.CountDown = /*should set*/ 0;
     nlist.AllocType = this;
     nlist.RefCount = INIT_REFCOUNT;
-
 #ifdef _TESTCOUNT
     LockInc(GetSuccessCount);
 #endif // _TESTCOUNT
-   
   __CATCH
   };
-
   UINT        FreeOneList(ADDR nlist)
   {
     GetThreadMemoryInfo();
@@ -240,7 +241,7 @@ private:
 #endif // _TESTCOUNT
   __CATCH
 };
-  UINT      AddToUsed(ADDR nlist, UINT timeout);
+
   UINT      GetListGroup(ADDR &groupbegin, UINT number);
   UINT      FreeListGroup(ADDR &groupbegin, UINT number);
   UINT      CountTimeout(ADDR usedStart);
@@ -252,23 +253,29 @@ public:
 			    UINT border, UINT timeout);
   UINT      DelMemoryBuffer(void);
 
-  UINT        GetMemoryList(ADDR &nlist, UINT timeout = 0)
+  UINT      GetMemoryList(ADDR &nlist, UINT timeout = 0)
   {
     GetThreadMemoryInfo();
   __TRY
-  //  __DO (GetOneList(nlist))
     __DO_(info->memoryStack -= nlist,
          "No more list CMemoryAlloc %p", this);
     nlist.UsedList = MARK_USED;
-    nlist.CountDown = /*should set*/ 0;
     nlist.AllocType = this;
     nlist.RefCount = INIT_REFCOUNT;
-
-    if (TimeoutInit) AddToUsed(nlist, timeout);
+/*
+ * need NOT lock, schedule thread will NOT change usedLocalStart, 
+ * and NOT remove first node in UsedList, even countdowned.
+ */
+    if (TimeoutInit) {
+      if (!timeout) timeout = TimeoutInit;
+      nlist.CountDown = GlobalTime + timeout;       // it is timeout time
+      nlist.UsedList = info->localUsedList.pList;
+      info->localUsedList = nlist.pList;
+      return 0;
+    }
   __CATCH
   };
-
-  UINT        FreeMemoryList(ADDR nlist)
+  UINT      FreeMemoryList(ADDR nlist)
   {
     GetThreadMemoryInfo();
   __TRY
@@ -280,10 +287,8 @@ public:
       __DO_(info->memoryStack += nlist,
 	    "Free More\n");
     }
-    //__DO(FreeOneList(nlist))
   __CATCH
   };
-
 
   UINT      TimeoutAll(void);
   UINT      GetNumber() { return TotalNumber; };
@@ -304,12 +309,8 @@ public:                                         // statistics info for debug
 
 
 /*
- * for NonDirectly free memory pool, link every used item by usedList
- * when used, countDown set to CurrentTime + Timeout. when FutureTime equal
- *   countDown, set countDown to TIMEOUT_QUIT
+ * IOCP struct, for CompleteKey
  */
-
-
 typedef     class CContextItem : public CListItem
 {
 public:
@@ -321,6 +322,9 @@ public:
   PBUFF     pBuffer;
 }CONT;
 
+/*
+ * IOCP struct, for Overlapped
+ */
 typedef     class CBufferItem : public CListItem
 {
 public:
@@ -332,7 +336,5 @@ public:
   UCHAR     padData[CHAR_SMALL]; 
   UCHAR     bufferData[]; 
 }BUFF;
-
-
 
 #endif   // GLdb_MEMORY_HPP

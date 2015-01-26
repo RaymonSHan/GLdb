@@ -72,30 +72,11 @@ __CATCH
 
 
 
-
-
-
-
-
-/*
- * need NOT lock, schedule thread will NOT change usedLocalStart, 
- * and NOT remove first node in UsedList, even countdowned.
- */
-UINT        CMemoryAlloc::AddToUsed(ADDR nlist, UINT timeout)
-{
-  GetThreadMemoryInfo();
-  if (!timeout) timeout = TimeoutInit;
-  nlist.CountDown = GlobalTime + timeout;       // it is timeout time
-  nlist.UsedList = info->localUsedList.pList;
-  info->localUsedList = nlist.pList;
-  return 0;
-};
-
 // process from CMemoryAlloc::UsedItem or threadMemoryInfo::usedListStart
 // it will not change the in para, and do NOT remove first node even countdowned.
 UINT        CMemoryAlloc::CountTimeout(ADDR usedStart)
 {
-  static volatile INT inCountDown = NOT_IN_PROCESS;
+  static    volatile INT inCountDown = NOT_IN_PROCESS;
   ADDR      thisAddr, nextAddr;
 
 __TRY
@@ -136,6 +117,19 @@ UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
 {
   static LOCK lockList = NOT_IN_PROCESS;
   ADDR      start;
+
+/*
+ * THIS is a BUG for g++
+ *
+ * in default compile, without -O2, GetThreadMemoryInfo() will be compiled to following  
+    mov    -0x28(%rbp),%rax
+    mov    %rsp,%rax
+    and    $0xffffffffff000000,%rax
+    add    (%rax),%rax  --------  this means add -0x28(%rbp), $0xffffffffff000000 & %rax
+    mov    %rax,-0x8(%rbp)
+ * whick rax is be used for lea of nowOffset, and val of sp, so crash
+ * It cost me ten hours.
+ */
   GetThreadMemoryInfo();
 
 __TRY__

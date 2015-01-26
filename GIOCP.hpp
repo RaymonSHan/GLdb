@@ -275,12 +275,12 @@ public:
   };
   UINT      ThreadDoing(void)
   {
-  __TRY
+  __TRY__
     QUERY_s mquery;
-    int i, j;
+    int  j;
     ADDR    addr;
     globalWait -= addr;
-    for (j=0; j<1000*1000*25*4; j++) {
+    for (j=0; j<1000*1000*100; j++) {
       globalMemory.GetMemoryList(addr);
       addr.pList->DecRefCount();
       //      globalMemory.FreeMemoryList(addr);
@@ -294,8 +294,9 @@ public:
       // 	  //     	  __DO (addr.AllocType->FreeMemoryList(addr));
       // }
     }
-  __CATCH
+  __CATCH__
   };
 };
 
 #endif   // GLdb_IOCP_HPP
+

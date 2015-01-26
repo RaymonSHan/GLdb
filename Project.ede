@@ -11,5 +11,4 @@
     :auxsource '("GCommon.hpp" "GIOCP.hpp" "GMemory.hpp")
     )
    )
-  :makefile-type 'Makefile.am
   )
