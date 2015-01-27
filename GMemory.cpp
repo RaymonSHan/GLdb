@@ -36,7 +36,7 @@
  * In Linux, I get memory by mmap(), all memory are MAP_FIXED.
  * the top address match the border. 
  */
-UINT        GetMemory(ADDR &addr, UINT size, UINT flag) 
+RESULT      GetMemory(ADDR &addr, UINT size, UINT flag) 
 {
   static ADDR totalMemoryStart = {SEG_START_BUFFER};
   UINT      padsize;
@@ -50,7 +50,7 @@ __TRY
 __CATCH
 };
 
-UINT        GetStack(ADDR &stack) 
+RESULT      GetStack(ADDR &stack) 
 {
 __TRY
   __DO (GetMemory(stack, SIZE_THREAD_STACK - PAD_THREAD_STACK, MAP_GROWSDOWN));
@@ -59,22 +59,22 @@ __TRY
 __CATCH
 };
 
-UINT        CListItem::DecRefCount(void)
+RESULT      CListItem::decRefCount(void)
 {
   UINT      nowref = LockDec(refCount);         // old val return
   if (nowref != INIT_REFCOUNT) return 0;
+
 __TRY
   ADDR      addr;
   addr.pList = this;
-  __DO(allocType->FreeMemoryList(addr));
+  if (allocType) __DO(allocType->FreeMemoryList(addr));
 __CATCH
 };
 
 
-
 // process from CMemoryAlloc::UsedItem or threadMemoryInfo::usedListStart
-// it will not change the in para, and do NOT remove first node even countdowned.
-UINT        CMemoryAlloc::CountTimeout(ADDR usedStart)
+// it will not change the para, and do NOT remove first node even countdowned.
+RESULT      CMemoryBlock::CountTimeout(ADDR usedStart)
 {
   static    volatile INT inCountDown = NOT_IN_PROCESS;
   ADDR      thisAddr, nextAddr;
@@ -113,7 +113,7 @@ __TRY
 __CATCH
 };
 
-UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesize, UINT flag)
+RESULT      CMemoryBlock::SetThreadArea(UINT getsize, UINT maxsize, UINT freesize, UINT flag)
 {
   static LOCK lockList = NOT_IN_PROCESS;
   ADDR      start;
@@ -123,7 +123,7 @@ UINT        CMemoryAlloc::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
  *
  * in default compile, without -O2, GetThreadMemoryInfo() will be compiled to following  
     mov    -0x28(%rbp),%rax
-    mov    %rsp,%rax
+    mov    %rsp,%rax    --------  rax is useful, but overwrited
     and    $0xffffffffff000000,%rax
     add    (%rax),%rax  --------  this means add -0x28(%rbp), $0xffffffffff000000 & %rax
     mov    %rax,-0x8(%rbp)
@@ -149,7 +149,7 @@ __CATCH__
 /*
  * in one memory block, real data ahead, stack array at last.
  */
-UINT CMemoryAlloc::SetMemoryBuffer(UINT number, UINT size, UINT border, UINT timeout)
+RESULT      CMemoryBlock::InitMemoryBlock(UINT number, UINT size, UINT border, UINT timeout)
 {
 __TRY
   BorderSize = PAD_INT(size, 0, border);
@@ -165,7 +165,7 @@ __TRY
 __CATCH
 };
 
-UINT        CMemoryAlloc::DelMemoryBuffer(void)
+RESULT      CMemoryBlock::FreeMemoryBlock(void)
 {
 __TRY__
   printf("in munmap() \n");
@@ -173,9 +173,7 @@ __TRY__
 __CATCH__
 };
 
-
-
-UINT        CMemoryAlloc::TimeoutAll(void)
+RESULT      CMemoryBlock::TimeoutAll(void)
 {
 __TRY
   GlobalTime = time(NULL);
@@ -187,7 +185,7 @@ __TRY
 __CATCH
 };
 
-void        CMemoryAlloc::DisplayFree(void)
+void        CMemoryBlock::DisplayFree(void)
 {
   INT       freenumber = 0, num = 0;;
   threadMemoryInfo *list;
@@ -223,12 +221,47 @@ void        CMemoryAlloc::DisplayFree(void)
 #endif // _TESTCOUNT
 };
 
+/*
+ * Global Memory Function be called
+ */
+RESULT      GetContext(ADDR &addr, UINT timeout)
+{
+__TRY
+  __DO (GlobalContext.GetMemoryList(addr, timeout));
+  addr.AllocType = &GlobalContext;
+  addr.RefCount = INIT_REFCOUNT;
+__CATCH
+};
+
+RESULT      FreeContext(ADDR addr)
+{
+  return GlobalContext.FreeMemoryList(addr);
+};
+
+#define     BUFFER_FUNCTION(name)				\
+  RESULT    JOIN(Get,name)(ADDR &addr)				\
+  {								\
+  __TRY								\
+    __DO(JOIN(Global,name).GetMemoryList(addr, 0));		\
+    addr.AllocType = &JOIN(Global,name);		        \
+    addr.RefCount = INIT_REFCOUNT;				\
+ __CATCH						        \
+   };								\
+  RESULT    JOIN(Free,name)(ADDR addr)				\
+  {								\
+    return JOIN(Global,name).FreeMemoryList(addr);		\
+  }
+
+BUFFER_FUNCTION(BufferSmall)
+BUFFER_FUNCTION(BufferMiddle)
+
+
 #ifdef _TESTCOUNT
 
 #define PRINT_COLOR(p) printf("\e[0;%sm", p)
 #define RESTORE_COLOR printf("\e[0;37m")
 
-void CMemoryAlloc::DisplayLocal(threadMemoryInfo* info)
+void        CMemoryBlock::DisplayLocal(threadMemoryInfo* info)
 {
   ADDR list;
 
@@ -245,7 +278,7 @@ void CMemoryAlloc::DisplayLocal(threadMemoryInfo* info)
   RESTORE_COLOR;
 };
 
-void CMemoryAlloc::DisplayArray(void)
+void        CMemoryBlock::DisplayArray(void)
 {
   INT   i;
   threadMemoryInfo *list;
@@ -269,7 +302,7 @@ void CMemoryAlloc::DisplayArray(void)
   printf("\n");
 };
 
-void CMemoryAlloc::DisplayInfo(void)
+void        CMemoryBlock::DisplayInfo(void)
 {
   printf("Get  :%10lld, Succ:%10lld\n", GetCount, GetSuccessCount);
   printf("Free :%10lld, Succ:%10lld\n", FreeCount, FreeSuccessCount);
@@ -283,7 +316,7 @@ void CMemoryAlloc::DisplayInfo(void)
   }
 };
 
-void CMemoryAlloc::DisplayContext(void)
+void        CMemoryBlock::DisplayContext(void)
 {
   INT   i = 0;
   ADDR  nlist;

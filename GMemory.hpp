@@ -47,8 +47,8 @@
  */
 #define     SEG_START_BUFFER                    (0x52LL << 40)  // 'R'
 
-UINT        GetMemory(ADDR &addr, UINT size, UINT flag = 0);
-UINT        GetStack(ADDR &addr);
+RESULT      GetMemory(ADDR &addr, UINT size, UINT flag = 0);
+RESULT      GetStack(ADDR &addr);
 
 /*
  * TLS for memory pool
@@ -89,6 +89,7 @@ typedef     struct threadMemoryInfo {
  *   countDown, set countDown to TIMEOUT_QUIT
  */
 #define     TIMEOUT_QUIT                        2
+#define     TIMEOUT_TCP                         20
 #define     INIT_REFCOUNT                       0x100001
 
 
@@ -99,64 +100,66 @@ typedef     class CListItem {
 public:
   PLIST     usedList;                           // MUST be != MARK_UNUSED
   UINT      countDown;                          // MUST be time() will free
-  PALLOC    allocType;                          // MUST be PALLOC value
+  PBLOCK    allocType;                          // MUST be PBLOCK value
   UINT      refCount;                           // MUST be INIT_REFCOUNT, means 1 ref
 
-  void      IncRefCount(void)
+  void      incRefCount(void)
   {
     LockInc(refCount);
   };
-  UINT      DecRefCount(void);
+  RESULT    decRefCount(void);
 }LIST;
 
 #define     UsedList                             pList->usedList
 #define     CountDown                            pList->countDown
 #define     AllocType                            pList->allocType
 #define     RefCount                             pList->refCount
+#define     IncRefCount                          pList->incRefCount
+#define     DecRefCount                          pList->decRefCount
 
 // return 0 for is equal
-typedef     UINT(*FUNCCMP)(PLIST, ADDR);
+typedef     RESULT(*FUNCCMP)(ADDR, ADDR);
 
 typedef     class RListQuery {
 private:
   LOCK      inProcess;
-  PLIST     listStart;
+  ADDR      listStart;
   FUNCCMP   funcCmp;
 
 public:
-  void InitListQuery(void)
+  void      InitListQuery(void)
   {
     inProcess = NOT_IN_PROCESS;
-    listStart = NULL;
+    listStart = ZERO;
     funcCmp = NULL;
   };
   void      SetFuncCmp(FUNCCMP funccmp)
   {
     funcCmp = funccmp;
   };
-  void      operator += (PLIST list)
+  void      operator += (ADDR list)
   {
     __LOCK(inProcess);
-    list->usedList = listStart;
+    list = listStart;
     listStart = list;
     __FREE(inProcess);
   };
-  PLIST     operator == (ADDR addr)
+  ADDR      operator == (ADDR addr)
   {
-    PLIST nowlist = listStart;
-    while (nowlist) {
+    ADDR nowlist = listStart;
+    while (nowlist.aLong) {
       if (!(*funcCmp)(nowlist, addr)) break;
-      nowlist = nowlist->usedList;
+      nowlist = nowlist.UsedList;
     }
     return nowlist;
   };
-  void FreeListQuery(void)
+  void     FreeListQuery(void)
   {
-    PLIST   nowlist = listStart;
-    PLIST   nextlist;
-    while (nowlist) {
-      nextlist = nowlist->usedList;
-      nowlist-> DecRefCount();
+    ADDR   nowlist = listStart;
+    ADDR   nextlist;
+    while (nowlist.aLong) {
+      nextlist = nowlist.UsedList;
+      nowlist.DecRefCount();
       nowlist = nextlist;
     } 
   };
@@ -170,8 +173,11 @@ public:
  *
  * if TimeoutInit = 0 means directly free.
  * if timeout in AddToUsed = 0, use TimeoutInit for timeout
+ *
+ * for 1 thread, one GET/FREE circle about 45ns for all local
+ * for 4 thread, 4 circle in 4 core about 63ns for all local
  */
-typedef     class CMemoryAlloc : public RThreadResource {
+typedef     class CMemoryBlock : public RThreadResource {
 private:                                        // for total memory
   ADDR      RealBlock;                          // address for memory start
   UINT      BorderSize;                         // real byte size for one item
@@ -188,23 +194,18 @@ private:
   UINT      BufferSize;
 
 public:
-  CMemoryAlloc()
+  CMemoryBlock()
   : RThreadResource(sizeof(threadMemoryInfo))
   { 
-    RealBlock = (UINT)0;
+    RealBlock = ZERO;
     TotalNumber = BorderSize = ArraySize = TotalSize = 0;
     threadListStart = 0;
 #ifdef _TESTCOUNT
     GetCount = GetSuccessCount = FreeCount = FreeSuccessCount = 0;
 #endif // _TESTCOUNT
   };
-  ~CMemoryAlloc()
-  {
-    DelMemoryBuffer();
-  };
 
-private:
-  UINT       GetOneList(ADDR &nlist)
+  RESULT     GetOneList(ADDR &nlist)
   {
     GetThreadMemoryInfo();
 
@@ -214,16 +215,12 @@ private:
 #endif // _TESTCOUNT
     __DO_(info->memoryStack -= nlist,
 	  "No more list CMemoryAlloc %p", this);
-    nlist.UsedList = MARK_USED;
-    nlist.CountDown = /*should set*/ 0;
-    nlist.AllocType = this;
-    nlist.RefCount = INIT_REFCOUNT;
 #ifdef _TESTCOUNT
     LockInc(GetSuccessCount);
 #endif // _TESTCOUNT
   __CATCH
   };
-  UINT        FreeOneList(ADDR nlist)
+  RESULT      FreeOneList(ADDR nlist)
   {
     GetThreadMemoryInfo();
 
@@ -240,58 +237,52 @@ private:
     LockInc(FreeSuccessCount);
 #endif // _TESTCOUNT
   __CATCH
-};
-
-  UINT      GetListGroup(ADDR &groupbegin, UINT number);
-  UINT      FreeListGroup(ADDR &groupbegin, UINT number);
-  UINT      CountTimeout(ADDR usedStart);
+  };
+  RESULT    CountTimeout(ADDR usedStart);
 
 public:
-  UINT      SetThreadArea(UINT getsize, UINT maxsize,
+  RESULT    SetThreadArea(UINT getsize, UINT maxsize,
 			  UINT freesize, UINT flag);
-  UINT      SetMemoryBuffer(UINT number, UINT size, 
+  RESULT    InitMemoryBlock(UINT number, UINT size, 
 			    UINT border, UINT timeout);
-  UINT      DelMemoryBuffer(void);
+  RESULT    FreeMemoryBlock();
 
-  UINT      GetMemoryList(ADDR &nlist, UINT timeout = 0)
+  RESULT    GetMemoryList(ADDR &addr, UINT timeout = 0)
   {
     GetThreadMemoryInfo();
   __TRY
-    __DO_(info->memoryStack -= nlist,
+    __DO_(info->memoryStack -= addr,
          "No more list CMemoryAlloc %p", this);
-    nlist.UsedList = MARK_USED;
-    nlist.AllocType = this;
-    nlist.RefCount = INIT_REFCOUNT;
 /*
  * need NOT lock, schedule thread will NOT change usedLocalStart, 
  * and NOT remove first node in UsedList, even countdowned.
  */
     if (TimeoutInit) {
       if (!timeout) timeout = TimeoutInit;
-      nlist.CountDown = GlobalTime + timeout;       // it is timeout time
-      nlist.UsedList = info->localUsedList.pList;
-      info->localUsedList = nlist.pList;
-      return 0;
+      addr.CountDown = GlobalTime + timeout;       // it is timeout time
+      addr.UsedList = info->localUsedList.pList;
+      info->localUsedList = addr.pList;
     }
+    else  addr.UsedList = MARK_USED;
   __CATCH
   };
-  UINT      FreeMemoryList(ADDR nlist)
+  RESULT    FreeMemoryList(ADDR addr)
   {
     GetThreadMemoryInfo();
   __TRY
-    if (TimeoutInit) nlist.CountDown = TIMEOUT_QUIT;
+    if (TimeoutInit) addr.CountDown = TIMEOUT_QUIT;
     else {
-      __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
-	    "FreeList Twice %p\n", nlist.pList);
-      nlist.UsedList = MARK_UNUSED;               // mark for unsed too
-      __DO_(info->memoryStack += nlist,
+      __DO_((addr < MARK_MAX || addr.UsedList == MARK_UNUSED),
+	    "FreeList Twice %p\n", addr.pList);
+      addr.UsedList = MARK_UNUSED;               // mark for unsed too
+      __DO_(info->memoryStack += addr,
 	    "Free More\n");
     }
   __CATCH
   };
 
-  UINT      TimeoutAll(void);
-  UINT      GetNumber() { return TotalNumber; };
+  RESULT    TimeoutAll(void);
+  RESULT    GetNumber() { return TotalNumber; };
   
   void      DisplayFree(void);
 
@@ -305,36 +296,92 @@ public:                                         // statistics info for debug
   void      DisplayInfo(void);
   void      DisplayContext(void);
 #endif  // _TESTCOUNT
-}ALLOC;
+}BLOCK;
 
 
 /*
  * IOCP struct, for CompleteKey
  */
-typedef     class CContextItem : public CListItem
-{
+typedef     class CContextItem : public CListItem {
 public:
   int       bHandle;
   SOCKADDR  localSocket;
   SOCKADDR  remoteSocket;
   PCONT     pPeer;
-  PCONT     nextPeer;
+  LQUERY    nextPeer;
   PBUFF     pBuffer;
+  LQUERY    nextBuffer;
 }CONT;
 
 /*
  * IOCP struct, for Overlapped
  */
-typedef     class CBufferItem : public CListItem
-{
+#define     BUFFER_CLASS(classname, size)		        \
+  typedef   class classname : public CListItem {		\
+  public:							\
+    INT     nSize;						\
+    INT     nOper;						\
+    PUCHAR  realStart;						\
+    STR_S   bufferName;						\
+    UCHAR   padData[CHAR_SMALL];				\
+    UCHAR   bufferData[size];					\
+  }classname, *JOIN(P,classname);
+
+BUFFER_CLASS(BUFF_0, 0)
+BUFFER_CLASS(BUFF_S, SIZE_HUGE_PAGE-sizeof(BUFF_0)-SIZEADDR)
+BUFFER_CLASS(BUFF_M, SIZE_HUGE_PAGE*16-sizeof(BUFF_0)-SIZEADDR)
+
+#define     GlobalContext                       CMemoryAlloc::globalContext
+#define     GlobalBufferSmall                   CMemoryAlloc::globalBufferSmall
+#define     GlobalBufferMiddle                  CMemoryAlloc::globalBufferMiddle
+
+/*
+ * Global memory manager
+ *
+ * THere are only one instance of this class, in every program.
+ * all memory pool class get memory from this.
+ */
+typedef     class CMemoryAlloc  {
 public:
-  INT       nSize;
-  INT       nOper;
-  PUCHAR    realStart;
-  PBUFF     nextBuffer;
-  STR_S     bufferName;
-  UCHAR     padData[CHAR_SMALL]; 
-  UCHAR     bufferData[]; 
-}BUFF;
+  static    CMemoryBlock globalContext;
+  static    CMemoryBlock globalBufferSmall;
+  static    CMemoryBlock globalBufferMiddle;
+
+public:
+  RESULT    InitMemoryBlock(UINT numcontext,
+			    UINT numbuffersmall,
+			    UINT numbermiddle)
+  {
+  __TRY
+    __DO (globalContext.InitMemoryBlock
+	 (numcontext, sizeof(CONT), SIZE_CACHE, TIMEOUT_TCP));
+    __DO (globalBufferSmall.InitMemoryBlock
+	 (numbuffersmall, sizeof(BUFF_S), SIZE_NORMAL_PAGE, ZERO));
+    __DO (globalBufferMiddle.InitMemoryBlock
+	 (numbermiddle, sizeof(BUFF_M), SIZE_NORMAL_PAGE, ZERO));
+  __CATCH
+  };
+  RESULT    AppendMemoryBlock(BLOCK &block, UINT msize);
+  RESULT    FrreeMemoryBlock()
+  {
+  __TRY
+    __DO(globalContext.FreeMemoryBlock());
+    __DO(globalBufferSmall.FreeMemoryBlock());
+    __DO(globalBufferMiddle.FreeMemoryBlock());
+  __CATCH
+  };
+}MEMORY;
+
+
+RESULT      GetContext(ADDR &addr, UINT timeout = 0);
+RESULT      FreeContext(ADDR addr);
+
+#define     BUFFER_FUNCTION_DECLARE(name)			\
+  RESULT    JOIN(Get,name)(ADDR &addr);				\
+  RESULT    JOIN(Free,name)(ADDR addr);
+
+BUFFER_FUNCTION_DECLARE(BufferSmall)
+BUFFER_FUNCTION_DECLARE(BufferMiddle)
+
 
 #endif   // GLdb_MEMORY_HPP

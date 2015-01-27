@@ -83,7 +83,7 @@ typedef     union ADDR*                         PADDR;
 typedef     class CListItem*                    PLIST;
 typedef     class CContextItem*                 PCONT;
 typedef     class CBufferItem*                  PBUFF;
-typedef     class CMemoryAlloc*                 PALLOC;
+typedef     class CMemoryBlock*                 PBLOCK;
 
 #define    _TOSTRING(x)                         #x
 #define     TOSTRING(x)                        _TOSTRING(x)
@@ -95,6 +95,7 @@ typedef     class CMemoryAlloc*                 PALLOC;
  * I create this, for do C-style in C++. 
  */
 #define     SIZEADDR                            sizeof(ADDR)
+#define     ZERO                                ((UINT)0)
 
 #define     ADDR_SELF_OPERATION(op)				\
   void operator op (const UINT &one) {				\
@@ -624,7 +625,7 @@ public:
     getSize = getsize;
     freeSize = freesize;
   };
-  UINT      FullArrayStack(ADDR begin, UINT size)
+  RESULT      FullArrayStack(ADDR begin, UINT size)
   {
   __TRY
     __DO (arrayFree - arrayEnd != SIZEADDR);
@@ -668,7 +669,7 @@ public:
     }
     __FREE(inProcess);
   };
-  UINT      operator += (ADDR addr) 
+  RESULT    operator += (ADDR addr) 
   {
   __TRY
     if (!singleThread) __LOCK(inProcess);
@@ -682,7 +683,7 @@ public:
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
-  UINT      operator -= (ADDR &addr) 
+  RESULT    operator -= (ADDR &addr) 
   {
   __TRY
     if (!singleThread) __LOCK(inProcess);
@@ -703,8 +704,7 @@ public:
 }STACK, *PSTACK;
 
 #define     STACK_CLASS(classname, size, singlethread)		\
-  typedef   class classname : public RArrayStack		\
-  {								\
+  typedef   class classname : public RArrayStack  {		\
   private:							\
     ADDR    stackData[size + 1];				\
   public:							\
@@ -748,7 +748,7 @@ public:
     arrayEnd = start + number * SIZEADDR;
     singleThread = singlethread;
   };
-  UINT      operator += (ADDR addr)
+  RESULT    operator += (ADDR addr)
   {
   __TRY
     if (!singleThread) __LOCK(inProcess);
@@ -761,7 +761,7 @@ public:
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
-  UINT      operator -= (ADDR &addr)
+  RESULT    operator -= (ADDR &addr)
   {
   __TRY
     ADDR    freeend;
@@ -786,8 +786,7 @@ public:
 }QUERY, *PQUERY;
 
 #define     QUERY_CLASS(classname, size, singlethread)		\
-  typedef   class classname : public RArrayQuery		\
-  {								\
+  typedef   class classname : public RArrayQuery {		\
   private:							\
     ADDR    queryData[size + 1];				\
   public:							\
@@ -817,8 +816,7 @@ QUERY_CLASS(QUERY_l, LIST_LARGE, SINGLE_THREAD)
 #define     NANO_SECOND                         (1000 * 1000 * 1000)
 
 
-typedef     class RArrayTime
-{
+typedef     class RArrayTime {
 private:
   clockid_t timeType;
   QUERY_m   timeQuery;
@@ -830,7 +828,7 @@ public:
     timeType = timetype;
     clock_gettime(timeType, &timeStart);
   };
-  UINT      operator += (struct timespec *timenow)
+  RESULT    operator += (struct timespec *timenow)
   {
     ADDR    diff;
     clock_gettime(timeType, timenow);
@@ -838,7 +836,7 @@ public:
          + timenow->tv_nsec - timeStart.tv_nsec;
     return timeQuery += diff;
   };
-  UINT      operator -= (ADDR &addr)
+  RESULT    operator -= (ADDR &addr)
   {
     return timeQuery -= addr;
   };

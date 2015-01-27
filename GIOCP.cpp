@@ -32,7 +32,7 @@
 
 #include    "GIOCP.hpp"
 
-void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
+void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 {
   ADDR  stack, erroraddr;
   ucontext_t *uc = (ucontext_t *)secret;
@@ -55,7 +55,7 @@ void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
     exit(-1);
   }
 }
-void SetupSIG(int num, SigHandle func)
+void        SetupSIG(int num, SigHandle func)
 {
   struct sigaction sa;
  
@@ -65,16 +65,51 @@ void SetupSIG(int num, SigHandle func)
   sigaction(num, &sa, NULL);
 };
 
-#define     THREAD_NUM                          4
+MEMORY      GlobalMemory;
+EVENT       GlobalWait;
 
-CMemoryAlloc globalMemory;
-EVENT globalWait;
+RESULT    RThreadTest::ThreadInit(void)
+{
+__TRY
+  setThreadName();
+  __DO (GlobalBufferSmall.SetThreadArea(4,8,4,0));
+__CATCH
+};
+RESULT    RThreadTest::ThreadDoing(void)
+{
+__TRY
+  QUERY_s mquery;
+  int  j;
+  ADDR    addr;
+  /*
+   * Should NOT use Globalxx function, for it NOT initialize number
+   * Freexx and DecRefCount are same. but for better habit,
+   * use Get/Free for pair, and IncRefCount/DecRefCount in pair
+   */
+  GlobalWait -= addr;
+  for (j=0; j<1000*1000*100; j++) {
+    //   __DO_(GlobalBufferSmall.GetMemoryList(addr), "NOT GET\n");
+    __DO_(GetBufferSmall(addr), "NOT GET\n");
+
+    //   __DO_(GlobalBufferSmall.FreeMemoryList(addr), "NOT FREE\n");
+    __DO_(FreeBufferSmall(addr), "NOT FREE\n");
+    //   __DO_(addr.DecRefCount(), "NOT FREE\n");
+  }
+__CATCH
+}
+
+#define     NUMBER_CONTEXT                      5
+#define     NUMBER_BUFFER_SMALL                 10
+#define     NUMBER_BUFFER_MIDDLE                2
+
+#define     THREAD_NUM                          1
+
 int         main(int, char**)
 {
-  int status;
-  UINT i;
-  ADDR addr;
-  TIME rtime(CLOCK_MONOTONIC_RAW);
+  int       status;
+  UINT      i;
+  ADDR      addr;
+  TIME      rtime(CLOCK_MONOTONIC_RAW);
   struct timespec timestruct;
 
   SetupSIG(SIGSEGV, SIGSEGV_Handle);                            // sign 11
@@ -82,19 +117,21 @@ int         main(int, char**)
   SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
 
 __TRY__
-
   class RThreadTest test[THREAD_NUM];
-  globalMemory.SetMemoryBuffer(1000, 64, 64, 0);
-  globalWait.InitArrayEvent();
+  GlobalMemory.InitMemoryBlock(NUMBER_CONTEXT,
+			       NUMBER_BUFFER_SMALL,
+			       NUMBER_BUFFER_MIDDLE);
+  GlobalWait.InitArrayEvent();
 
   for (i=0; i<THREAD_NUM; i++) {
     test[i].ThreadClone(); 
   };
-  usleep(1000);
+  usleep(10000);
 
   rtime += &timestruct;
   for (i=0; i<THREAD_NUM; i++) 
-    globalWait += addr;
+    GlobalWait += addr;
+  usleep(10000);
 
   GlobalShouldQuit = 1;
   for (i=0; i<THREAD_NUM; i++)
@@ -102,5 +139,8 @@ __TRY__
   rtime += &timestruct;
 
   rtime.OutputTime();
+  GlobalWait.FreeArrayEvent();
+  GlobalMemory.FrreeMemoryBlock();
+  
 __CATCH__
 };

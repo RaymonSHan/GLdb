@@ -48,6 +48,11 @@ volatile    UINT GlobalShouldQuit             = 0;
 // sequence thread initialized order
 EVENT       ThreadStartEvent;
 
+// Following in CMemoryAlloc, list for all memory pool
+BLOCK       GlobalContext;
+BLOCK       GlobalBufferSmall;
+BLOCK       GlobalBufferMiddle;
+
 INT StrCmp(STRING &one, STRING &two)
 {
   INT onelen, twolen, shortlen, shortlen8, i;

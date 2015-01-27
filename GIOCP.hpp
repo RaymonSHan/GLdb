@@ -99,14 +99,19 @@ public:
   {
     //    if (eventFd) close(eventFd);
   };
-  UINT      InitArrayEvent()
+  RESULT    InitArrayEvent()
   {
   __TRY
     __DO1(eventFd,
 	  eventfd(0, EFD_SEMAPHORE));
   __CATCH
   };
-  UINT      operator += (ADDR addr)
+  RESULT    FreeArrayEvent()
+  {
+    if (eventFd) close(eventFd);
+    return 0;
+  };
+  RESULT    operator += (ADDR addr)
   {
   __TRY
     ADDR    WRITEADDR = {1};
@@ -116,7 +121,7 @@ public:
 	  write(eventFd, &WRITEADDR, SIZEADDR));
   __CATCH
   };
-  UINT      operator -= (ADDR &addr)
+  RESULT    operator -= (ADDR &addr)
   {
   __TRY
     ADDR    READADDR;
@@ -156,20 +161,20 @@ public:
   {
     shouldQuit = 0;
   };
-  UINT      ThreadClone(void)
+  RESULT    ThreadClone(void)
   {
   __TRY
     ADDR    result = {0};
     if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
     else ThreadStartEvent.InitArrayEvent();
-    __DO (result.aLong);
+    __DO_(result.aLong, "GlobalEvent Initialize Error\n");
     LockInc(GlobalThreadNumber);
-    __DO (GetStack(threadStack));
-    sleep(1);
-    __DO1(threadId,
-	  clone(&(RThread::RThreadFunc), 
-		threadStack.pChar + REAL_SIZE_THREAD_STACK,
-		CLONE_VM | CLONE_FILES, this));
+    __DO_(GetStack(threadStack), "Stack Initialize Error\n");
+    __DO1_(threadId,
+	   clone(&(RThread::RThreadFunc), 
+		 threadStack.pChar + REAL_SIZE_THREAD_STACK,
+		 CLONE_VM | CLONE_FILES, this),
+	   "Thread Clone Error\n");
   __CATCH
   };
   static    int RThreadFunc(void* point)
@@ -178,45 +183,42 @@ public:
     RThread *thread = (RThread*) point;
     ADDR    result;
     result = thread->ThreadInit();
-    __DO (ThreadStartEvent += result);
-    __DO (result.aLong);
+    __DO_ (ThreadStartEvent += result, "Set GlobalEvent Error\n");
+    __DO_ (result.aLong, "Thread Initialize Error\n");
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
-   __DO (      thread->ThreadDoing() );
+      __DOc_ (thread->ThreadDoing(), "Thread Doing Error\n");
   __CATCH
   };
-  virtual   UINT ThreadInit(void) = 0;
-  virtual   UINT ThreadDoing(void) = 0;
+  virtual   RESULT ThreadInit(void) = 0;
+  virtual   RESULT ThreadDoing(void) = 0;
 
 }THREAD;
 
 /*
  * The thread wait for epoll in GLdbIOCP
  * 
- * acceptBuffer only for AcceptEx use, There are only one buffer for PostReceive per socket,
- *   but there are multi buffer for PostAccept per socket. There is a lazy way, for
- *   I use same STACK for all listening.
+ * RThreadEpoll should be the last thread be init
  */
 __class_    (RThreadEpoll, RThread)
 private:
   int       epollHandle;
-  STACK     acceptBuffer;
 
 public:
   RThreadEpoll()
   {
     epollHandle = 0;
   };
-  UINT      ThreadInit(void)
+  RESULT    ThreadInit(void)
   { 
   __TRY
     __DO1_(epollHandle, epoll_create(1), "Error in create epoll");
   __CATCH
   };
-  UINT      ThreadDoing(void)
+  RESULT    ThreadDoing(void)
   {
     return 0;
   };
-  UINT      CreateListen(SOCKADDR /*addr*/)
+  RESULT    CreateListen(SOCKADDR /*addr*/)
   {
   __TRY__
   // int   evNumber, i;
@@ -254,48 +256,16 @@ typedef     class GLdbIOCP
 /*
  * Following line is for test, not request for other application
  */
-extern CMemoryAlloc globalMemory;
-extern EVENT globalWait;
 
-typedef void SigHandle(int, siginfo_t *, void *);
-void SIGSEGV_Handle(int sig, siginfo_t *info, void *secret);
-void SetupSIG(int num, SigHandle func);
+typedef     void SigHandle(int, siginfo_t *, void *);
+void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret);
+void        SetupSIG(int num, SigHandle func);
 
 __class_    (RThreadTest, RThread)
 public:
 
-public:
-
-  UINT      ThreadInit(void)
-  {
-  __TRY
-    setThreadName();
-    __DO (globalMemory.SetThreadArea(4,8,4,0));
-  __CATCH
-  };
-  UINT      ThreadDoing(void)
-  {
-  __TRY__
-    QUERY_s mquery;
-    int  j;
-    ADDR    addr;
-    globalWait -= addr;
-    for (j=0; j<1000*1000*100; j++) {
-      globalMemory.GetMemoryList(addr);
-      addr.pList->DecRefCount();
-      //      globalMemory.FreeMemoryList(addr);
-      // for (i=0; i<4; i++) {
-      // 	__DO (globalMemory.GetMemoryList(addr));
-      // 	__DO (mquery += addr);
-      // }
-      // while (!(mquery -= addr)) {
-      // 	if (addr.AllocType)
-      // 	__DO (globalMemory.FreeMemoryList(addr));
-      // 	  //     	  __DO (addr.AllocType->FreeMemoryList(addr));
-      // }
-    }
-  __CATCH__
-  };
+  RESULT    ThreadInit(void);
+  RESULT    ThreadDoing(void);
 };
 
 #endif   // GLdb_IOCP_HPP
