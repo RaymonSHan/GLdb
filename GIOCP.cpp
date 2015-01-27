@@ -32,6 +32,42 @@
 
 #include    "GIOCP.hpp"
 
+MEMORY      GlobalMemory;
+EVENT       GlobalWait;
+IOCP        GlobalIOCP;
+
+/*
+ * return -1 for NOT socket, return >0 is listening, return 0 is not.
+ */
+int         isListeningSocket(HANDLE handle)
+{
+  int       val;
+  int       result;
+  socklen_t len = sizeof(val);
+  result = getsockopt(handle, SOL_SOCKET, SO_ACCEPTCONN, &val, &len);
+  if (result == -1) return result;
+  else return val;
+};
+
+
+HANDLE      CreateIoCompletionPort(HANDLE       FileHandle,
+				   HANDLE       ExistingCompletionPort,
+				   ULONG_PTR    CompletionKey,
+				   DWORD        NumberOfConcurrentThreads)
+{
+  (void)NumberOfConcurrentThreads;
+__TRY
+  ADDR      addr;
+  if (!FileHandle && !ExistingCompletionPort && !CompletionKey) {
+    __DO_(GlobalIOCP.GetIOCPItem(addr), "Errorr in Create IOCP handle\n");
+    return ADDR_TO_IOCPHANDLE(addr);
+  }
+__CATCH_BEGIN
+  endCall();                                    // function returrn 0 for error
+  return 0;
+__CATCH_END
+}
+
 void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 {
   ADDR  stack, erroraddr;
@@ -65,8 +101,6 @@ void        SetupSIG(int num, SigHandle func)
   sigaction(num, &sa, NULL);
 };
 
-MEMORY      GlobalMemory;
-EVENT       GlobalWait;
 
 RESULT    RThreadTest::ThreadInit(void)
 {
@@ -122,6 +156,7 @@ __TRY__
 			       NUMBER_BUFFER_SMALL,
 			       NUMBER_BUFFER_MIDDLE);
   GlobalWait.InitArrayEvent();
+  GlobalIOCP.InitGLdbIOCP();
 
   for (i=0; i<THREAD_NUM; i++) {
     test[i].ThreadClone(); 
@@ -139,6 +174,7 @@ __TRY__
   rtime += &timestruct;
 
   rtime.OutputTime();
+  GlobalIOCP.FreeGLdbIOCP();
   GlobalWait.FreeArrayEvent();
   GlobalMemory.FrreeMemoryBlock();
   

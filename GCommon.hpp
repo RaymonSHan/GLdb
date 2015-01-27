@@ -75,15 +75,61 @@ typedef     signed char*                        PCHAR;
 typedef     unsigned char*                      PUCHAR;
 typedef     signed long long int*               PINT;
 typedef     unsigned long long int*             PUINT;
-typedef     void*                               PVOID;
 typedef     signed long long int*               PMONEY;
 typedef     volatile long long int*             PLOCK;
+typedef     void*                               PVOID;
 
 typedef     union ADDR*                         PADDR;
 typedef     class CListItem*                    PLIST;
 typedef     class CContextItem*                 PCONT;
 typedef     class CBufferItem*                  PBUFF;
 typedef     class CMemoryBlock*                 PBLOCK;
+
+/*
+ * typedef for IOCP, compatible with Windows
+ */
+#define     WSADESCRIPTION_LEN                  256             // NOT know
+#define     WSASYS_STATUS_LEN                   16              // NOT know
+
+typedef     unsigned short                      WORD;
+typedef     int                                 HANDLE;
+typedef     int*                                PHANDLE;
+typedef     int                                 SOCKET;
+typedef     int*                                PSOCKET;
+typedef     unsigned int*                       ULONG_PTR;
+typedef     unsigned int**                      PULONG_PTR;     // NOT sure
+typedef     unsigned int                        DWORD;
+typedef     unsigned int*                       LPDWORD;
+typedef     void*                               LPWSAPROTOCOL_INFO;
+typedef     int                                 GROUP;
+typedef     void*                               LPWSAOVERLAPPED_COMPLETION_ROUTINE;
+
+typedef     struct WSAData {
+  WORD      wVersion;
+  WORD      wHighVersion;
+  char      szDescription[WSADESCRIPTION_LEN+1];
+  char      szSystemStatus[WSASYS_STATUS_LEN+1];
+  WORD      iMaxSockets;
+  WORD      iMaxUdpDg;
+  char     *lpVendorInfo;
+}WSADATA, *LPWSADATA;
+typedef     struct __WSABUF {
+  u_long    len;
+  char     *buf;
+}WSABUF, *LPWSABUF;
+typedef     struct _WSAOVERLAPPED {
+  ULONG_PTR Internal;
+  ULONG_PTR InternalHigh;
+  union {
+    struct {
+      DWORD Offset;
+      DWORD OffsetHigh;
+    };
+    PVOID   Pointer;
+  };
+  HANDLE    hEvent;
+}WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED;
+
 
 #define    _TOSTRING(x)                         #x
 #define     TOSTRING(x)                        _TOSTRING(x)
@@ -490,7 +536,7 @@ error_stop:							\
 
 #define     MESSAGE_DEBUG                       0x0001
 #define     MESSAGE_ERROR                       0x0002
-#define     MESSAGE_HALT                        0x0004
+#define     MESSAGE_HALT                        0x0004number
 
 void      __MESSAGE(INT level, const char * _Format, ...);
 

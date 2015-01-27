@@ -305,6 +305,8 @@ public:                                         // statistics info for debug
 typedef     class CContextItem : public CListItem {
 public:
   int       bHandle;
+  int       iocpHandle;                         // eventfd handle bind for user
+  ULONG_PTR completionKey;                      // user key for the socket
   SOCKADDR  localSocket;
   SOCKADDR  remoteSocket;
   PCONT     pPeer;

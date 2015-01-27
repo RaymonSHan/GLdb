@@ -9,13 +9,14 @@
  * In my logic, epoll will received data order error, if multi-thread epoll_wait() 
  *   same socket, whether LT or ET; but IOCP will not, if you post only one buffer for
  *   receive, but multi-thread wait complete.
- * In GLdb, an IOCP handle assembled by an epoll handle and two buffered eventfd.
+ * In GLdb, IOCP system assembled by three epoll handle and one buffered eventfd.
  *   Buffered eventfd means : eventfd work on EFD_SEMAPHORE mode with an array to
  *   storage value. The array is small, for when system is busy, should tell client
  *   explicitly, instead of make system more busy.
- * In GLdbIOCP, there are two thread wait for epoll and one eventfd. All application
- *   wait for another eventfd, act as IOCP handle.
- * Every socket handle seem by application is ADDR of CContextItem, with really
+ * In GLdbIOCP, there are three thread wait for epoll accept, read & write.
+ *   and one thread wait eventfd. Each IOCP handle is another eventfd. 
+ *   Application wait for it.
+ * Every socket handle wait epoll, with ev.u64 for a CContextItem struct, with really
  *   handle and a received buffer pointer.
  *
  * for READ :
@@ -71,6 +72,49 @@
 
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
+
+int         isListeningSocket(HANDLE handle);
+
+
+int         WSAStartup(WORD     wVersionRequested, 
+		       LPWSADATA lpWSAData);
+int         WSACleanup(void);
+SOCKET      WSASocket(int       af, 
+		      int       type, 
+		      int       protocol,
+		      LPWSAPROTOCOL_INFO  lpProtocolInfo, 
+		      GROUP     g, 
+		      DWORD     dwFlags);
+/* If the ExistingCompletionPort parameter was a valid I/O completion port handle, 
+   the return value is that same handle.*/
+HANDLE      CreateIoCompletionPort(HANDLE       FileHandle,
+				   HANDLE       ExistingCompletionPort,
+				   ULONG_PTR    CompletionKey,
+				   DWORD        NumberOfConcurrentThreads);
+BOOL        GetQueuedCompletionStatus(HANDLE    CompletionPort,
+				      LPDWORD   lpNumberOfBytes,
+				      PULONG_PTR lpCompletionKey,
+				      LPOVERLAPPED *lpOverlapped,
+				      DWORD     dwMilliseconds);
+BOOL        PostQueuedCompletionStatus(HANDLE   CompletionPort,
+				       DWORD    dwNumberOfBytesTransferred,
+				       ULONG_PTR dwCompletionKey,
+				       LPOVERLAPPED lpOverlapped);
+
+int         WSASend(SOCKET      s, 
+		    LPWSABUF    lpBuffers, 
+		    DWORD       dwBufferCount, 
+		    LPDWORD     lpNumberOfBytesSent, 
+		    DWORD       dwFlags, 
+		    LPWSAOVERLAPPED     lpOverlapped, 
+		    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
+int         WSARecv(SOCKET      s,
+                    LPWSABUF    lpBuffers,
+                    DWORD       dwBufferCount,
+                    LPDWORD     lpNumberOfBytesRecvd,
+                    LPDWORD     lpFlags,
+                    LPWSAOVERLAPPED     lpOverlapped,
+                    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
 
 
 /*
@@ -197,14 +241,15 @@ public:
 /*
  * The thread wait for epoll in GLdbIOCP
  * 
- * RThreadEpoll should be the last thread be init
+ * There are three thread work for epoll, each for accept, read, write
+ * RThreadEpollAccept should be the last thread be init
  */
-__class_    (RThreadEpoll, RThread)
+__class_    (RThreadEpollAccept, RThread)
 private:
-  int       epollHandle;
+int       epollHandle;
 
 public:
-  RThreadEpoll()
+  RThreadEpollAccept()
   {
     epollHandle = 0;
   };
@@ -248,8 +293,67 @@ public:
   };
 };
 
-typedef     class GLdbIOCP
-{
+/*
+ * GLdb always use static memory, 63 is enough for any application
+ *
+ * GLdbIOCP has only one instance
+ */
+#define     IOCPBaseAddress                     GLdbIOCP::iocpBaseAddress
+
+#define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
+
+/*
+ * HANDLE is 32bit, address is 64bit. 
+ * high byte of IOCP handle is 'C', low three byte is offset of iocpHandle[i]
+ *   to handleBaseAddress, in char size.
+ */
+#define     ADDR_TO_IOCPHANDLE(addr)		                \
+  ((int)(addr - IOCPBaseAddress) + (int)('C'<<24))
+
+#define     IOCPHANDLE_TO_ADDR(handle)		                \
+  (handleBaseAddress + ((UINT)(handle & 0xffffff)))
+
+typedef     class GLdbIOCP {
+private:
+  EVENT     iocpHandle[NUMBER_MAX_IOCP];
+  QUERY_M   iocpHandleFree;
+  QUERY_M   iocpHandleUsed;
+public:
+  static    ADDR iocpBaseAddress;
+
+public:
+  RESULT    InitGLdbIOCP()
+  {
+    int     i;
+    ADDR    addr;
+    for (i=0; i<NUMBER_MAX_IOCP; i++) {
+      addr = (PVOID)&(iocpHandle[i]);
+      iocpHandleFree += addr;
+    }
+    iocpBaseAddress = (PVOID)&(iocpHandle[0]);
+    return 0;
+  };
+  RESULT    FreeGLdbIOCP()
+  {
+    ADDR    addr;
+    PEVENT  pevent;
+    while (!(iocpHandleUsed -= addr)) {
+      pevent = (PEVENT)(addr.pVoid);
+      pevent->FreeArrayEvent();
+    }
+    return 0;
+  };
+  RESULT    GetIOCPItem(ADDR &addr)
+  {
+  __TRY
+    PEVENT  pevent;
+    __DO (iocpHandleFree -= addr);
+    __DO (iocpHandleUsed += addr);
+    pevent = (PEVENT)(addr.pVoid);
+
+    __DO (pevent->InitArrayEvent());
+  __CATCH
+  };
 }IOCP;
 
 
@@ -263,7 +367,6 @@ void        SetupSIG(int num, SigHandle func);
 
 __class_    (RThreadTest, RThread)
 public:
-
   RESULT    ThreadInit(void);
   RESULT    ThreadDoing(void);
 };
