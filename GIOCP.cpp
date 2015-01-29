@@ -62,10 +62,25 @@ __TRY
     __DO_(GlobalIOCP.GetIOCPItem(addr), "Errorr in Create IOCP handle\n");
     return ADDR_TO_IOCPHANDLE(addr);
   }
-__CATCH_BEGIN
-  endCall();                                    // function returrn 0 for error
-  return 0;
-__CATCH_END
+__CATCH_1                                        // function returrn 0 for error
+}
+
+/*
+ * ATTENTION: dwMilliseconds is igrone, for eventfd hove no timeout
+ *            and in my IOCP, it always set to INFINITE.
+ */
+BOOL        GetQueuedCompletionStatus(HANDLE    CompletionPort,
+				      LPDWORD   lpNumberOfBytes,
+				      PULONG_PTR lpCompletionKey,
+				      LPOVERLAPPED *lpOverlapped,
+				      DWORD     dwMilliseconds)
+{
+__TRY
+  ADDR      iocpHandle;
+  __DO_(dwMilliseconds != INFINITE, "NO timeout for GetQueuedCompletionStatus now!\n");
+  iocpHandle = IOCPHANDLE_TO_ADDR(CompletionPort);
+
+__CATCH_1                                        // function returrn 0 for error
 }
 
 void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)

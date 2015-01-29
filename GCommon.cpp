@@ -56,7 +56,6 @@ BLOCK       GlobalBufferMiddle;
 // Following in GLdbIOCP
 ADDR        IOCPBaseAddress;
 
-
 INT StrCmp(STRING &one, STRING &two)
 {
   INT onelen, twolen, shortlen, shortlen8, i;

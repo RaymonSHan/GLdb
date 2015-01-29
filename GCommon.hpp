@@ -84,20 +84,24 @@ typedef     class CListItem*                    PLIST;
 typedef     class CContextItem*                 PCONT;
 typedef     class CBufferItem*                  PBUFF;
 typedef     class CMemoryBlock*                 PBLOCK;
+typedef     class RMultiEvent*                  PEVENT;
 
 /*
  * typedef for IOCP, compatible with Windows
  */
 #define     WSADESCRIPTION_LEN                  256             // NOT know
 #define     WSASYS_STATUS_LEN                   16              // NOT know
+#define     INFINITE                            (DWORD)(-1)
+
+#define     ULONG_PTR                           PVOID           // 64bit
 
 typedef     unsigned short                      WORD;
 typedef     int                                 HANDLE;
 typedef     int*                                PHANDLE;
 typedef     int                                 SOCKET;
 typedef     int*                                PSOCKET;
-typedef     unsigned int*                       ULONG_PTR;
-typedef     unsigned int**                      PULONG_PTR;     // NOT sure
+//typedef     unsigned int*                       ULONG_PTR;      // 64bit in 64bit
+typedef     unsigned int**                      PULONG_PTR;
 typedef     unsigned int                        DWORD;
 typedef     unsigned int*                       LPDWORD;
 typedef     void*                               LPWSAPROTOCOL_INFO;
@@ -115,11 +119,13 @@ typedef     struct WSAData {
 }WSADATA, *LPWSADATA;
 typedef     struct __WSABUF {
   u_long    len;
-  char     *buf;
+  PUCHAR    buf;                                // old type is char*
 }WSABUF, *LPWSABUF;
 typedef     struct _WSAOVERLAPPED {
-  ULONG_PTR Internal;
-  ULONG_PTR InternalHigh;
+  PCONT     Internal;                           // in linux for addr of CContextItem
+                                                //   old type is ULONG_PTR
+  LPWSABUF  InternalHigh;                       // in linux for addr of wsabuf,
+                                                //   old type is ULONG_PTR
   union {
     struct {
       DWORD Offset;
@@ -128,6 +134,8 @@ typedef     struct _WSAOVERLAPPED {
     PVOID   Pointer;
   };
   HANDLE    hEvent;
+  UINT      events;                             // this is added for saving one thread
+  UINT      doneSize;                           // this is added for record readed&writed
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED;
 
 
@@ -524,6 +532,12 @@ error_stop:
 error_stop:							\
   endCall();							\
   return ret_err;
+#define   __CATCH_1                                             \
+  endCall();							\
+  return 1;							\
+error_stop:							\
+  endCall();							\
+  return 0;
 #define   __TRY__                                               \
   beginCall();
 #define   __CATCH__                                             \
@@ -536,7 +550,7 @@ error_stop:							\
 
 #define     MESSAGE_DEBUG                       0x0001
 #define     MESSAGE_ERROR                       0x0002
-#define     MESSAGE_HALT                        0x0004number
+#define     MESSAGE_HALT                        0x0004
 
 void      __MESSAGE(INT level, const char * _Format, ...);
 
@@ -822,6 +836,16 @@ public:
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
+  RESULT    TryGet(ADDR &addr)
+  {
+  __TRY
+    ADDR    freeend;
+    freeend = freeEnd + SIZEADDR;
+    if (freeend == arrayEnd) freeend = arrayStart;
+    __DO (freeend == freeStart);
+    addr = *(freeend.pAddr);
+  __CATCH
+  }
   UINT      GetNumber(void)
   {
     if (freeStart > freeEnd) 
@@ -836,11 +860,15 @@ public:
   private:							\
     ADDR    queryData[size + 1];				\
   public:							\
-    classname()							\
+    void JOIN(Init,classname)()					\
     {								\
       ADDR  start;						\
       start = &(queryData[0]);					\
       InitArrayQuery(start, size, singlethread);		\
+    };								\
+    classname()							\
+    {								\
+      JOIN(Init,classname)();					\
     };								\
   }classname, *JOIN(P,classname);
 

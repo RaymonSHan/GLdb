@@ -302,28 +302,32 @@ public:                                         // statistics info for debug
 /*
  * IOCP struct, for CompleteKey
  */
-typedef     class CContextItem : public CListItem {
+typedef     class CContextItem {
 public:
+  //  ULONG_PTR completionKey;                      // user key for the socket
   int       bHandle;
-  int       iocpHandle;                         // eventfd handle bind for user
-  ULONG_PTR completionKey;                      // user key for the socket
-  SOCKADDR  localSocket;
-  SOCKADDR  remoteSocket;
-  PCONT     pPeer;
-  LQUERY    nextPeer;
-  PBUFF     pBuffer;
-  LQUERY    nextBuffer;
+  BOOL      inEpollOut;
+  PEVENT    iocpHandle;                         // eventfd handle bind for user
+  QUERY_S   readBuffer;
+  QUERY_S   writeBuffer;
+  
+  // SOCKADDR  localSocket;
+  // SOCKADDR  remoteSocket;
+  // PCONT     pPeer;
+  // LQUERY    nextPeer;
+  // PBUFF     pBuffer;
+  // LQUERY    nextBuffer;
 }CONT;
 
 /*
  * IOCP struct, for Overlapped
  */
 #define     BUFFER_CLASS(classname, size)		        \
-  typedef   class classname : public CListItem {		\
+  typedef   class classname {					\
   public:							\
-    INT     nSize;						\
+    WSAOVERLAPPED oLapped;					\
+    WSABUF  wsaBuf;						\
     INT     nOper;						\
-    PUCHAR  realStart;						\
     STR_S   bufferName;						\
     UCHAR   padData[CHAR_SMALL];				\
     UCHAR   bufferData[size];					\

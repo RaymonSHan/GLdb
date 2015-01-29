@@ -224,6 +224,17 @@ void        CMemoryBlock::DisplayFree(void)
 /*
  * Global Memory Function be called
  */
+RESULT      InitContextItem(PCONT context)
+{
+__TRY__
+  context->bHandle = 0;
+  context->inEpollOut = 0;
+  context->iocpHandle = 0;
+  context->readBuffer.InitQUERY_S();
+  context->writeBuffer.InitQUERY_S();
+__CATCH__
+}
+
 RESULT      GetContext(ADDR &addr, UINT timeout)
 {
 __TRY

@@ -16,8 +16,8 @@
  * In GLdbIOCP, there are three thread wait for epoll accept, read & write.
  *   and one thread wait eventfd. Each IOCP handle is another eventfd. 
  *   Application wait for it.
- * Every socket handle wait epoll, with ev.u64 for a CContextItem struct, with really
- *   handle and a received buffer pointer.
+ * Every socket handle wait epoll, with ev.u64 for a OVERLAPPED struct, which Internal
+ *   save CContextItem, and InternalHigh save WSABUF.
  *
  * for READ :
  * When epolled, epoll-thread looking for the buffer, if exist, it trigger eventfd; 
@@ -73,6 +73,8 @@
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
 
+#define     IOCPBaseAddress                     GLdbIOCP::iocpBaseAddress
+
 int         isListeningSocket(HANDLE handle);
 
 
@@ -124,7 +126,7 @@ int         WSARecv(SOCKET      s,
  *        two thread nest, one loop is (2us, 3us, 6us)
  *        ten thread nest, one loop is (4us, 8us, 23us)
  */
-#define     MAX_HANDLE_LOCK                     30
+#define     MAX_HANDLE_LOCK                     LIST_SMALL-1
 
 typedef     class RMultiEvent
 {
@@ -175,7 +177,7 @@ public:
     __DO (eventQuery -= addr);
   __CATCH
   };
-}EVENT, *PEVENT;
+}EVENT;
 
 
 /* 
@@ -184,6 +186,7 @@ public:
 #define     GlobalThreadNumber                  RThread::globalThreadNumber
 #define     GlobalShouldQuit                    RThread::globalShouldQuit
 #define     ThreadStartEvent                    RThread::threadStartEvent
+
 
 
 typedef   __class(RThread)
@@ -227,16 +230,19 @@ public:
     RThread *thread = (RThread*) point;
     ADDR    result;
     result = thread->ThreadInit();
-    __DO_ (ThreadStartEvent += result, "Set GlobalEvent Error\n");
-    __DO_ (result.aLong, "Thread Initialize Error\n");
+    __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
+    __DO_(result.aLong, "Thread Initialize Error\n");
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
-      __DOc_ (thread->ThreadDoing(), "Thread Doing Error\n");
+      __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
+    __DO_(thread->ThreadFree(), "Thread Free Error\n");
   __CATCH
   };
   virtual   RESULT ThreadInit(void) = 0;
   virtual   RESULT ThreadDoing(void) = 0;
+  virtual   RESULT ThreadFree(void) { return 0; };
 
 }THREAD;
+
 
 /*
  * The thread wait for epoll in GLdbIOCP
@@ -244,65 +250,153 @@ public:
  * There are three thread work for epoll, each for accept, read, write
  * RThreadEpollAccept should be the last thread be init
  */
-__class_    (RThreadEpollAccept, RThread)
-private:
-int       epollHandle;
+#define     NUMBER_MAX_EV                       20
+#define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
 
+#define     TIMEOUT_EPOLL_WAIT                  (1000*100)
+
+#define     EVIN                                MAX(EPOLLIN, EPOLLOUT) + 1
+#define     EVOUT                               MAX(EPOLLIN, EPOLLOUT) + 2
+
+/*
+ * Send OVERLAPPED to my IOCP handle, while Internal save CContextItem & InternalHigh
+ *   save WSABUF
+ */
+typedef   __class_ (RThreadEpoll, RThread)
+protected:
+  struct    epoll_event waitEv[NUMBER_MAX_EV];
+
+  
 public:
-  RThreadEpollAccept()
+  int       epollHandle;
+  PEVENT    evHandle;
+  STACK_S   overlapStack;
+  OVERLAPPED overlapBuffer[LIST_SMALL + 1];
+public:
+  RThreadEpoll()
   {
     epollHandle = 0;
+    evHandle = 0;
   };
   RESULT    ThreadInit(void)
-  { 
+  {
   __TRY
-    __DO1_(epollHandle, epoll_create(1), "Error in create epoll");
+    ADDR    addr;
+    addr = (PVOID)overlapBuffer;
+    __DO1_(epollHandle, epoll_create(1), "Error in create epoll\n");
+    overlapStack.FullArrayStack(addr, sizeof(OVERLAPPED));
   __CATCH
   };
   RESULT    ThreadDoing(void)
   {
+  __TRY
+    int     evNumber, i;
+    ADDR    overlapaddr;
+    LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
+
+    __DO1 (evNumber,
+	   epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TIMEOUT_EPOLL_WAIT));
+    for (i = 0; i < evNumber; i++) {
+      __DO (overlapStack -= overlapaddr)
+      overlap->events = waitEv[i].events;
+      overlap->Internal = (PCONT)waitEv[i].data.u64;
+      overlap->InternalHigh = 0;
+      __DO (*evHandle += overlapaddr);
+    }
+  __CATCH
+  };
+  RESULT    ThreadFree(void)
+  {
+    close(epollHandle);
     return 0;
   };
-  RESULT    CreateListen(SOCKADDR /*addr*/)
+}TEPOLL, *PTEPOLL;
+
+typedef   __class_ (RThreadEv, RThread)
+public:
+  int       epollHandle;
+  EVENT     evHandle;
+  PSTACK_S  pOverlapStack;
+public:
+  RThreadEv()
   {
-  __TRY__
-  // int   evNumber, i;
-  // socklen_t clilen;
-  // struct epoll_event ev;
-  // ADDR  acceptaddr, listenaddr
-
-    // __DO_ (GetContent(listenAddr), 
-    // 	   "Error in getcontent");
-    // __DO1_(listenAddr.SHandle, 
-    // 	   socket(AF_INET, SOCK_STREAM, 0), 
-    // 	   "Error in create socket");
-
-    // ev.data.u64 = listenAddr.aLong;
-    // ev.events = EPOLLIN | EPOLLET;
-    // __DO1_(status, 
-    // 	   epoll_ctl(epollHandle, EPOLL_CTL_ADD, listenAddr.SHandle, &ev), 
-    // 	   "Error in epoll ctl");
-    // listenAddr.ServerSocket.saddr = serveraddr;
-    // __DO1_(status, 
-    // 	   bind(listenAddr.SHandle, &serveraddr, sizeof(sockaddr_in)), 
-    // 	   "Error in bind");
-    // __DO1_(status, 
-    // 	   listen(listenAddr.SHandle, query), 
-    // 	   "Error in begin listen");
-  __CATCH__
+    epollHandle = 0;
+  }; 
+  RESULT    ThreadInit(void)
+  {
+  __TRY
+    __DO_(evHandle.InitArrayEvent(), "Error in create eventEv\n");
+  __CATCH
   };
-};
+  RESULT    ThreadDoing(void)
+  {
+  __TRY
+    int     readed, writed;
+    ADDR    contextaddr, overlapaddr, bufferaddr;
+    LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
+    PCONT   &context = (PCONT &)contextaddr;
+    LPWSABUF &buffer = (LPWSABUF &)bufferaddr; 
+
+    __DO (evHandle -= overlapaddr);
+    contextaddr = overlap->Internal;
+    bufferaddr = overlap->InternalHigh;
+    
+    if (overlap->events == EPOLLIN) {
+      if (bufferaddr == ZERO) {
+	*pOverlapStack += bufferaddr;
+	context->readBuffer -= overlapaddr;
+	if (overlapaddr == ZERO) __BREAK_OK;
+	bufferaddr = overlap->InternalHigh;
+	overlap->events = EPOLLIN;              // Is it necessary ?
+      }
+
+      __DO1c(readed,
+	     read(context->bHandle,
+		  buffer->buf,
+		  buffer->len));
+      if (readed == EAGAIN) {
+	context->readBuffer += overlapaddr;     // DO not control
+      } else if (readed > 0) {
+	overlap->doneSize = readed;
+	__DO (*context->iocpHandle += overlapaddr);
+      } else {
+	// close socket
+	// maybe merge to > 0 condition
+      }
+    }
+    else if (overlap->events == EPOLLOUT) {
+      __DO (context->writeBuffer.TryGet(overlapaddr));// MUST have return
+      __DO1c(writed,
+	     write(context->bHandle,
+		   buffer->buf + overlap->doneSize,
+		   buffer->len - overlap->doneSize));
+      if (writed + overlap->doneSize == buffer->len) {
+	context->writeBuffer -= overlapaddr;
+	overlap->doneSize += writed;
+	overlap->events = EPOLLOUT;             // Is it necessary ?
+	__DO (*context->iocpHandle += overlapaddr);
+      }
+      else if (overlap->doneSize) {
+	overlap->doneSize += writed;            // have added to epoll
+      } else {
+	overlap->doneSize += writed;
+      }
+
+    }
+  __CATCH
+  };
+  RESULT    ThreadFree(void)
+  {
+    evHandle.FreeArrayEvent();
+    return 0;
+  };
+}TEVENT, *PTEVENT;
 
 /*
  * GLdb always use static memory, 63 is enough for any application
  *
  * GLdbIOCP has only one instance
- */
-#define     IOCPBaseAddress                     GLdbIOCP::iocpBaseAddress
-
-#define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
-
-/*
+ *
  * HANDLE is 32bit, address is 64bit. 
  * high byte of IOCP handle is 'C', low three byte is offset of iocpHandle[i]
  *   to handleBaseAddress, in char size.
@@ -311,13 +405,15 @@ public:
   ((int)(addr - IOCPBaseAddress) + (int)('C'<<24))
 
 #define     IOCPHANDLE_TO_ADDR(handle)		                \
-  (handleBaseAddress + ((UINT)(handle & 0xffffff)))
+  (IOCPBaseAddress + ((UINT)(handle & 0xffffff)))
 
 typedef     class GLdbIOCP {
 private:
   EVENT     iocpHandle[NUMBER_MAX_IOCP];
   QUERY_M   iocpHandleFree;
   QUERY_M   iocpHandleUsed;
+
+  TEPOLL    threadEpoll;
 public:
   static    ADDR iocpBaseAddress;
 
