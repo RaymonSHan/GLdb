@@ -93,14 +93,11 @@ typedef     class RMultiEvent*                  PEVENT;
 #define     WSASYS_STATUS_LEN                   16              // NOT know
 #define     INFINITE                            (DWORD)(-1)
 
-#define     ULONG_PTR                           PVOID           // 64bit
-
 typedef     unsigned short                      WORD;
 typedef     int                                 HANDLE;
 typedef     int*                                PHANDLE;
-typedef     int                                 SOCKET;
-typedef     int*                                PSOCKET;
-//typedef     unsigned int*                       ULONG_PTR;      // 64bit in 64bit
+typedef     class CContextItem*                 SOCKET;
+typedef     unsigned int*                       ULONG_PTR;      // 64bit in 64bit
 typedef     unsigned int**                      PULONG_PTR;
 typedef     unsigned int                        DWORD;
 typedef     unsigned int*                       LPDWORD;

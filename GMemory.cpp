@@ -224,28 +224,39 @@ void        CMemoryBlock::DisplayFree(void)
 /*
  * Global Memory Function be called
  */
-RESULT      InitContextItem(PCONT context)
+
+#define     ADDR_TO_PCONT(addr)                                 \
+  ((PCONT)(addr.pChar + sizeof(LIST)))
+
+#define     PCONT_TO_ADDR(pcont)                                \
+  ((PCHAR)(pcont) - sizeof(LIST))
+RESULT      InitContextItem(PCONT pcont)
 {
 __TRY__
-  context->bHandle = 0;
-  context->inEpollOut = 0;
-  context->iocpHandle = 0;
-  context->readBuffer.InitQUERY_S();
-  context->writeBuffer.InitQUERY_S();
+  pcont->bHandle = 0;
+  pcont->inEpollOut = 0;
+  pcont->iocpHandle = 0;
+  pcont->completionKey = 0;
+  pcont->readBuffer.InitQUERY_S();
+  pcont->writeBuffer.InitQUERY_S();
 __CATCH__
 }
 
-RESULT      GetContext(ADDR &addr, UINT timeout)
+RESULT      GetContext(PCONT &pcont, UINT timeout)
 {
 __TRY
+  ADDR      addr;
   __DO (GlobalContext.GetMemoryList(addr, timeout));
   addr.AllocType = &GlobalContext;
   addr.RefCount = INIT_REFCOUNT;
+  pcont = ADDR_TO_PCONT(addr);
 __CATCH
 };
 
-RESULT      FreeContext(ADDR addr)
+RESULT      FreeContext(PCONT pcont)
 {
+  ADDR      addr;
+  addr = PCONT_TO_ADDR(pcont);
   return GlobalContext.FreeMemoryList(addr);
 };
 

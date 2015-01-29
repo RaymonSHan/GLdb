@@ -89,7 +89,7 @@ SOCKET      WSASocket(int       af,
 		      DWORD     dwFlags);
 /* If the ExistingCompletionPort parameter was a valid I/O completion port handle, 
    the return value is that same handle.*/
-HANDLE      CreateIoCompletionPort(HANDLE       FileHandle,
+HANDLE      CreateIoCompletionPort(SOCKET       FileHandle,
 				   HANDLE       ExistingCompletionPort,
 				   ULONG_PTR    CompletionKey,
 				   DWORD        NumberOfConcurrentThreads);
@@ -228,10 +228,11 @@ public:
   {
   __TRY
     RThread *thread = (RThread*) point;
-    ADDR    result;
-    result = thread->ThreadInit();
-    __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
-    __DO_(result.aLong, "Thread Initialize Error\n");
+// InitThread is be called in parent thread
+//   ADDR    result;
+//    result = thread->ThreadInit();
+//    __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
+//    __DO_(result.aLong, "Thread Initialize Error\n");
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
     __DO_(thread->ThreadFree(), "Thread Free Error\n");
@@ -254,9 +255,6 @@ public:
 #define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
 
 #define     TIMEOUT_EPOLL_WAIT                  (1000*100)
-
-#define     EVIN                                MAX(EPOLLIN, EPOLLOUT) + 1
-#define     EVOUT                               MAX(EPOLLIN, EPOLLOUT) + 2
 
 /*
  * Send OVERLAPPED to my IOCP handle, while Internal save CContextItem & InternalHigh
@@ -331,57 +329,75 @@ public:
   RESULT    ThreadDoing(void)
   {
   __TRY
-    int     readed, writed;
+    int     readed, writed, state;
     ADDR    contextaddr, overlapaddr, bufferaddr;
     LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
     PCONT   &context = (PCONT &)contextaddr;
     LPWSABUF &buffer = (LPWSABUF &)bufferaddr; 
+    struct  epoll_event ev;
 
     __DO (evHandle -= overlapaddr);
     contextaddr = overlap->Internal;
     bufferaddr = overlap->InternalHigh;
     
     if (overlap->events == EPOLLIN) {
-      if (bufferaddr == ZERO) {
-	*pOverlapStack += bufferaddr;
-	context->readBuffer -= overlapaddr;
-	if (overlapaddr == ZERO) __BREAK_OK;
-	bufferaddr = overlap->InternalHigh;
+      if (bufferaddr == ZERO) {                 // Get sign from Epoll, no overlap yet.
+	*pOverlapStack += bufferaddr;           // free tran info struct
+	context->readBuffer -= overlapaddr;     // get real overlap
+	if (overlapaddr == ZERO) __BREAK_OK;    // application not, no overlap
+	bufferaddr = overlap->InternalHigh;     // get wsabuf in overlap
 	overlap->events = EPOLLIN;              // Is it necessary ?
       }
 
-      __DO1c(readed,
+      __DO1c(readed,                            // read
 	     read(context->bHandle,
 		  buffer->buf,
 		  buffer->len));
-      if (readed == EAGAIN) {
-	context->readBuffer += overlapaddr;     // DO not control
-      } else if (readed > 0) {
-	overlap->doneSize = readed;
-	__DO (*context->iocpHandle += overlapaddr);
+      if (readed == EAGAIN) {                   // no data read, break;
+	context->readBuffer += overlapaddr;     // DO not control, add to readBuffer
+      } else if (readed > 0) {                  // have data
+	overlap->doneSize = readed;             // save size
+	__DO (*context->iocpHandle += overlapaddr); // sign iocp
       } else {
 	// close socket
 	// maybe merge to > 0 condition
       }
     }
     else if (overlap->events == EPOLLOUT) {
-      __DO (context->writeBuffer.TryGet(overlapaddr));// MUST have return
-      __DO1c(writed,
+      if (bufferaddr == ZERO) {                 // Get sign from Epoll, no overlap yet.
+	*pOverlapStack += bufferaddr;           // free tran info struct
+      }
+      __DOc(context->writeBuffer.TryGet(overlapaddr));// MUST have return
+      __DO1c(writed,                            // write
 	     write(context->bHandle,
 		   buffer->buf + overlap->doneSize,
 		   buffer->len - overlap->doneSize));
-      if (writed + overlap->doneSize == buffer->len) {
-	context->writeBuffer -= overlapaddr;
-	overlap->doneSize += writed;
+      if (writed + overlap->doneSize == buffer->len) {// write all
+	context->writeBuffer -= overlapaddr;    // have written, remove overlap
+	overlap->doneSize += writed;            // total write size
 	overlap->events = EPOLLOUT;             // Is it necessary ?
-	__DO (*context->iocpHandle += overlapaddr);
+	__DO (*context->iocpHandle += overlapaddr);// sign iocp
+	if (!context->inEpollOut) __BREAK_OK;   // not set EPOLLOUT, break;
+	if (!(context->writeBuffer.TryGet(overlapaddr))) __BREAK_OK;// should write more
+	__DO1 (state,                           // write job is finish, remove EPOLLOUT
+	       epoll_ctl(epollHandle, 
+			 EPOLL_CTL_DEL, 
+			 context->bHandle, 
+			 &ev));
+	context->inEpollOut = 0;
       }
-      else if (overlap->doneSize) {
-	overlap->doneSize += writed;            // have added to epoll
-      } else {
-	overlap->doneSize += writed;
+      else {                                    // EAGAIN or part write
+	if (writed != EAGAIN) overlap->doneSize += writed;// part write, add
+	if (context->inEpollOut) __BREAK_OK;    // already add EPOLLOUT, break;
+	ev.events = EPOLLET | EPOLLOUT;
+	ev.data.u64 = contextaddr.aLong;
+	__DO1 (state,                           // add EPOLLOUT
+	       epoll_ctl(epollHandle, 
+			 EPOLL_CTL_ADD, 
+			 context->bHandle, 
+			 &ev));
+	context->inEpollOut = 1;
       }
-
     }
   __CATCH
   };
@@ -405,7 +421,7 @@ public:
   ((int)(addr - IOCPBaseAddress) + (int)('C'<<24))
 
 #define     IOCPHANDLE_TO_ADDR(handle)		                \
-  (IOCPBaseAddress + ((UINT)(handle & 0xffffff)))
+  (PEVENT)(IOCPBaseAddress.pChar + ((UINT)(handle & 0xffffff)))
 
 typedef     class GLdbIOCP {
 private:
@@ -414,29 +430,50 @@ private:
   QUERY_M   iocpHandleUsed;
 
   TEPOLL    threadEpoll;
+  TEVENT    threadEv;
+
+public:
+  int       epollHandle;
+  PEVENT    evHandle;
+  PSTACK_S  pOverlapStack;
+
 public:
   static    ADDR iocpBaseAddress;
 
 public:
   RESULT    InitGLdbIOCP()
   {
+  __TRY
     int     i;
     ADDR    addr;
+
     for (i=0; i<NUMBER_MAX_IOCP; i++) {
       addr = (PVOID)&(iocpHandle[i]);
       iocpHandleFree += addr;
     }
     iocpBaseAddress = (PVOID)&(iocpHandle[0]);
-    return 0;
+    threadEv.ThreadClone();
+    threadEpoll.ThreadClone();
+
+    __DO (threadEpoll.ThreadInit());
+    __DO (threadEv.ThreadInit());
+    epollHandle = threadEv.epollHandle = threadEpoll.epollHandle;
+    evHandle = threadEpoll.evHandle = &threadEv.evHandle;
+    pOverlapStack = threadEv.pOverlapStack = &threadEpoll.overlapStack;
+
+  __CATCH
   };
   RESULT    FreeGLdbIOCP()
   {
     ADDR    addr;
     PEVENT  pevent;
+    int     status;
     while (!(iocpHandleUsed -= addr)) {
       pevent = (PEVENT)(addr.pVoid);
       pevent->FreeArrayEvent();
     }
+    waitpid(-1, &status, __WCLONE);
+    waitpid(-1, &status, __WCLONE);
     return 0;
   };
   RESULT    GetIOCPItem(ADDR &addr)

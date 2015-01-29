@@ -307,7 +307,8 @@ public:
   //  ULONG_PTR completionKey;                      // user key for the socket
   int       bHandle;
   BOOL      inEpollOut;
-  PEVENT    iocpHandle;                         // eventfd handle bind for user
+  PEVENT    iocpHandle;                             // eventfd handle bind for user
+  ULONG_PTR completionKey;                          // save user define key
   QUERY_S   readBuffer;
   QUERY_S   writeBuffer;
   
@@ -340,6 +341,17 @@ BUFFER_CLASS(BUFF_M, SIZE_HUGE_PAGE*16-sizeof(BUFF_0)-SIZEADDR)
 #define     GlobalContext                       CMemoryAlloc::globalContext
 #define     GlobalBufferSmall                   CMemoryAlloc::globalBufferSmall
 #define     GlobalBufferMiddle                  CMemoryAlloc::globalBufferMiddle
+
+RESULT      InitContextItem(PCONT pcont);
+RESULT      GetContext(PCONT &pcont, UINT timeout = 0);
+RESULT      FreeContext(PCONT addr);
+
+#define     BUFFER_FUNCTION_DECLARE(name)			\
+  RESULT    JOIN(Get,name)(ADDR &addr);				\
+  RESULT    JOIN(Free,name)(ADDR addr);
+
+BUFFER_FUNCTION_DECLARE(BufferSmall)
+BUFFER_FUNCTION_DECLARE(BufferMiddle)
 
 /*
  * Global memory manager
@@ -377,17 +389,5 @@ public:
   __CATCH
   };
 }MEMORY;
-
-
-RESULT      GetContext(ADDR &addr, UINT timeout = 0);
-RESULT      FreeContext(ADDR addr);
-
-#define     BUFFER_FUNCTION_DECLARE(name)			\
-  RESULT    JOIN(Get,name)(ADDR &addr);				\
-  RESULT    JOIN(Free,name)(ADDR addr);
-
-BUFFER_FUNCTION_DECLARE(BufferSmall)
-BUFFER_FUNCTION_DECLARE(BufferMiddle)
-
 
 #endif   // GLdb_MEMORY_HPP

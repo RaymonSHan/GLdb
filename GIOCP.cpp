@@ -33,7 +33,7 @@
 #include    "GIOCP.hpp"
 
 MEMORY      GlobalMemory;
-EVENT       GlobalWait;
+
 IOCP        GlobalIOCP;
 
 /*
@@ -49,21 +49,54 @@ int         isListeningSocket(HANDLE handle)
   else return val;
 };
 
+SOCKET      WSASocket(int       af, 
+		      int       type, 
+		      int       protocol,
+		      LPWSAPROTOCOL_INFO  lpProtocolInfo, 
+		      GROUP     g, 
+		      DWORD     dwFlags)
+{
 
-HANDLE      CreateIoCompletionPort(HANDLE       FileHandle,
+  PCONT      pcont;
+  RESULT     result;
+  //  socket();
+  result = GetContext(pcont);
+  if (result) return 0;
+  InitContextItem(pcont);
+  //  pcont->bHandle = socket;
+  return pcont;
+};
+
+HANDLE      CreateIoCompletionPort(SOCKET       FileHandle,
 				   HANDLE       ExistingCompletionPort,
 				   ULONG_PTR    CompletionKey,
 				   DWORD        NumberOfConcurrentThreads)
 {
   (void)NumberOfConcurrentThreads;
-__TRY
+__TRY__
   ADDR      addr;
+  int       state;
+  struct    epoll_event ev;
   if (!FileHandle && !ExistingCompletionPort && !CompletionKey) {
     __DO_(GlobalIOCP.GetIOCPItem(addr), "Errorr in Create IOCP handle\n");
     return ADDR_TO_IOCPHANDLE(addr);
+  } else {
+    __DO (!ExistingCompletionPort);
+
+    //    InitContextItem(CompletionKey); // this is be called in WSASocket()
+    FileHandle->iocpHandle = IOCPHANDLE_TO_ADDR(ExistingCompletionPort);
+    FileHandle->completionKey = CompletionKey;
+    ev.events = EPOLLET | EPOLLIN;
+    ev.data.ptr = CompletionKey;
+    __DO1 (state,
+	   epoll_ctl(GlobalIOCP.epollHandle,
+		     EPOLL_CTL_ADD, 
+		     FileHandle->bHandle, 
+		     &ev));
+    return ExistingCompletionPort;
   }
 __CATCH_1                                        // function returrn 0 for error
-}
+};
 
 /*
  * ATTENTION: dwMilliseconds is igrone, for eventfd hove no timeout
@@ -75,13 +108,86 @@ BOOL        GetQueuedCompletionStatus(HANDLE    CompletionPort,
 				      LPOVERLAPPED *lpOverlapped,
 				      DWORD     dwMilliseconds)
 {
-__TRY
-  ADDR      iocpHandle;
+__TRY__
+  PEVENT    iocpHandle;
+  ADDR      addr;
   __DO_(dwMilliseconds != INFINITE, "NO timeout for GetQueuedCompletionStatus now!\n");
   iocpHandle = IOCPHANDLE_TO_ADDR(CompletionPort);
-
+  __DO(*iocpHandle -= addr);
+  *lpOverlapped = (LPOVERLAPPED)addr.pVoid;
+  (*lpCompletionKey) = (*lpOverlapped)->Internal->completionKey;
+  (*lpNumberOfBytes) = (*lpOverlapped)->doneSize;
+  //  (*lpOverlapped)->doneSize = 0;             // may set in WSASend & WSARecv
 __CATCH_1                                        // function returrn 0 for error
-}
+};
+
+/*
+ * in normal IOCP, lpOverlapped can be NULL.
+ * but in GLdbIOCP, must use valid OVERLAPPED struct for lpOverlapped
+ */
+BOOL        PostQueuedCompletionStatus(HANDLE   CompletionPort,
+				       DWORD    dwNumberOfBytesTransferred,
+				       ULONG_PTR dwCompletionKey,
+				       LPOVERLAPPED lpOverlapped)
+{
+__TRY__
+  PEVENT    iocpHandle;
+  ADDR      addr;
+  iocpHandle = IOCPHANDLE_TO_ADDR(CompletionPort);
+  addr.pVoid = lpOverlapped;
+  lpOverlapped->Internal->completionKey = dwCompletionKey;
+  lpOverlapped->doneSize = dwNumberOfBytesTransferred;
+  __DO (*iocpHandle += addr);
+__CATCH_1
+};
+
+int         WSASend(SOCKET      s, 
+		    LPWSABUF    lpBuffers, 
+		    DWORD       dwBufferCount, 
+		    LPDWORD     lpNumberOfBytesSent, 
+		    DWORD       dwFlags, 
+		    LPWSAOVERLAPPED     lpOverlapped, 
+		    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+{
+  (void)dwFlags;                                // only for IOCP
+  (void)lpCompletionRoutine;                    // not used for me
+__TRY
+  ADDR      overlap;
+  __DO_(dwBufferCount != 1, "GLdbIOCP only support one WSABUF now\n");
+  overlap.pVoid = lpOverlapped;
+  lpOverlapped->Internal = s;
+  lpOverlapped->InternalHigh = lpBuffers;
+  lpOverlapped->events = EPOLLOUT;
+  lpOverlapped->doneSize = 0;
+  lpBuffers->len = *lpNumberOfBytesSent;
+  __DO (s->writeBuffer += overlap);             // MUST add, for write order
+  __DO (*(GlobalIOCP.evHandle) += overlap);
+__CATCH
+};
+
+int         WSARecv(SOCKET      s,
+                    LPWSABUF    lpBuffers,
+                    DWORD       dwBufferCount,
+                    LPDWORD     lpNumberOfBytesRecvd,
+                    LPDWORD     lpFlags,
+                    LPWSAOVERLAPPED     lpOverlapped,
+                    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+{
+  (void)lpFlags;                                // only for IOCP
+  (void)lpCompletionRoutine;                    // not used for me
+__TRY
+  ADDR      overlap;
+  __DO_(dwBufferCount != 1, "GLdbIOCP only support one WSABUF now\n");
+  overlap.pVoid = lpOverlapped;
+  lpOverlapped->Internal = s;
+  lpOverlapped->InternalHigh = lpBuffers;
+  lpOverlapped->events = EPOLLIN;
+  lpOverlapped->doneSize = 0;
+  lpBuffers->len = *lpNumberOfBytesRecvd;
+  //  __DO (s->readBuffer += overlap);
+  __DO (*(GlobalIOCP.evHandle) += overlap);
+__CATCH
+};
 
 void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 {
@@ -117,36 +223,6 @@ void        SetupSIG(int num, SigHandle func)
 };
 
 
-RESULT    RThreadTest::ThreadInit(void)
-{
-__TRY
-  setThreadName();
-  __DO (GlobalBufferSmall.SetThreadArea(4,8,4,0));
-__CATCH
-};
-RESULT    RThreadTest::ThreadDoing(void)
-{
-__TRY
-  QUERY_s mquery;
-  int  j;
-  ADDR    addr;
-  /*
-   * Should NOT use Globalxx function, for it NOT initialize number
-   * Freexx and DecRefCount are same. but for better habit,
-   * use Get/Free for pair, and IncRefCount/DecRefCount in pair
-   */
-  GlobalWait -= addr;
-  for (j=0; j<1000*1000*100; j++) {
-    //   __DO_(GlobalBufferSmall.GetMemoryList(addr), "NOT GET\n");
-    __DO_(GetBufferSmall(addr), "NOT GET\n");
-
-    //   __DO_(GlobalBufferSmall.FreeMemoryList(addr), "NOT FREE\n");
-    __DO_(FreeBufferSmall(addr), "NOT FREE\n");
-    //   __DO_(addr.DecRefCount(), "NOT FREE\n");
-  }
-__CATCH
-}
-
 #define     NUMBER_CONTEXT                      5
 #define     NUMBER_BUFFER_SMALL                 10
 #define     NUMBER_BUFFER_MIDDLE                2
@@ -155,9 +231,6 @@ __CATCH
 
 int         main(int, char**)
 {
-  int       status;
-  UINT      i;
-  ADDR      addr;
   TIME      rtime(CLOCK_MONOTONIC_RAW);
   struct timespec timestruct;
 
@@ -166,31 +239,16 @@ int         main(int, char**)
   SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
 
 __TRY__
-  class RThreadTest test[THREAD_NUM];
   GlobalMemory.InitMemoryBlock(NUMBER_CONTEXT,
 			       NUMBER_BUFFER_SMALL,
 			       NUMBER_BUFFER_MIDDLE);
-  GlobalWait.InitArrayEvent();
   GlobalIOCP.InitGLdbIOCP();
-
-  for (i=0; i<THREAD_NUM; i++) {
-    test[i].ThreadClone(); 
-  };
-  usleep(10000);
-
-  rtime += &timestruct;
-  for (i=0; i<THREAD_NUM; i++) 
-    GlobalWait += addr;
-  usleep(10000);
-
-  GlobalShouldQuit = 1;
-  for (i=0; i<THREAD_NUM; i++)
-    waitpid(-1, &status, __WCLONE);
   rtime += &timestruct;
 
+
+  //  GlobalShouldQuit = 1;
   rtime.OutputTime();
   GlobalIOCP.FreeGLdbIOCP();
-  GlobalWait.FreeArrayEvent();
   GlobalMemory.FrreeMemoryBlock();
   
 __CATCH__
