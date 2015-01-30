@@ -282,7 +282,7 @@ public:
     ADDR    addr;
     addr = (PVOID)overlapBuffer;
     __DO1_(epollHandle, epoll_create(1), "Error in create epoll\n");
-    overlapStack.FullArrayStack(addr, sizeof(OVERLAPPED));
+    overlapStack.FullArrayStack(addr, sizeof(OVERLAPPED), LIST_SMALL);
   __CATCH
   };
   RESULT    ThreadDoing(void)

@@ -34,32 +34,52 @@
 #include    "GMemory.hpp"
 #include    "GIOCP.hpp"
 
-// Following in RThreadResource
-// for every RThreadResource to register, record the now offset in TLS
+
+/*
+ * All Global variable implement here
+ * I use static class variable instead of global variable, for need not declare 
+ *   extern here and there.
+ *
+ *
+ * Following in RThreadResource
+ * 
+ * GlobalResourceOffset : every RThreadResource to register, record the offset in TLS 
+ *
+ * GlobalTime : current server time, for Timeout count
+ */
 volatile    UINT GlobalResourceOffset         = PAD_THREAD_STACK + SIZE_TRACE_INFO;
-// current server time
 volatile    UINT GlobalTime                   = time(NULL);
 
-// Following in RThread
-// total number of thread inherit from RThread. 
+/*
+ * Following in RThread
+ *
+ * GlobalThreadNumber : total running number of thread inherit from RThread.
+ *
+ * GlobalShouldQuit : global sign, if set, all thread should quit
+ *
+ * ThreadStartEvent : synchronous event, for thread initialized one by one
+ *                    because of TLS, per-thread init MUST be runned by thread self.
+ */
 volatile    UINT GlobalThreadNumber           = 0;
-// for quit sign
 volatile    UINT GlobalShouldQuit             = 0;
-// sequence thread initialized order
 EVENT       ThreadStartEvent;
 
-// Following in CMemoryAlloc, list for all memory pool
+/*
+ * it is for GLdbDatabase use, not for GLdbIOCP,
+ * 
+ * all static alloc memory pool
+ */
 BLOCK       GlobalContext;
 BLOCK       GlobalBufferSmall;
 BLOCK       GlobalBufferMiddle;
 
-// Following in GLdbIOCP
+// NO MORE used, delete soon
 ADDR        IOCPBaseAddress;
 
-INT StrCmp(STRING &one, STRING &two)
+INT         StrCmp(STRING &one, STRING &two)
 {
-  INT onelen, twolen, shortlen, shortlen8, i;
-  ADDR oneaddr, twoaddr;
+  INT       onelen, twolen, shortlen, shortlen8, i;
+  ADDR      oneaddr, twoaddr;
 
   onelen = one.strEnd - one.strStart;
   twolen = two.strEnd - two.strStart;

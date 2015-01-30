@@ -7,7 +7,6 @@
 #
 
 CFLAGS=-O2
-
 top="$(CURDIR)"/
 ede_FILES=Project.ede Makefile
 

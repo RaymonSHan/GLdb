@@ -40,27 +40,71 @@
 #ifndef     GLdb_MEMORY_HPP
 #define     GLdb_MEMORY_HPP
 
-#include   "GCommon.hpp"
+#include    "GCommon.hpp"
 
 /*
  * The function get memroy from system
+ *
+ * Just a start address, 0x52 is 'R'
  */
-#define     SEG_START_BUFFER                    (0x52LL << 40)  // 'R'
+#define     SEG_START_BUFFER                    (0x52LL << 40)
 
 RESULT      GetMemory(ADDR &addr, UINT size, UINT flag = 0);
 RESULT      GetStack(ADDR &addr);
 
+
 /*
- * TLS for memory pool
+ * any TLS except TraceInfo MUST be inherit from RThreadResource
+ * volatile UINT RThreadResource::globalResourceOffset =
+ *   PAD_TRACE_INFO + SIZE_TRACE_INFO;
+ *   set in GLdbCommon.cpp
+ *
+ * The implement of these var in all class, is discribed in GLdbCommon.cpp 
  */
-#define     GetThreadMemoryInfo()		\
-  threadMemoryInfo *info;			\
+#define     GlobalResourceOffset                RThreadResource::globalResourceOffset
+#define     GlobalTime                          RThreadResource::globalTime
+
+class       RThreadResource 
+{
+protected:
+  UINT      nowOffset;
+public:
+  static    volatile UINT globalResourceOffset;
+  static    volatile UINT globalTime;
+
+public:
+  RThreadResource(UINT size) {
+    nowOffset = LockAdd(RThreadResource::globalResourceOffset, 
+			PAD_INT(size, 0, 64));
+  };
+};
+
+/*
+ * get TLS for RThreadResource
+ * for every thread offset start at PAD_THREAD_STACK + SIZE_TRACE_INFO
+ *
+ * In my program, every memory pool have its nowOffset, different nowOffset
+ *   means different memory pool.
+ * nowOffset is border by 16M, which is SIZE_THREAD_STACK
+ */
+#define     getThreadInfo(info, off)				\
+  asm volatile ("movq %%rsp, %0;"				\
+		"andq %2, %0;"					\
+		"addq %1, %0;"					\
+		: "=r" (info)					\
+		: "m" (off), "i"(NEG_SIZE_THREAD_STACK));
+
+#define     GetThreadMemoryInfo()		                \
+  threadMemoryInfo *info;					\
   getThreadInfo(info, nowOffset);
 
 /*
  * I have tested, three thread do nothing but GET/FREE, 
  * no performance improve after thread local cache large than 10.
  * unable to use STACK_S for no constructor will be called
+ *
+ * For NON-directly free item, should be listed start by localUsedList,
+ *   threadListNext pointed to NEXT thread, but SAME memory pool.
  */
 #define     MAX_LOCAL_CACHE                     15
 
@@ -68,8 +112,8 @@ typedef     struct threadMemoryInfo {
   STACK     memoryStack;
   ADDR      localCache [MAX_LOCAL_CACHE + 1];
   UINT      threadFlag;
-  ADDR      localUsedList;                      // usedList start
-  threadMemoryInfo *threadListNext;             // pointer to next TLS
+  ADDR      localUsedList;
+  threadMemoryInfo *threadListNext;
 }threadMemoryInfo;
 
 
@@ -82,26 +126,41 @@ typedef     struct threadMemoryInfo {
 #define     MARK_USED                           (PLIST)0x10
 #define     MARK_MAX	                        (PLIST)0x100
 
-
 /*
  * for NonDirectly free memory pool, link every used item by usedList
  * when used, countDown set to CurrentTime + Timeout. when FutureTime equal
  *   countDown, set countDown to TIMEOUT_QUIT
+ *
+ * For summary, I write all timeout value here.
  */
 #define     TIMEOUT_QUIT                        2
 #define     TIMEOUT_TCP                         20
+/*
+ * free CListItem, only dec the refcount, it will be delete only no more reference, 
+ */
 #define     INIT_REFCOUNT                       0x100001
 
-
 /*
- * ATTENTION every CListItem, must set init value
+ * Basic ahead unit for memory pool item.
+ *
+ * usedList  : list to another CListItem for many kind. 
+ *             or be MARK_xx value for special use
+ * countDown : for NON-directly free list only, 
+ * allocType : pointer to its memory pool, it can be free only by its address.
+ * refCount  : in fact, it avoid item be free, when other use it.
+ *
+ * in initialize :
+ * usedList  : MUST be != MARK_USED.
+ * countDown : MUST be the time should be free, or ZERO for directly free mode.
+ * allocType : MUST be the memory pool alloc it.
+ * refCount  : MUST be INIT_REFCOUNT, which means 1 reference.
  */
 typedef     class CListItem {
 public:
-  PLIST     usedList;                           // MUST be != MARK_UNUSED
-  UINT      countDown;                          // MUST be time() will free
-  PBLOCK    allocType;                          // MUST be PBLOCK value
-  UINT      refCount;                           // MUST be INIT_REFCOUNT, means 1 ref
+  PLIST     usedList;
+  UINT      countDown;
+  PBLOCK    allocType;
+  UINT      refCount;
 
   void      incRefCount(void)
   {
@@ -117,7 +176,12 @@ public:
 #define     IncRefCount                          pList->incRefCount
 #define     DecRefCount                          pList->decRefCount
 
-// return 0 for is equal
+
+/*
+ * this is have not test
+ *
+ * FUNCCMP for compare two item, return 0 if equal
+ */
 typedef     RESULT(*FUNCCMP)(ADDR, ADDR);
 
 typedef     class RListQuery {
@@ -169,29 +233,41 @@ public:
 /*
  * Memory Pool main class
  *
- * address of free item is store in address pointed by memoryArrayFree
+ * There are two kind of memory pool
+ * 1) free able
+ * 2) no free
  *
- * if TimeoutInit = 0 means directly free.
- * if timeout in AddToUsed = 0, use TimeoutInit for timeout
+ * for free able class, it can be directly free or NON-directly free.
+ *   these item must have CListItem struct ahead.
+ *   malloc frunction return the context address after CListItem, this address
+ *   is also for free.
+ * for no free class, no ClistItem ahead, it return raw address.
+ *
+ * RealBlock  : the start address by mmap(), 
+ * BorderSize : item size pad to border.
+ * TotalNumber: as its name.
+ * globalStack: memory is alloc as stack, for most used item will be cached
+ * ArraySize  : STACK only have pointer, the stack body is the first part of memory,
+ *            : the size if TotalNumber * SIZEADDR, store in ArraySize.
+ * TotalSize  : equal ArraySize pad to border plus TotalNumber * BorderSize.
+ * TimeoutInit: default timeout value for this memory pool, 0 for directly free,
+ *              if timeout in AddToUsed = 0, use TimeoutInit for timeout.
+ * threadListStart : start of threadMemoryInfo::threadListNext.
  *
  * for 1 thread, one GET/FREE circle about 45ns for all local
  * for 4 thread, 4 circle in 4 core about 63ns for all local
  */
 typedef     class CMemoryBlock : public RThreadResource {
-private:                                        // for total memory
-  ADDR      RealBlock;                          // address for memory start
-  UINT      BorderSize;                         // real byte size for one item
-  UINT      ArraySize;                          // number * sizeof(ADDR)
-  UINT      TotalSize;                          // Total memory size in byte
-
-private:                                        // for thread info
-  UINT      TotalNumber;
-  STACK     globalStack;
-  threadMemoryInfo *threadListStart;            // TLS list start
-
 private:
+  ADDR      RealBlock;
+  UINT      BorderSize;
+  UINT      TotalNumber;
+  UINT      ArraySize;
+  UINT      TotalSize;
+  STACK     globalStack;
+
   UINT      TimeoutInit;
-  UINT      BufferSize;
+  threadMemoryInfo *threadListStart;
 
 public:
   CMemoryBlock()

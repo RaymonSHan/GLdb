@@ -54,14 +54,50 @@
 #include    <sys/types.h>
 #include    <sys/wait.h>
 
+
 /*
- * BASIC typedef
- *
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
  * range is about +/- 9 thousand billion, enough for enterprise use.
  */
 #define     ONE_DOLLAR_VALUE                    (100*100*100)
+/*
+ * only for short
+ */
+#define     SIZEADDR                            sizeof(ADDR)
+/*
+ * compiler ambiguous 0 for (UINT)0 & (ADDR)0
+ */
+#define     ZERO                                ((UINT)0)
+#define     ZEROADDR                            ((ADDR)0)
+/*
+ * for STRING use, constant len string
+ */
+#define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR-1)
+#define     CHAR_MIDDLE                         ((1<<8)-2*SIZEADDR-1)
+#define     CHAR_LARGE                          ((1<<11)-2*SIZEADDR-1)
+/*
+ * for STACK & QUERY use, constant len stack & query
+ */
+#define     LIST_SMALL                          ((1<<4)-1)
+#define     LIST_MIDDLE                         ((1<<6)-1)
+#define     LIST_LARGE                          ((1<<8)-1)
+/*
+ * if stack & query is single thread, it need NOT lock, a little faster.
+ */
+#define     SINGLE_THREAD                       1
 
+/*
+ * used for macro
+ */
+#define    _TOSTRING(x)                         #x
+#define     TOSTRING(x)                        _TOSTRING(x)
+
+#define    _JOIN(x,y)                           x ## y
+#define     JOIN(x,y)                          _JOIN(x,y)
+
+/*
+ * BASIC typedef
+ */
 typedef     signed char                         CHAR;
 typedef     unsigned char                       UCHAR;
 typedef     signed long long int                INT;
@@ -69,7 +105,7 @@ typedef     unsigned long long int              UINT;
 typedef     signed long long int                MONEY;
 typedef     volatile long long int              LOCK;
 typedef     bool                                BOOL;
-typedef     int                                 RESULT;
+typedef     signed long long int                RESULT;
 
 typedef     signed char*                        PCHAR;
 typedef     unsigned char*                      PUCHAR;
@@ -86,23 +122,25 @@ typedef     class CBufferItem*                  PBUFF;
 typedef     class CMemoryBlock*                 PBLOCK;
 typedef     class RMultiEvent*                  PEVENT;
 
+
 /*
- * typedef for IOCP, compatible with Windows
+ * typedef for IOCP, compatible for Windows
  */
+#ifdef      __linux
+
 #define     WSADESCRIPTION_LEN                  256             // NOT know
 #define     WSASYS_STATUS_LEN                   16              // NOT know
 #define     INFINITE                            (DWORD)(-1)
 
 typedef     unsigned short                      WORD;
-typedef     int                                 HANDLE;
-typedef     int*                                PHANDLE;
+typedef     signed long long int                HANDLE;
 typedef     class CContextItem*                 SOCKET;
 typedef     unsigned int*                       ULONG_PTR;      // 64bit in 64bit
 typedef     unsigned int**                      PULONG_PTR;
 typedef     unsigned int                        DWORD;
 typedef     unsigned int*                       LPDWORD;
 typedef     void*                               LPWSAPROTOCOL_INFO;
-typedef     int                                 GROUP;
+typedef     void*                               GROUP;          // NOT konw
 typedef     void*                               LPWSAOVERLAPPED_COMPLETION_ROUTINE;
 
 typedef     struct WSAData {
@@ -114,10 +152,12 @@ typedef     struct WSAData {
   WORD      iMaxUdpDg;
   char     *lpVendorInfo;
 }WSADATA, *LPWSADATA;
+
 typedef     struct __WSABUF {
-  u_long    len;
+  UINT      len;                                // old type is u_long
   PUCHAR    buf;                                // old type is char*
 }WSABUF, *LPWSABUF;
+
 typedef     struct _WSAOVERLAPPED {
   PCONT     Internal;                           // in linux for addr of CContextItem
                                                 //   old type is ULONG_PTR
@@ -135,19 +175,13 @@ typedef     struct _WSAOVERLAPPED {
   UINT      doneSize;                           // this is added for record readed&writed
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED;
 
+#endif   // __linux
 
-#define    _TOSTRING(x)                         #x
-#define     TOSTRING(x)                        _TOSTRING(x)
 
-#define    _JOIN(x,y)                           x ## y
-#define     JOIN(x,y)                          _JOIN(x,y)
 /*
  * most common struct
  * I create this, for do C-style in C++. 
  */
-#define     SIZEADDR                            sizeof(ADDR)
-#define     ZERO                                ((UINT)0)
-
 #define     ADDR_SELF_OPERATION(op)				\
   void operator op (const UINT &one) {				\
     this->aLong op (one); };
@@ -225,10 +259,6 @@ ADDR_OPERATION(||)
 /*
  * a binary-safe string type
  */
-#define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR-1)
-#define     CHAR_MIDDLE                         ((1<<8)-2*SIZEADDR-1)
-#define     CHAR_LARGE                          ((1<<11)-2*SIZEADDR-1)
-
 typedef     class STRING
 {
 public:
@@ -259,10 +289,11 @@ public:
     void virtual operator = (STRING &one) {			\
       STRING::operator = (one);					\
       UINT slen = strEnd - strStart + 1;			\
-      if (slen > sizeof(string)) slen = sizeof(string);		\
+      if (slen > sizeof(string)) slen = sizeof(string) - 1;	\
       memcpy(string, strStart, slen);				\
       strStart = strEnd = string;				\
       strEnd += (slen - 1);					\
+      *(strEnd + 1) = 0;					\
       return;							\
     };								\
     void virtual operator = (const PUCHAR pchar) {		\
@@ -286,7 +317,7 @@ INT         StrCmp(STRING &one, STRING &two);
 #define     STR_STR_COMPARE(op)				        \
   BOOL inline operator op (STRING one, STRING two) {		\
     return (StrCmp(one, two) op 0);				\
-  }
+  };
 STR_STR_COMPARE(==)
 STR_STR_COMPARE(!=)
 STR_STR_COMPARE(>)
@@ -323,10 +354,10 @@ typedef     union SOCKADDR
   *lock = NOT_IN_PROCESS;
 #define   __LOCK(lock)				                \
   while(!CmpExg(&lock, NOT_IN_PROCESS, IN_PROCESS));
-#define   __LOCK__TRY(lock)		        	        \
-  !CmpExg(&lock, NOT_IN_PROCESS, IN_PROCESS)
 #define   __FREE(lock)	                			\
   lock = NOT_IN_PROCESS;
+#define   __LOCK__TRY(lock)		        	        \
+  !CmpExg(&lock, NOT_IN_PROCESS, IN_PROCESS)
 
 
 /*
@@ -380,8 +411,11 @@ typedef     union SOCKADDR
  * TraceInfo is common function in Linux, but not in Windows.
  * Following the same principle in GLdb, I do it myself.
  * It saved in TLS.
+ *
+ * now set to MAX_NEST_LOOP, but I do not check, 
+ *   for normal program, it is enough
  */
-#define     MAX_NEST_LOOP                       1023            // number of call nest
+#define     MAX_NEST_LOOP                       1023
 
 typedef     struct perTraceInfo {
   PUCHAR    fileInfo;
@@ -486,16 +520,6 @@ typedef     struct threadTraceInfo {
   getTraceInfo(threadInfo);					\
   threadInfo->threadName = (PUCHAR)getThreadName();
 
-/*
- * get TLS for RThreadResource
- */
-#define     getThreadInfo(info, off)				\
-  asm volatile ("movq %%rsp, %0;"				\
-		"andq %2, %0;"					\
-		"addq %1, %0;"					\
-		: "=r" (info)					\
-		: "m" (off), "i"(NEG_SIZE_THREAD_STACK));
-
 
 /*
  * Implement TraceInfo with ErrorControl
@@ -553,21 +577,21 @@ void      __MESSAGE(INT level, const char * _Format, ...);
 
 #define   __INFO(level, _Format,...) {				\
     __MESSAGE(level,  _Format,##__VA_ARGS__);			\
-  }
+  };
 #define   __INFOb(level, _Format,...) {				\
     __MESSAGE(level, _Format,##__VA_ARGS__); __BREAK_OK		\
-  }
+  };
 
 #define   __DO1c_(val, func, _Format,...) {			\
     setLine();							\
     val = func;							\
     if (val == -1) 						\
       __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
-  }
+  };
 #define   __DO1c(val, func) {					\
     setLine();							\
     val = func;							\
-  }
+  };
 
 #define   __DO1_(val, func, _Format,...) {			\
     setLine();							\
@@ -576,22 +600,22 @@ void      __MESSAGE(INT level, const char * _Format, ...);
       __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
       __BREAK							\
     }								\
-  }
+  };
 #define   __DO1(val, func) {					\
     setLine();							\
     val = func;							\
     if (val == -1) __BREAK;					\
-  }
+  };
 
 #define   __DOc_(func, _Format,...) {				\
     setLine();							\
     if (func)							\
       __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
-  }
+  };
 #define   __DOc(func) {						\
     setLine();							\
     func;							\
-  }
+  };
 
 #define   __DO_(func, _Format,...) {				\
     setLine();							\
@@ -599,11 +623,11 @@ void      __MESSAGE(INT level, const char * _Format, ...);
       __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
       __BREAK							\
     }								\
-  }
+  };
 #define   __DO(func) {						\
     setLine();							\
     if (func) __BREAK;						\
-  }
+  };
 
 #define   __DOb_(func, _Format,...) {				\
     setLine();							\
@@ -611,63 +635,35 @@ void      __MESSAGE(INT level, const char * _Format, ...);
       __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
     }								\
   __BREAK							\
-  }
+  };
 #define   __DOb(func) {						\
     setLine();							\
     func;							\
     __BREAK;							\
-  }
-
-
-/*
- * any TLS except TraceInfo MUST be inherit from RThreadResource
- * volatile UINT RThreadResource::globalResourceOffset =
- *   PAD_TRACE_INFO + SIZE_TRACE_INFO;
- *   set in GLdbCommon.cpp
- * All other static class var are Global use. instead of global var,
- *   for no more extern requested
- * The effect of these var in all class, is discribed in GLdbCommon.cpp 
- */
-#define     GlobalResourceOffset                RThreadResource::globalResourceOffset
-#define     GlobalTime                          RThreadResource::globalTime
-
-class       RThreadResource 
-{
-protected:
-  UINT      nowOffset;
-public:
-  static    volatile UINT globalResourceOffset;
-  static    volatile UINT globalTime;
-
-public:
-  RThreadResource(UINT size) {
-    nowOffset = LockAdd(RThreadResource::globalResourceOffset, 
-			PAD_INT(size, 0, 64));
   };
-};
 
 
 /*
  * classic data structure
  *
- * After init, ArrayStack is empty;
+ * After init, ArrayStack is empty, can full it by FullArrayStack for block memory
+ * if parentArray is not NULL, child stack can get more, or free to it. when child is
+ *   empty, it get getSize from parent, when child is full, it free freeSize to parent.
+ *   typical child stack is per-thread, while parent stack is global.
+ * 
+ * arrayStart & arrayEnd will NOT change again after Initialize,
+ * see InitArrayStack for other initialize value.
  */
-#define     LIST_SMALL                          ((1<<4)-1)
-#define     LIST_MIDDLE                         ((1<<6)-1)
-#define     LIST_LARGE                          ((1<<8)-1)
-
-#define     SINGLE_THREAD                       1
-
 typedef     class RArrayStack {
 private:
   LOCK      inProcess;
   ADDR      arrayStart;
   ADDR      arrayEnd;
-  ADDR      arrayFree;                          // free local item store here
+  ADDR      arrayFree;
   RArrayStack *parentArray;
   BOOL      singleThread;
-  UINT      getSize;                            // size get from global
-  UINT      freeSize;                           // will back to global if >
+  UINT      getSize;
+  UINT      freeSize;
 
 public:
   void      InitArrayStack(ADDR start, UINT number, BOOL singlethread = 0,
@@ -682,22 +678,24 @@ public:
     getSize = getsize;
     freeSize = freesize;
   };
-  RESULT      FullArrayStack(ADDR begin, UINT size)
+  RESULT      FullArrayStack(ADDR begin, UINT size, UINT number)
   {
-  __TRY
-    __DO (arrayFree - arrayEnd != SIZEADDR);
+  __TRY__
     __LOCK(inProcess);
     do {
       arrayFree -= SIZEADDR;
       *(arrayFree.pAddr) = begin;
       begin += size;
-    } while(arrayFree > arrayStart);
+      number--;
+    } while ((arrayFree > arrayStart) && number);
     __FREE(inProcess);
-  __CATCH
+  __CATCH__
   };
 
 /*
  * in GetMulti & FreeMulti, addr is child's freeStart.
+ * it copy memory and change freeStart in child thread if possible, NO return val.
+ * parent thread always multi thread, so LOCK.
  */
   void      GetMulti(ADDR &addr, UINT number)
   {
@@ -749,7 +747,7 @@ public:
     __DO (arrayFree > arrayEnd);
     addr = *(arrayFree.pAddr);
     arrayFree += SIZEADDR;
-    __FREE(inProcess);
+    if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
@@ -760,6 +758,10 @@ public:
   };
 }STACK, *PSTACK;
 
+/*
+ * in my habit, constant len class initialize in constructor.
+ *       while, class with variable part initialize in Initxx function.
+ */
 #define     STACK_CLASS(classname, size, singlethread)		\
   typedef   class classname : public RArrayStack  {		\
   private:							\
@@ -782,8 +784,10 @@ STACK_CLASS(STACK_m, LIST_MIDDLE, SINGLE_THREAD)
 STACK_CLASS(STACK_l, LIST_LARGE, SINGLE_THREAD)
 
 
-// ATTENTION number MUST great than 1.
-#define     MIN_ARRAY_QUERY                     1
+/*
+ * in my arithmetic, if query length is 1, could not distinguish full or empty.
+ */
+#define     MIN_ARRAY_QUERY                     2
 
 typedef     class RArrayQuery 
 {
@@ -798,7 +802,7 @@ public:
   void      InitArrayQuery(ADDR start, UINT number, BOOL singlethread = 0) 
   {
     inProcess = NOT_IN_PROCESS;
-    if (number <= MIN_ARRAY_QUERY) number++;
+    if (number < MIN_ARRAY_QUERY) number = MIN_ARRAY_QUERY;
 
     arrayStart = freeStart = start;
     freeEnd = start + (number-1) * SIZEADDR;
@@ -842,7 +846,7 @@ public:
     __DO (freeend == freeStart);
     addr = *(freeend.pAddr);
   __CATCH
-  }
+  };
   UINT      GetNumber(void)
   {
     if (freeStart > freeEnd) 
@@ -885,7 +889,6 @@ QUERY_CLASS(QUERY_l, LIST_LARGE, SINGLE_THREAD)
  */
 #define     MAX_TIME_QUERY                      LIST_MIDDLE
 #define     NANO_SECOND                         (1000 * 1000 * 1000)
-
 
 typedef     class RArrayTime {
 private:

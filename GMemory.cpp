@@ -161,7 +161,7 @@ __TRY
   TimeoutInit = timeout;
 
   globalStack.InitArrayStack(RealBlock + (TotalSize - ArraySize), number);
-  __DO (globalStack.FullArrayStack(RealBlock, BorderSize));
+  __DO (globalStack.FullArrayStack(RealBlock, BorderSize, number));
 __CATCH
 };
 
