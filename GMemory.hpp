@@ -246,13 +246,15 @@ public:
  * RealBlock  : the start address by mmap(), 
  * BorderSize : item size pad to border.
  * TotalNumber: as its name.
- * globalStack: memory is alloc as stack, for most used item will be cached
+ * globalStack: memory items will be alloced as stack, for most used item will be cached
  * ArraySize  : STACK only have pointer, the stack body is the first part of memory,
  *            : the size if TotalNumber * SIZEADDR, store in ArraySize.
  * TotalSize  : equal ArraySize pad to border plus TotalNumber * BorderSize.
  * TimeoutInit: default timeout value for this memory pool, 0 for directly free,
  *              if timeout in AddToUsed = 0, use TimeoutInit for timeout.
  * threadListStart : start of threadMemoryInfo::threadListNext.
+ *
+ * comment for function implement in .cpp, is in .cpp file.
  *
  * for 1 thread, one GET/FREE circle about 45ns for all local
  * for 4 thread, 4 circle in 4 core about 63ns for all local
@@ -270,6 +272,14 @@ private:
   threadMemoryInfo *threadListStart;
 
 public:
+/*
+ * CMemoryBlock is a kind of RThreadResoucre, which provide TLS for thread local.
+ * 
+ * TLS for CMemoryBlock is threadMemoryInfo struct. 
+ *   which store in stack memory of the thread. with offset set to nowOffset
+ *   in RthreadResource.
+ * every thread use it MUST call SetThreadArea() before it use TLS
+ */
   CMemoryBlock()
   : RThreadResource(sizeof(threadMemoryInfo))
   { 
@@ -281,6 +291,10 @@ public:
 #endif // _TESTCOUNT
   };
 
+/*
+ * GetOneList is public for NO-free class, 
+ *   It only alloc memory without any initialize.
+ */
   RESULT     GetOneList(ADDR &nlist)
   {
     GetThreadMemoryInfo();
@@ -296,6 +310,13 @@ public:
 #endif // _TESTCOUNT
   __CATCH
   };
+
+private:
+/*
+ * FreeOneList is private, NO-free class will not call free at all.
+ * free able class will call FreeMemoryList(), which use FreeOneList()
+ * FreeOneList will set CListItem struct for mark
+ */
   RESULT      FreeOneList(ADDR nlist)
   {
     GetThreadMemoryInfo();
@@ -306,9 +327,9 @@ public:
 #endif // _TESTCOUNT
     __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
           "FreeList Twice %p\n", nlist.pList);
-    nlist.UsedList = MARK_UNUSED;               // mark for unsed too
+    nlist.UsedList = MARK_UNUSED;
     __DO_(info->memoryStack += nlist,
-	"Free More\n");
+	  "Free More\n");
 #ifdef _TESTCOUNT
     LockInc(FreeSuccessCount);
 #endif // _TESTCOUNT
@@ -323,16 +344,24 @@ public:
 			    UINT border, UINT timeout);
   RESULT    FreeMemoryBlock();
 
+/*
+ * GetMemoryList() is for free able class.
+ * 
+ * for directly free, it behavior like GetOneList(), only add MARK for usedList.
+ *
+ * for NON-directly free, it add the item to LIST. link by usedList.
+ *   the start of list is localUsedList in TLS, change this value do NOT need lock,
+ *   for the schedule thread will NOT change localUsedStart, and NOT remove 
+ *   first node in UsedList, even countdowned.
+ * In my habit, TLS only be changed by one thread.
+ */
   RESULT    GetMemoryList(ADDR &addr, UINT timeout = 0)
   {
     GetThreadMemoryInfo();
   __TRY
     __DO_(info->memoryStack -= addr,
          "No more list CMemoryAlloc %p", this);
-/*
- * need NOT lock, schedule thread will NOT change usedLocalStart, 
- * and NOT remove first node in UsedList, even countdowned.
- */
+
     if (TimeoutInit) {
       if (!timeout) timeout = TimeoutInit;
       addr.CountDown = GlobalTime + timeout;       // it is timeout time
@@ -342,6 +371,13 @@ public:
     else  addr.UsedList = MARK_USED;
   __CATCH
   };
+/*
+ * for directly free, FreeMemoryList() really free it.
+ *
+ * for NON-directly free, it only MARK it to TIMEOUT_QUIT. 
+ * the memory will be freed by schedule thread. 
+ * If only one item in list, started by localUsedStart, it will NOT be free.
+ */
   RESULT    FreeMemoryList(ADDR addr)
   {
     GetThreadMemoryInfo();
@@ -377,6 +413,9 @@ public:                                         // statistics info for debug
 
 /*
  * IOCP struct, for CompleteKey
+ *
+ * This struct should in kernal, but i implement it in userspace.
+ * there are all information related I/O handle for IOCP
  */
 typedef     class CContextItem {
 public:
@@ -398,6 +437,16 @@ public:
 
 /*
  * IOCP struct, for Overlapped
+ *
+ * the struct used for IOCP is OVERLAPPED, which defined in GCommon.hpp
+ *
+ * other member is used for GLdbAPPs, 
+ * wsaBuf    : InternalHigh in overlap pointer to this
+ *             It pointer to bufferData, or padData if addition ahead.
+ * nOper     : more information than evets in overlap
+ * bufferName: name this buffer for search
+ * padData   : for small encapsulation data added ahead real infomation
+ * bufferData: Real information, for/from I/O
  */
 #define     BUFFER_CLASS(classname, size)		        \
   typedef   class classname {					\
@@ -423,8 +472,8 @@ RESULT      GetContext(PCONT &pcont, UINT timeout = 0);
 RESULT      FreeContext(PCONT addr);
 
 #define     BUFFER_FUNCTION_DECLARE(name)			\
-  RESULT    JOIN(Get,name)(ADDR &addr);				\
-  RESULT    JOIN(Free,name)(ADDR addr);
+  RESULT    JOIN(Get,name)(PBUFF &pbuff);			\
+  RESULT    JOIN(Free,name)(PBUFF pbuff);
 
 BUFFER_FUNCTION_DECLARE(BufferSmall)
 BUFFER_FUNCTION_DECLARE(BufferMiddle)
@@ -434,6 +483,8 @@ BUFFER_FUNCTION_DECLARE(BufferMiddle)
  *
  * THere are only one instance of this class, in every program.
  * all memory pool class get memory from this.
+ *
+ * I quite like static memory alloc, for high performance.
  */
 typedef     class CMemoryAlloc  {
 public:
@@ -464,6 +515,9 @@ public:
     __DO(globalBufferMiddle.FreeMemoryBlock());
   __CATCH
   };
+/*
+ * should add Timeout, to CountTimeout all memory pool
+ */
 }MEMORY;
 
 #endif   // GLdb_MEMORY_HPP

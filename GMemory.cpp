@@ -35,6 +35,9 @@
 /*
  * In Linux, I get memory by mmap(), all memory are MAP_FIXED.
  * the top address match the border. 
+ *
+ * totalMemoryStart only be used here, so it is static var only, not for global.
+ * I may add MAP_HUGETLB, should use HAGE PAGE if possible, for same so many cache.
  */
 RESULT      GetMemory(ADDR &addr, UINT size, UINT flag) 
 {
@@ -50,6 +53,13 @@ __TRY
 __CATCH
 };
 
+/*
+ * typical stack is 14M, in every 16M border, the lowest 2M (PAD_THREAD_SIZE) is
+ *   unmapped, then the low part is TLS, first 32k (SIZE_TRECE_INFO) for traceInfo, 
+ *   then for RThreadResource used, 
+ * it only alloc logical memory, which total size is 128T for user space, 
+ *   it is wasteless now.
+ */
 RESULT      GetStack(ADDR &stack) 
 {
 __TRY
@@ -59,9 +69,17 @@ __TRY
 __CATCH
 };
 
+/*
+ * the GetMemoryList() and FreeMemoryList() use raw address, which means the start
+ *   address of CListItem for free able memory pool.
+ * and the allocType member of CListItem for free able, MUST point to is CMemroyBlock
+ *   class, 
+ *
+ * LockDec return old val of refCount, after LockDec, refCount is bigger than nowref
+ */
 RESULT      CListItem::decRefCount(void)
 {
-  UINT      nowref = LockDec(refCount);         // old val return
+  UINT      nowref = LockDec(refCount);
   if (nowref != INIT_REFCOUNT) return 0;
 
 __TRY
@@ -71,9 +89,20 @@ __TRY
 __CATCH
 };
 
-
-// process from CMemoryAlloc::UsedItem or threadMemoryInfo::usedListStart
-// it will not change the para, and do NOT remove first node even countdowned.
+/*
+ * For every NON-directly free CMemoryBlock, CountTimeout will be called periodically
+ *   by CMemroyAlloc.
+ *
+ * Every CMemoryBlock manage its own free, schedule thread call this to free NON-directly
+ *   free memory pool. it read every TLS linked by threadListNext, which started by
+ *   threadListStart. For every TLS, free the list from localUsedList if countdown.
+ * But it do NOT free the first node in localUsedList, for schedule thread do NOT change
+ *   TLS for other thread.
+ *
+ * CountTimeout() for one thread, while TimeoutAll() for one CMemroyBlock
+ *
+ * THIS FUNCTION HAVE NOT TEST COMPELETELY.
+ */
 RESULT      CMemoryBlock::CountTimeout(ADDR usedStart)
 {
   static    volatile INT inCountDown = NOT_IN_PROCESS;
@@ -84,7 +113,9 @@ __TRY
   if (usedStart > MARK_MAX) {
     thisAddr = usedStart;
     nextAddr = thisAddr.UsedList;
-// countdown first node but not free
+/*
+ * countdown first node but not free
+ */
     if (thisAddr.CountDown <= TIMEOUT_QUIT) {                   
       if (thisAddr.CountDown) {
 	if (thisAddr.CountDown-- <= 0) {
@@ -97,7 +128,7 @@ __TRY
     while (nextAddr > MARK_MAX) {
       if (nextAddr.CountDown <= TIMEOUT_QUIT) {
 	if (nextAddr.CountDown-- <= 0) {                        // maybe -1
-	  thisAddr.UsedList = nextAddr.UsedList;                // step one
+	  thisAddr.UsedList = nextAddr.UsedList;
 	  // DO close nextAddr.Handle
 	  // and nextAddr.Handle = 0;
 	  __DO (FreeOneList(nextAddr));
@@ -108,11 +139,29 @@ __TRY
       if (thisAddr.UsedList == nextAddr.pList) thisAddr = nextAddr;   
       nextAddr = thisAddr.UsedList;
     } }
-  //    inCountDown = NOT_IN_PROCESS;
+    inCountDown = NOT_IN_PROCESS;
   __FREE(inCountDown);
 __CATCH
 };
 
+RESULT      CMemoryBlock::TimeoutAll(void)
+{
+__TRY
+  GlobalTime = time(NULL);
+  threadMemoryInfo *list = threadListStart;
+  while (list) {
+    __DO (CountTimeout(list->localUsedList));
+    list = list->threadListNext;
+  }
+__CATCH
+};
+
+/*
+ * To initialize TLS field.
+ *
+ * Of course, thread MUST modified threadListStart to link threadListNext list.
+ *   fortunately, it not in other TLS, it follow my habit.
+ */
 RESULT      CMemoryBlock::SetThreadArea(UINT getsize, UINT maxsize, UINT freesize, UINT flag)
 {
   static LOCK lockList = NOT_IN_PROCESS;
@@ -133,8 +182,7 @@ RESULT      CMemoryBlock::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
   GetThreadMemoryInfo();
 
 __TRY__
-  start.pAddr = &(info->localCache[MAX_LOCAL_CACHE - maxsize]);
-  //start.pAddr = &(info->localCache[0]);
+  start.pAddr = &(info->localCache[0]);
   info->memoryStack.InitArrayStack(start, maxsize, SINGLE_THREAD,
 				   &globalStack, getsize, freesize);
   info->threadFlag = flag;
@@ -147,13 +195,15 @@ __CATCH__
 };
 
 /*
+ * Initialize and full STACK 
+ *
  * in one memory block, real data ahead, stack array at last.
  */
 RESULT      CMemoryBlock::InitMemoryBlock(UINT number, UINT size, UINT border, UINT timeout)
 {
 __TRY
   BorderSize = PAD_INT(size, 0, border);
-  ArraySize = number * SIZEADDR;
+  ArraySize = PAD_INT(number * SIZEADDR, 0, border);
   TotalSize = BorderSize * number + ArraySize;
 
   __DO (GetMemory(RealBlock, TotalSize));
@@ -171,18 +221,6 @@ __TRY__
   printf("in munmap() \n");
   munmap (RealBlock.pVoid, TotalSize);
 __CATCH__
-};
-
-RESULT      CMemoryBlock::TimeoutAll(void)
-{
-__TRY
-  GlobalTime = time(NULL);
-  threadMemoryInfo *list = threadListStart;
-  while (list) {
-    __DO (CountTimeout(list->localUsedList));
-    list = list->threadListNext;
-  }
-__CATCH
 };
 
 void        CMemoryBlock::DisplayFree(void)
@@ -223,13 +261,22 @@ void        CMemoryBlock::DisplayFree(void)
 
 /*
  * Global Memory Function be called
+ *
+ * GetContext & FreeContext use the address after CListItem
+ * GetBufferxx & FreeBufferxx to same thing
  */
-
 #define     ADDR_TO_PCONT(addr)                                 \
   ((PCONT)(addr.pChar + sizeof(LIST)))
 
 #define     PCONT_TO_ADDR(pcont)                                \
   ((PCHAR)(pcont) - sizeof(LIST))
+
+#define     ADDR_TO_PBUFF(addr)                                 \
+  ((PBUFF)(addr.pChar + sizeof(LIST)))
+
+#define     PBUFF_TO_ADDR(pbuff)                                \
+  ((PCHAR)(pbuff) - sizeof(LIST))
+
 RESULT      InitContextItem(PCONT pcont)
 {
 __TRY__
@@ -242,6 +289,11 @@ __TRY__
 __CATCH__
 }
 
+/*
+ * There are four field in CListItem, 
+ * usedList & countDown is initialized in GetMemoryList()
+ * allocType & refCount is initialized in GetContext()
+ */
 RESULT      GetContext(PCONT &pcont, UINT timeout)
 {
 __TRY
@@ -261,23 +313,29 @@ RESULT      FreeContext(PCONT pcont)
 };
 
 #define     BUFFER_FUNCTION(name)				\
-  RESULT    JOIN(Get,name)(ADDR &addr)				\
+  RESULT    JOIN(Get,name)(PBUFF &pbuff)			\
   {								\
   __TRY								\
+    ADDR    addr;						\
     __DO(JOIN(Global,name).GetMemoryList(addr, 0));		\
     addr.AllocType = &JOIN(Global,name);		        \
     addr.RefCount = INIT_REFCOUNT;				\
+    pbuff = ADDR_TO_PBUFF(addr);				\
  __CATCH						        \
    };								\
-  RESULT    JOIN(Free,name)(ADDR addr)				\
+  RESULT    JOIN(Free,name)(PBUFF pbuff)			\
   {								\
+    ADDR    addr;						\
+    addr = PBUFF_TO_ADDR(pbuff);				\
     return JOIN(Global,name).FreeMemoryList(addr);		\
   }
 
 BUFFER_FUNCTION(BufferSmall)
 BUFFER_FUNCTION(BufferMiddle)
 
-
+/*
+ * Following is for debug memory pool program
+ */
 #ifdef _TESTCOUNT
 
 #define PRINT_COLOR(p) printf("\e[0;%sm", p)

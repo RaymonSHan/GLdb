@@ -125,6 +125,8 @@ typedef     class RMultiEvent*                  PEVENT;
 
 /*
  * typedef for IOCP, compatible for Windows
+ * 
+ * ONLY used in linux
  */
 #ifdef      __linux
 
@@ -153,16 +155,34 @@ typedef     struct WSAData {
   char     *lpVendorInfo;
 }WSADATA, *LPWSADATA;
 
+/*
+ * The struct used by Windows, 
+ *
+ * I changed its type for less type conversion.
+ *   len : original type is u_long
+ *   buf : original type is char*
+ */
 typedef     struct __WSABUF {
-  UINT      len;                                // old type is u_long
-  PUCHAR    buf;                                // old type is char*
+  UINT      len;
+  PUCHAR    buf;
 }WSABUF, *LPWSABUF;
 
+/*
+ * The most important struct for IOCP in Windows
+ *
+ * In windows, Internal & InterrnalHigh is used by windows kernal, so I use it for 
+ *   GLdbIOCP itself.
+ * Internal    : original type is ULONG_PTR, I change it to PCONT, for pointer the
+ *               struct of ContextItem, which store all information for I/O handle
+ * InternalHigh: original type is ULONG_PTR, I use it for point to buffer
+ * events      : NEW member, store EPOLLIN or EPOLLOUT or other EPOLLxx I defined.
+ * doneSize    : NEW member, as its name. I store it in OVERLAPPED, so lpOverlapped
+ *               in PostQueuedCompletionStatus() will NOT be NULL. it is different 
+ *               from Windows.
+ */
 typedef     struct _WSAOVERLAPPED {
-  PCONT     Internal;                           // in linux for addr of CContextItem
-                                                //   old type is ULONG_PTR
-  LPWSABUF  InternalHigh;                       // in linux for addr of wsabuf,
-                                                //   old type is ULONG_PTR
+  PCONT     Internal;
+  LPWSABUF  InternalHigh;
   union {
     struct {
       DWORD Offset;
@@ -171,8 +191,8 @@ typedef     struct _WSAOVERLAPPED {
     PVOID   Pointer;
   };
   HANDLE    hEvent;
-  UINT      events;                             // this is added for saving one thread
-  UINT      doneSize;                           // this is added for record readed&writed
+  UINT      events;
+  UINT      doneSize;
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED;
 
 #endif   // __linux
