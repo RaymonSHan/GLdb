@@ -49,6 +49,9 @@ int         isListeningSocket(HANDLE handle)
   else return val;
 };
 
+/*
+ * dwFlags must with OVERLAP flags
+ */
 SOCKET      WSASocket(int       af, 
 		      int       type, 
 		      int       protocol,
@@ -56,14 +59,16 @@ SOCKET      WSASocket(int       af,
 		      GROUP     g, 
 		      DWORD     dwFlags)
 {
-
+  (void)     lpProtocolInfo;
+  (void)     g;
+  (void)     dwFlags;
   PCONT      pcont;
   RESULT     result;
-  //  socket();
+
   result = GetContext(pcont);
   if (result) return 0;
   InitContextItem(pcont);
-  //  pcont->bHandle = socket;
+  pcont->bHandle = socket(af, type, protocol);;
   return pcont;
 };
 
@@ -72,7 +77,7 @@ HANDLE      CreateIoCompletionPort(SOCKET       FileHandle,
 				   ULONG_PTR    CompletionKey,
 				   DWORD        NumberOfConcurrentThreads)
 {
-  (void)NumberOfConcurrentThreads;
+  (void)    NumberOfConcurrentThreads;
 __TRY__
   ADDR      addr;
   int       state;

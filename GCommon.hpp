@@ -521,12 +521,15 @@ typedef     struct threadTraceInfo {
 /*
  * class for working thread use following declare,
  * which will be clone or _beginthread
+ *
+ * getThreadName is virtual, so MUST declare in every class
  */
 #define   __class(name)						\
   class name {							\
   protected:							\
   virtual const char* getThreadName(void) {			\
     return #name; };						\
+  threadTraceInfo *threadInfo;					\
   private:
 
 #define   __class_(name, base)		                	\

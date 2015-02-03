@@ -8,12 +8,13 @@
  *
  * In my logic, epoll will received data order error, if multi-thread epoll_wait() 
  *   same socket, whether LT or ET; but IOCP will not, if you post only one buffer for
- *   receive, but multi-thread wait complete.
- * In GLdb, IOCP system assembled by three epoll handle and one buffered eventfd.
- *   Buffered eventfd means : eventfd work on EFD_SEMAPHORE mode with an array to
+ *   receive, while multi-thread wait complete.
+ * In GLdb, IOCP system assembled by one epoll handle and one buffered eventfd. And
+ *   two threads wait for each.
+ * Buffered eventfd means : eventfd work on EFD_SEMAPHORE mode with an array to
  *   storage value. The array is small, for when system is busy, should tell client
  *   explicitly, instead of make system more busy.
- * In GLdbIOCP, there are three thread wait for epoll accept, read & write.
+ * In GLdbIOCP, there are a thread wait for epoll accept, read & write.
  *   and one thread wait eventfd. Each IOCP handle is another eventfd. 
  *   Application wait for it.
  * Every socket handle wait epoll, with ev.u64 for a OVERLAPPED struct, which Internal
@@ -28,11 +29,11 @@
  * When eventfded, eventfd-thread always read socket, whether by epoll or application.
  *   if EAGAIN, continue wait; or trigger IOCP handle with CContextItem and buffer 
  *   pointer as the return value of IOCP for complete read. And of course, empty
- *   the buffer pointer.g
+ *   the buffer for this socket.
  *
  * for WRITE :
- * Application WSASend() only trigger eventfd-thread. This thread write socket, 
- *   if OK, eventfd-thread trigger IOCP for write complete; if EAGAIN, add EPOLLOUT
+ * Application WSASend() only trigger eventfd thread. eventfd thread write socket, 
+ *   if OK, eventfd thread trigger IOCP for write complete; if EAGAIN, add EPOLLOUT
  *   to epoll, write more when epolled till OK. Then remove EPOLLOUT and trigger
  *   IOCP for complete write.
  *
@@ -73,10 +74,9 @@
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
 
-#define     IOCPBaseAddress                     GLdbIOCP::iocpBaseAddress
-
 int         isListeningSocket(HANDLE handle);
 
+#ifdef      __linux
 
 int         WSAStartup(WORD     wVersionRequested, 
 		       LPWSADATA lpWSAData);
@@ -87,8 +87,7 @@ SOCKET      WSASocket(int       af,
 		      LPWSAPROTOCOL_INFO  lpProtocolInfo, 
 		      GROUP     g, 
 		      DWORD     dwFlags);
-/* If the ExistingCompletionPort parameter was a valid I/O completion port handle, 
-   the return value is that same handle.*/
+
 HANDLE      CreateIoCompletionPort(SOCKET       FileHandle,
 				   HANDLE       ExistingCompletionPort,
 				   ULONG_PTR    CompletionKey,
@@ -117,10 +116,18 @@ int         WSARecv(SOCKET      s,
                     LPDWORD     lpFlags,
                     LPWSAOVERLAPPED     lpOverlapped,
                     LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
-
+#endif   // __linux
 
 /*
  * This is buffered eventfd
+ *
+ * something different than my habit
+ *   this is static struct, but use Initxx & Freexx, instead of constructor
+ *
+ * The total value of eventFd always small than MAX_HANDLE_LOCK, it seemed read 
+ *   and write of eventFd will not fail at all.
+ * The value read & write for eventFd always 1, for its SEMAPHORE mode. Uuseful 
+ *   value is in eventQuery.
  *
  * TEST : continuous += & -=, loop in one thread about 460ns 
  *        two thread nest, one loop is (2us, 3us, 6us)
@@ -140,10 +147,6 @@ public:
   RMultiEvent()
   {
     eventFd = 0;
-  };
-  ~RMultiEvent()
-  {
-    //    if (eventFd) close(eventFd);
   };
   RESULT    InitArrayEvent()
   {
@@ -179,15 +182,25 @@ public:
   };
 }EVENT;
 
-
 /* 
  * Basic thread, only finish clone, init, loop, kill
+ *
+ * In GLdb project, all thread is devide from RThread, which cloned by main thread.
+ * Next thread will NOT be cloned until the previous one have finish initialize. 
+ *   This is controlled by ThreadStartEvent. child will set this when it initialized,
+ *   while main thread wait for this.
+ * Child Thread always have to use TLS, which initialized when it cloned. While the
+ *   address of TLS is depend on SP, so the ThreadInit() MUST be called by child.
+ *
+ * The virtual base class RThread do all the above.
+ * 
+ * For inherit class, MUST implement virtual function ThreadInit(), ThreadDoing().
+ *   and implement ThreadFree() if necessary.
+ * For parent thread, call member function ThreadClone(), to start child.
  */
 #define     GlobalThreadNumber                  RThread::globalThreadNumber
 #define     GlobalShouldQuit                    RThread::globalShouldQuit
 #define     ThreadStartEvent                    RThread::threadStartEvent
-
-
 
 typedef   __class(RThread)
 private:
@@ -197,7 +210,7 @@ private:
 
 protected:
   UINT      threadNumber;
-  threadTraceInfo *threadInfo;
+
 public:
   static    volatile UINT globalThreadNumber;
   static    volatile UINT globalShouldQuit;
@@ -207,11 +220,17 @@ public:
   RThread()
   {
     shouldQuit = 0;
+    threadId = 0;
   };
+  ~RThread()
+  {
+    threadStartEvent.FreeArrayEvent();
+  }
   RESULT    ThreadClone(void)
   {
   __TRY
     ADDR    result = {0};
+
     if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
     else ThreadStartEvent.InitArrayEvent();
     __DO_(result.aLong, "GlobalEvent Initialize Error\n");
@@ -228,15 +247,21 @@ public:
   {
   __TRY
     RThread *thread = (RThread*) point;
-// InitThread is be called in parent thread
-//   ADDR    result;
-//    result = thread->ThreadInit();
-//    __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
-//    __DO_(result.aLong, "Thread Initialize Error\n");
+    ADDR    result;
+
+    result = thread->SystemThreadInit();
+    __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
+    __DO_(result.aLong, "Thread Initialize Error\n");
+
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
     __DO_(thread->ThreadFree(), "Thread Free Error\n");
   __CATCH
+  };
+  RESULT    SystemThreadInit(void)
+  {
+    setThreadName();
+    return ThreadInit();
   };
   virtual   RESULT ThreadInit(void) = 0;
   virtual   RESULT ThreadDoing(void) = 0;
@@ -254,7 +279,7 @@ public:
 #define     NUMBER_MAX_EV                       20
 #define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
 
-#define     TIMEOUT_EPOLL_WAIT                  (1000*100)
+#define     TIMEOUT_EPOLL_WAIT                  (1000*1000)
 
 /*
  * Send OVERLAPPED to my IOCP handle, while Internal save CContextItem & InternalHigh
@@ -412,16 +437,7 @@ public:
  * GLdb always use static memory, 63 is enough for any application
  *
  * GLdbIOCP has only one instance
- *
- * HANDLE is 32bit, address is 64bit. 
- * high byte of IOCP handle is 'C', low three byte is offset of iocpHandle[i]
- *   to handleBaseAddress, in char size.
  */
-#define     ADDR_TO_IOCPHANDLE(addr)		                \
-  ((int)(addr - IOCPBaseAddress) + (int)('C'<<24))
-
-#define     IOCPHANDLE_TO_ADDR(handle)		                \
-  (PEVENT)(IOCPBaseAddress.pChar + ((UINT)(handle & 0xffffff)))
 
 typedef     class GLdbIOCP {
 private:
