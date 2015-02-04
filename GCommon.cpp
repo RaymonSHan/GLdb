@@ -59,10 +59,23 @@ volatile    UINT GlobalTime                   = time(NULL);
  *
  * ThreadStartEvent : synchronous event, for thread initialized one by one
  *                    because of TLS, per-thread init MUST be runned by thread self.
+ *
+ * ThreadInitFinish : synchronous event, after all clone of child thread, parrent
+ *                    thread set this, for start ThreadDoing() start.
  */
 volatile    UINT GlobalThreadNumber           = 0;
 volatile    UINT GlobalShouldQuit             = 0;
 EVENT       ThreadStartEvent;
+EVENT       ThreadInitFinish;
+
+/*
+ * Following in RThreadEpoll
+ *
+ * TimeoutEpollWait : In RThreadEvent, wait for eventfd without timeout option.
+ *                    So, RThreadEpoll trigger sign every TimeoutEpollWait time.
+ *                    The different from classic IOCP is, all IOCP must use same tiemout.
+ */
+int         TimeoutEpollWait                  = -1;
 
 /*
  * it is for GLdbDatabase use, not for GLdbIOCP,

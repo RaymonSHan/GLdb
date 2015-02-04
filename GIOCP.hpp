@@ -6,7 +6,7 @@
  *   but if system return after complete, application could NOT get before it.
  * So, the unified model for application is IOCP. I do encapsulation epoll to IOCP.
  *
- * In my logic, epoll will received data order error, if multi-thread epoll_wait() 
+ * In my logic, epoll will received data order error, if multi thread epoll_wait() 
  *   same socket, whether LT or ET; but IOCP will not, if you post only one buffer for
  *   receive, while multi-thread wait complete.
  * In GLdb, IOCP system assembled by one epoll handle and one buffered eventfd. And
@@ -73,6 +73,12 @@
 
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
+
+#define     IOCPBaseAddress                     GLdbIOCP::iocpBaseAddress
+#define     ADDR_TO_IOCPHANDLE(addr)		                \
+  ((int)(addr - IOCPBaseAddress) + (int)('C'<<24))		
+#define     IOCPHANDLE_TO_ADDR(handle)		                \
+  (PEVENT)(IOCPBaseAddress.pChar + ((UINT)(handle & 0xffffff)))
 
 int         isListeningSocket(HANDLE handle);
 
@@ -185,22 +191,27 @@ public:
 /* 
  * Basic thread, only finish clone, init, loop, kill
  *
- * In GLdb project, all thread is devide from RThread, which cloned by main thread.
- * Next thread will NOT be cloned until the previous one have finish initialize. 
+ * In GLdb project, all working threads are devide from RThread, which cloned by 
+ *   main thread.
+ * Next thread will NOT be cloned until the previous one have finish its initialize. 
  *   This is controlled by ThreadStartEvent. child will set this when it initialized,
  *   while main thread wait for this.
  * Child Thread always have to use TLS, which initialized when it cloned. While the
- *   address of TLS is depend on SP, so the ThreadInit() MUST be called by child.
+ *   address of TLS is depend on RSP, so the ThreadInit() MUST be called by child,
+ *   instead of main thread.
  *
  * The virtual base class RThread do all the above.
  * 
  * For inherit class, MUST implement virtual function ThreadInit(), ThreadDoing().
  *   and implement ThreadFree() if necessary.
- * For parent thread, call member function ThreadClone(), to start child.
+ * For parent thread, call static member function ThreadClone(), to start child.
+ *   after clone all child, MUST call ThreadStart() to set ThreadInitFinish eventfd.
+ *   then all child begin do main loop.
  */
 #define     GlobalThreadNumber                  RThread::globalThreadNumber
 #define     GlobalShouldQuit                    RThread::globalShouldQuit
 #define     ThreadStartEvent                    RThread::threadStartEvent
+#define     ThreadInitFinish                    RThread::threadInitFinish
 
 typedef   __class(RThread)
 private:
@@ -215,6 +226,7 @@ public:
   static    volatile UINT globalThreadNumber;
   static    volatile UINT globalShouldQuit;
   static    EVENT threadStartEvent;
+  static    EVENT threadInitFinish;
 
 public:
   RThread()
@@ -226,13 +238,22 @@ public:
   {
     threadStartEvent.FreeArrayEvent();
   }
+
+/*
+ * The first time, ThreadStartEvent hsa not initialized, or wait for sign for
+ *   last child thread finish its initialize.
+ * Then clone this child with started at RThreadFunc().
+ */
   RESULT    ThreadClone(void)
   {
   __TRY
     ADDR    result = {0};
 
     if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
-    else ThreadStartEvent.InitArrayEvent();
+    else {
+      ThreadStartEvent.InitArrayEvent();
+      ThreadInitFinish.InitArrayEvent();
+    }
     __DO_(result.aLong, "GlobalEvent Initialize Error\n");
     LockInc(GlobalThreadNumber);
     __DO_(GetStack(threadStack), "Stack Initialize Error\n");
@@ -243,6 +264,39 @@ public:
 	   "Thread Clone Error\n");
   __CATCH
   };
+
+/*
+ * After clone all child, parent MUST call this.
+ *
+ * At first, this function wait for the last child finish its initialize.
+ * Then set eventfd to start child's main loop.
+ * Finish free the event, but when free ThreadStartEvent? wait some seconds?
+ */
+  static    RESULT ThreadStart(void)
+  {
+  __TRY
+    ADDR    result = {0};
+    UINT    i;
+
+    __DO (ThreadStartEvent -= result);
+    for (i = 0; i < GlobalThreadNumber; i++) {
+      __DO (ThreadInitFinish += result);
+    }
+    ThreadStartEvent.FreeArrayEvent();
+/*
+ * When call this ?
+ *  ThreadInitFinish.FreeArrayEvent();
+ */
+//   
+  __CATCH
+  };
+
+/*
+ * First setThreadName() and other system initialize, and customize init by child.
+ * After it, set sign for parent thread can clone next child. and wait parent's sign
+ * Then do main loop till quit sign for this thread or all threads.
+ * The final, free resource to quit.
+ */
   static    int RThreadFunc(void* point)
   {
   __TRY
@@ -253,6 +307,7 @@ public:
     __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
     __DO_(result.aLong, "Thread Initialize Error\n");
 
+    __DO (ThreadInitFinish -= result);
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
     __DO_(thread->ThreadFree(), "Thread Free Error\n");
@@ -270,25 +325,47 @@ public:
 }THREAD;
 
 
-/*
- * The thread wait for epoll in GLdbIOCP
- * 
- * There are three thread work for epoll, each for accept, read, write
- * RThreadEpollAccept should be the last thread be init
- */
 #define     NUMBER_MAX_EV                       20
-#define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
 
-#define     TIMEOUT_EPOLL_WAIT                  (1000*1000)
+
+#define     TimeoutEpollWait                    RThreadEpoll::timeoutEpollWait
 
 /*
- * Send OVERLAPPED to my IOCP handle, while Internal save CContextItem & InternalHigh
- *   save WSABUF
+ * for EPOLLIN is 1, EPOLLOUT is 4, i define other for other sign
+ */
+#define     EPOLLTIMEOUT                        (1 << 8)
+#define     EPOLLREAD                           (1 << 9)
+#define     EPOLLWRITE                          (1 << 10)
+
+/*
+ * GLdbIOCP assembled by one epoll handle and one buffered eventfd. And two
+ *   threads wait for each.
+ * This thread is wait for epoll in GLdbIOCP.
+ * 
+ * Typical, RThreadEpoll wait for EPOLLIN & EPOLLOUT. but do NOT read & write, 
+ *   these reality work is done by RThreadEvent.
+ * If RThreadEpoll and RThreadEvent do read & write at the same time, concurrent
+ *   error will happen.
+ * In fact, if it can wait for BOTH eventfd and epoll, one thread is enough, and
+ *   more effciently. (maybe epoll_pwait is ok?)
+ * This thread translate epoll sign to eventfd by send an OVERLAPPED to RThreadEvent.
+ * The field in OVERLAPPED is following define, which in GCommon.hpp.
+ *
+ * Summary : RThreadEpoll is a very simple class
+ *
+ * timeoutEpollWait : trigger RThreadEvent periodically, more detail in GCommon.cpp
+ * epoll_event  : epoll_wait() use, for store event from epoll
+ * epollHandle  : as its name
+ * evHandle     : RThreadEvent's member, set by parent thread after initialize
+ * overlapStack : struct for translate to RThreadEvent
+ * overlapBuffer: really memory to store message
  */
 typedef   __class_ (RThreadEpoll, RThread)
+public:
+  static    int timeoutEpollWait;
+
 protected:
   struct    epoll_event waitEv[NUMBER_MAX_EV];
-
   
 public:
   int       epollHandle;
@@ -318,9 +395,14 @@ public:
     LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
 
     __DO1 (evNumber,
-	   epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TIMEOUT_EPOLL_WAIT));
+	   epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
+    __DO (overlapStack -= overlapaddr);
+
+    if (waitEv == 0) {
+      overlap->events = EPOLLTIMEOUT;
+      __DO (*evHandle += overlapaddr);
+    }
     for (i = 0; i < evNumber; i++) {
-      __DO (overlapStack -= overlapaddr)
       overlap->events = waitEv[i].events;
       overlap->Internal = (PCONT)waitEv[i].data.u64;
       overlap->InternalHigh = 0;
@@ -335,13 +417,16 @@ public:
   };
 }TEPOLL, *PTEPOLL;
 
-typedef   __class_ (RThreadEv, RThread)
+/*
+ * RThreadEvent do really working make epoll like IOCP
+ */
+typedef   __class_ (RThreadEvent, RThread)
 public:
   int       epollHandle;
   EVENT     evHandle;
   PSTACK_S  pOverlapStack;
 public:
-  RThreadEv()
+  RThreadEvent()
   {
     epollHandle = 0;
   }; 
@@ -438,6 +523,7 @@ public:
  *
  * GLdbIOCP has only one instance
  */
+#define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
 
 typedef     class GLdbIOCP {
 private:
@@ -459,7 +545,7 @@ public:
 public:
   RESULT    InitGLdbIOCP()
   {
-  __TRY
+  __TRY__
     int     i;
     ADDR    addr;
 
@@ -471,13 +557,12 @@ public:
     threadEv.ThreadClone();
     threadEpoll.ThreadClone();
 
-    __DO (threadEpoll.ThreadInit());
-    __DO (threadEv.ThreadInit());
     epollHandle = threadEv.epollHandle = threadEpoll.epollHandle;
     evHandle = threadEpoll.evHandle = &threadEv.evHandle;
     pOverlapStack = threadEv.pOverlapStack = &threadEpoll.overlapStack;
+    RThread::ThreadStart();
 
-  __CATCH
+  __CATCH__
   };
   RESULT    FreeGLdbIOCP()
   {

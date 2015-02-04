@@ -251,7 +251,7 @@ __TRY__
   rtime += &timestruct;
 
 
-  //  GlobalShouldQuit = 1;
+  GlobalShouldQuit = 1;
   rtime.OutputTime();
   GlobalIOCP.FreeGLdbIOCP();
   GlobalMemory.FrreeMemoryBlock();
