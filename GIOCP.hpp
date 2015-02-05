@@ -74,12 +74,6 @@
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
 
-#define     IOCPBaseAddress                     GLdbIOCP::iocpBaseAddress
-#define     ADDR_TO_IOCPHANDLE(addr)		                \
-  ((int)(addr - IOCPBaseAddress) + (int)('C'<<24))		
-#define     IOCPHANDLE_TO_ADDR(handle)		                \
-  (PEVENT)(IOCPBaseAddress.pChar + ((UINT)(handle & 0xffffff)))
-
 int         isListeningSocket(HANDLE handle);
 
 #ifdef      __linux
@@ -326,12 +320,17 @@ public:
 
 
 #define     NUMBER_MAX_EV                       20
-
-
 #define     TimeoutEpollWait                    RThreadEpoll::timeoutEpollWait
 
 /*
- * for EPOLLIN is 1, EPOLLOUT is 4, i define other for other sign
+ * for EPOLLIN is 1, EPOLLOUT is 4, i define other sign
+ *
+ * EPOLLIN     : for RThreadEpoll receive EPOLLIN, then send this in 
+ *               OVERLAPPED to RThreadEvent.
+ * EPOLLOUT    : same for RThreadEpoll receive EPOLLOUT
+ * EPOLLTIMEOUT: timeout in RThreadEpoll, trigger RThreadEvent
+ * EPOLLREAD   : WSARecv send this in OVERLAPPED to trigger RThreadEvent.
+ * EPOLLWRITE  : WSASend send this in OVERLAPPED to trigger RThreadEvent.
  */
 #define     EPOLLTIMEOUT                        (1 << 8)
 #define     EPOLLREAD                           (1 << 9)
@@ -349,13 +348,15 @@ public:
  * In fact, if it can wait for BOTH eventfd and epoll, one thread is enough, and
  *   more effciently. (maybe epoll_pwait is ok?)
  * This thread translate epoll sign to eventfd by send an OVERLAPPED to RThreadEvent.
- * The field in OVERLAPPED is following define, which in GCommon.hpp.
+ *   which include EPOLLIN/EPOLLOUT and address of CContextItem.
+ *
+ * The field in OVERLAPPED is defined in GCommon.hpp.
  *
  * Summary : RThreadEpoll is a very simple class
  *
  * timeoutEpollWait : trigger RThreadEvent periodically, more detail in GCommon.cpp
  * epoll_event  : epoll_wait() use, for store event from epoll
- * epollHandle  : as its name
+ * pepollHandle : as its name
  * evHandle     : RThreadEvent's member, set by parent thread after initialize
  * overlapStack : struct for translate to RThreadEvent
  * overlapBuffer: really memory to store message
@@ -369,14 +370,14 @@ protected:
   
 public:
   int       epollHandle;
-  PEVENT    evHandle;
+  PEVENT    peventHandle;
   STACK_S   overlapStack;
   OVERLAPPED overlapBuffer[LIST_SMALL + 1];
 public:
   RThreadEpoll()
   {
     epollHandle = 0;
-    evHandle = 0;
+    peventHandle = 0;
   };
   RESULT    ThreadInit(void)
   {
@@ -396,17 +397,24 @@ public:
 
     __DO1 (evNumber,
 	   epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
-    __DO (overlapStack -= overlapaddr);
 
     if (waitEv == 0) {
+      __DO (overlapStack -= overlapaddr);
       overlap->events = EPOLLTIMEOUT;
-      __DO (*evHandle += overlapaddr);
-    }
-    for (i = 0; i < evNumber; i++) {
-      overlap->events = waitEv[i].events;
-      overlap->Internal = (PCONT)waitEv[i].data.u64;
-      overlap->InternalHigh = 0;
-      __DO (*evHandle += overlapaddr);
+      __DO (*peventHandle += overlapaddr);
+    } else {
+      for (i = 0; i < evNumber; i++) {
+/*
+ * the buffer for overlap is small, send sign one by one, not group.
+ * continuous add sign do not switch thread.
+ * InternalHigh set to 0, means this sign from RThreadEpoll
+ */
+	__DO (overlapStack -= overlapaddr);
+	overlap->events = waitEv[i].events;
+	overlap->Internal = (PCONT)waitEv[i].data.u64;
+	overlap->InternalHigh = 0;
+	__DO (*peventHandle += overlapaddr);
+      }
     }
   __CATCH
   };
@@ -418,12 +426,59 @@ public:
 }TEPOLL, *PTEPOLL;
 
 /*
- * RThreadEvent do really working make epoll like IOCP
+ * GLdbIOCP assembled by one epoll handle and one buffered eventfd. And two
+ *   threads wait for each.
+ * This thread is wait for eventfd in GLdbIOCP. And make epoll like IOCP
+ *
+ * It wait for evHandle, every ADDR from it, is the address of a OVERLAPPED
+ *
+ * RThreadEvent receive five sign, saved in member events of OVERLAPPED, 
+ *   which defined like EPOLLxx. For EPOLLIN & EPOLLOUT, only Internal is valid.
+ *   For EPOLLREAD & EPOLLWRITE, Internal and InternalHigh is valid. For 
+ *   EPOLLTIMEOUT, all other fields in OVERLAPPED are invalid.
+ * Of course for EPOLLIN & EPOLLOUT, should free OVERLAPPED to RThreadEpoll.
+ *
+ * EPOLLIN      : send by RThreadEpoll, for data is ready. Internal in OVERLAPPED
+ *                is address of CContextItem.
+ *                RThreadEvent check received buffer for this socket, which list in 
+ *                readBuffer of CContextItem. If exist, get a buffer and read data.
+ *                Or ignore it, DO NOTHING !!
+ *
+ *                !! THIS IS THE MOST MODIFIED FOR GLdbIOCP !!
+ *
+ *                If buffer exist, it trigger IOCP eventfd for read complete when 
+ *                finish reading.
+ * EPOLLOUT     : send by RThreadEpoll, for last send is ok. Internal same as above.
+ *                RThreadEvent first check whether the data in this OVERLAPPED have 
+ *                sent completely, if not, continous send. Or trigger IOCP eventfd
+ *                for write complete. Then check whether any more OVERLAPPED sould
+ *                send list in writeBuffer of CContextItem. if exist, send more.
+ *                After every send, it check error for EAGAIN, if OK return, remove
+ *                EPOLLOUT of this socket, and trigger write complete immediatelly.
+ *                Of course, if no more OVERLAPPED in writeBuffer, remove EPOLLOUT
+ *                too, 
+ * EPOLLREAD    : send by WSARecv(), for application is ready for receive data.
+ *                Every time RThreadEvent receive this sign, it read the socket.
+ *                If get OK, trigger read complete, or if get EAGAIN, add this
+ *                OVERLAPPED to readBuffer.
+ * EPOLLWRITE   : send by WSASend(), for application data send.
+ *                Before trigger RThreadEvent, WSASend have added OVERLAPPED for write
+ *                into writeBuffer, for last OVERLAPPED may partly send.
+ *                RThreadEvent do same thing as receive EPOLLOUT for EPOLLWRITE.
+ * EPOLLTIMEOUT : do nothing but exit the loop.
+ *
+ * epollHandle  : the epollHandle in RThreadEpoll, set by parent thread after initialize.
+ * evHandle     : buffered eventfd, entity of pevHandle in RThreadEpoll
+ * poverlapStack: pointer to overlapStack in RThreadEvent, for free OVERLAPPED from 
+ *                RThreadEvent in EPOLLIN & EPOLLOUT.
+ *
+ * readBuffer is add by RThreadEvent, while writeBuffer is add by WSASend.
+ * For receive buffer is empty, the order is unrelated. while send buffer MUST in order.
  */
 typedef   __class_ (RThreadEvent, RThread)
 public:
   int       epollHandle;
-  EVENT     evHandle;
+  EVENT     eventHandle;
   PSTACK_S  pOverlapStack;
 public:
   RThreadEvent()
@@ -433,7 +488,7 @@ public:
   RESULT    ThreadInit(void)
   {
   __TRY
-    __DO_(evHandle.InitArrayEvent(), "Error in create eventEv\n");
+    __DO_(eventHandle.InitArrayEvent(), "Error in create eventEv\n");
   __CATCH
   };
   RESULT    ThreadDoing(void)
@@ -441,67 +496,95 @@ public:
   __TRY
     int     readed, writed, state;
     ADDR    contextaddr, overlapaddr, bufferaddr;
-    LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
     PCONT   &context = (PCONT &)contextaddr;
+    LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
     LPWSABUF &buffer = (LPWSABUF &)bufferaddr; 
     struct  epoll_event ev;
 
-    __DO (evHandle -= overlapaddr);
+/*
+ * Wait eventfd, then get CContextItem and WSABuffer address
+ */
+    __DO (eventHandle -= overlapaddr);
     contextaddr = overlap->Internal;
     bufferaddr = overlap->InternalHigh;
-    
-    if (overlap->events == EPOLLIN) {
-      if (bufferaddr == ZERO) {                 // Get sign from Epoll, no overlap yet.
-	*pOverlapStack += bufferaddr;           // free tran info struct
-	context->readBuffer -= overlapaddr;     // get real overlap
-	if (overlapaddr == ZERO) __BREAK_OK;    // application not, no overlap
-	bufferaddr = overlap->InternalHigh;     // get wsabuf in overlap
-	overlap->events = EPOLLIN;              // Is it necessary ?
+/*
+ * In fact, EPOLLIN and EPOLLREAD do almost same thing, same as EPOLLOUT and 
+ *   EPOLLWRITE. I am hesitate whether remove EPOLLREAD and EPOLLWRITE.
+ *
+ * (bufferaddr == ZERO) means the sign from RThreadEpoll.
+ * lpOverlapped in WSASend or WSARecv could NOT BE NULL.
+ */
+    if ((overlap->events == EPOLLIN) || (overlap->events == EPOLLREAD)) {
+      if (bufferaddr == ZERO) {
+/*
+ * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
+ *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
+ */
+	*pOverlapStack += overlapaddr;
+	context->readBuffer -= overlapaddr;
+	if (overlapaddr == ZERO) __BREAK_OK;
+	bufferaddr = overlap->InternalHigh;
+	overlap->events = EPOLLIN;
       }
 
-      __DO1c(readed,                            // read
-	     read(context->bHandle,
-		  buffer->buf,
-		  buffer->len));
-      if (readed == EAGAIN) {                   // no data read, break;
-	context->readBuffer += overlapaddr;     // DO not control, add to readBuffer
-      } else if (readed > 0) {                  // have data
-	overlap->doneSize = readed;             // save size
-	__DO (*context->iocpHandle += overlapaddr); // sign iocp
+      __DO1c(readed,
+	     read(context->bHandle, buffer->buf, buffer->len));
+      if (errno == EAGAIN) {
+	context->readBuffer += overlapaddr;
+      } else if (readed > 0) {
+	overlap->doneSize = readed;
+	__DO (*context->iocpHandle += overlapaddr);
       } else {
 	// close socket
-	// maybe merge to > 0 condition
       }
     }
-    else if (overlap->events == EPOLLOUT) {
-      if (bufferaddr == ZERO) {                 // Get sign from Epoll, no overlap yet.
-	*pOverlapStack += bufferaddr;           // free tran info struct
+    else if ((overlap->events == EPOLLOUT) || (overlap->events == EPOLLWRITE)) {
+      if (bufferaddr == ZERO) {
+	*pOverlapStack += overlapaddr;
       }
-      __DOc(context->writeBuffer.TryGet(overlapaddr));// MUST have return
-      __DO1c(writed,                            // write
-	     write(context->bHandle,
-		   buffer->buf + overlap->doneSize,
-		   buffer->len - overlap->doneSize));
-      if (writed + overlap->doneSize == buffer->len) {// write all
-	context->writeBuffer -= overlapaddr;    // have written, remove overlap
-	overlap->doneSize += writed;            // total write size
-	overlap->events = EPOLLOUT;             // Is it necessary ?
-	__DO (*context->iocpHandle += overlapaddr);// sign iocp
-	if (!context->inEpollOut) __BREAK_OK;   // not set EPOLLOUT, break;
-	if (!(context->writeBuffer.TryGet(overlapaddr))) __BREAK_OK;// should write more
-	__DO1 (state,                           // write job is finish, remove EPOLLOUT
+
+/*
+ * this loop will be break in three condition.
+ * 1: writeBuffer is empty, then remove EPOLLOUT from epoll if necessary
+ * 2: errno == EAGAIN, then add EPOLLOUT to epoll if necessary.
+ * 3: writed + doneSize != len,
+ *    This means partly send, do same thing as EAGAIN happen, but is this exist?
+ */
+      while (true) {
+	writed = 0;
+	context->writeBuffer.TryGet(overlapaddr);
+	if (overlapaddr == ZERO) break;
+	if (buffer->len - overlap->doneSize) {
+	  writed = write(context->bHandle,
+			 buffer->buf + overlap->doneSize,
+			 buffer->len - overlap->doneSize);
+	  if (errno == EAGAIN) break;
+	  if (writed == 0) {
+	    // write error close socket
+	  }
+	}
+	overlap->doneSize += writed;
+	overlap->events = EPOLLOUT;
+	if (writed + overlap->doneSize == buffer->len) {
+	  context->writeBuffer -= overlapaddr;
+	  if (*context->iocpHandle += overlapaddr) {
+	    // IOCP error close socket
+	  }
+	} else break;
+      }
+      if (overlapaddr == ZERO) {
+	if (!context->inEpollOut) __BREAK_OK;
+	__DO1 (state,
 	       epoll_ctl(epollHandle, 
 			 EPOLL_CTL_DEL, 
 			 context->bHandle, 
 			 &ev));
 	context->inEpollOut = 0;
-      }
-      else {                                    // EAGAIN or part write
-	if (writed != EAGAIN) overlap->doneSize += writed;// part write, add
-	if (context->inEpollOut) __BREAK_OK;    // already add EPOLLOUT, break;
+      } else {
+	if (context->inEpollOut) __BREAK_OK;
 	ev.events = EPOLLET | EPOLLOUT;
 	ev.data.u64 = contextaddr.aLong;
-	__DO1 (state,                           // add EPOLLOUT
+	__DO1 (state,
 	       epoll_ctl(epollHandle, 
 			 EPOLL_CTL_ADD, 
 			 context->bHandle, 
@@ -509,22 +592,38 @@ public:
 	context->inEpollOut = 1;
       }
     }
+    else if (overlap->events == EPOLLTIMEOUT) {
+      // set some
+      __BREAK_OK;
+    }
   __CATCH
   };
   RESULT    ThreadFree(void)
   {
-    evHandle.FreeArrayEvent();
+    eventHandle.FreeArrayEvent();
     return 0;
   };
 }TEVENT, *PTEVENT;
 
-/*
- * GLdb always use static memory, 63 is enough for any application
- *
- * GLdbIOCP has only one instance
- */
-#define     NUMBER_MAX_IOCP                     LIST_MIDDLE     // 63
+#define     NUMBER_MAX_IOCP                     LIST_MIDDLE
 
+/*
+ * GLdbIOCP has only one instance
+ *
+ * class CLdbIOCP alloc IOCP handle, and clone two thread.
+ * Its behavior following the define in RThread.
+ *
+ * The program use this class should call InitGldbIOCP() at first, and call
+ *   FreeGLdbIOCP() at last.
+ * GetIOCPItem() is used by CreateIoCompletionPort(), should not be called directly.
+ *
+ * iocpHandle    : Application wait this as IOCP handle.
+ *                 GLdb always use static memory, 63 is enough for any application
+ * iocpHandleFree: list the unused IOCP handle.
+ * iocpHandleUsed: list for used IOCP handle, only used when program exit.
+ * threadEpoll   : RThreadEpoll class
+ * threaEvent    : RThreadEvent class
+ */
 typedef     class GLdbIOCP {
 private:
   EVENT     iocpHandle[NUMBER_MAX_IOCP];
@@ -532,15 +631,12 @@ private:
   QUERY_M   iocpHandleUsed;
 
   TEPOLL    threadEpoll;
-  TEVENT    threadEv;
+  TEVENT    threadEvent;
 
 public:
   int       epollHandle;
-  PEVENT    evHandle;
+  PEVENT    eventHandle;
   PSTACK_S  pOverlapStack;
-
-public:
-  static    ADDR iocpBaseAddress;
 
 public:
   RESULT    InitGLdbIOCP()
@@ -553,13 +649,16 @@ public:
       addr = (PVOID)&(iocpHandle[i]);
       iocpHandleFree += addr;
     }
-    iocpBaseAddress = (PVOID)&(iocpHandle[0]);
-    threadEv.ThreadClone();
     threadEpoll.ThreadClone();
+    threadEvent.ThreadClone();
 
-    epollHandle = threadEv.epollHandle = threadEpoll.epollHandle;
-    evHandle = threadEpoll.evHandle = &threadEv.evHandle;
-    pOverlapStack = threadEv.pOverlapStack = &threadEpoll.overlapStack;
+/*
+ * YES, this code may be execute before threadEvent initialized.
+ * but threadEpoll is initialized surely.
+ */
+    epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
+    eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
+    pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
     RThread::ThreadStart();
 
   __CATCH__

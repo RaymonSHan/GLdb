@@ -57,7 +57,7 @@ __CATCH
  * typical stack is 14M, in every 16M border, the lowest 2M (PAD_THREAD_SIZE) is
  *   unmapped, then the low part is TLS, first 32k (SIZE_TRECE_INFO) for traceInfo, 
  *   then for RThreadResource used, 
- * it only alloc logical memory, which total size is 128T for user space, 
+ * it only alloc logical memory, which total size is 128T for userspace, 
  *   it is wasteless now.
  */
 RESULT      GetStack(ADDR &stack) 

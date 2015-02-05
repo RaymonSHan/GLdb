@@ -135,7 +135,7 @@ typedef     class RMultiEvent*                  PEVENT;
 #define     INFINITE                            (DWORD)(-1)
 
 typedef     unsigned short                      WORD;
-typedef     signed long long int                HANDLE;
+typedef     UINT                                HANDLE;
 typedef     class CContextItem*                 SOCKET;
 typedef     unsigned int*                       ULONG_PTR;      // 64bit in 64bit
 typedef     unsigned int**                      PULONG_PTR;

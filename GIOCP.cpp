@@ -33,7 +33,6 @@
 #include    "GIOCP.hpp"
 
 MEMORY      GlobalMemory;
-
 IOCP        GlobalIOCP;
 
 /*
@@ -50,7 +49,20 @@ int         isListeningSocket(HANDLE handle)
 };
 
 /*
- * dwFlags must with OVERLAP flags
+ * For the following compatible function for Windows, 
+ *   should remember some type convert. All have written in GCommon.hpp, but again.
+ *
+ * The most important is two SOCKET and HANDLE.
+ *
+ * SOCKET : as a pointer of CContextItem. 64bits
+ * HANDLE : as unsigned long long int. 64bits
+ */
+
+/*
+ * In Windows, a better way to get SOCKET for IOCP is WSASocket. in GLdbIOCP, 
+ *   it is necessarily.
+ *
+ * dwFlags must with OVERLAP flags, although i ignore it.
  */
 SOCKET      WSASocket(int       af, 
 		      int       type, 
@@ -72,6 +84,9 @@ SOCKET      WSASocket(int       af,
   return pcont;
 };
 
+/*
+ *
+ */
 HANDLE      CreateIoCompletionPort(SOCKET       FileHandle,
 				   HANDLE       ExistingCompletionPort,
 				   ULONG_PTR    CompletionKey,
@@ -84,12 +99,10 @@ __TRY__
   struct    epoll_event ev;
   if (!FileHandle && !ExistingCompletionPort && !CompletionKey) {
     __DO_(GlobalIOCP.GetIOCPItem(addr), "Errorr in Create IOCP handle\n");
-    return ADDR_TO_IOCPHANDLE(addr);
+    return addr.aLong;
   } else {
     __DO (!ExistingCompletionPort);
-
-    //    InitContextItem(CompletionKey); // this is be called in WSASocket()
-    FileHandle->iocpHandle = IOCPHANDLE_TO_ADDR(ExistingCompletionPort);
+    FileHandle->iocpHandle = (PEVENT)ExistingCompletionPort;
     FileHandle->completionKey = CompletionKey;
     ev.events = EPOLLET | EPOLLIN;
     ev.data.ptr = CompletionKey;
@@ -117,7 +130,7 @@ __TRY__
   PEVENT    iocpHandle;
   ADDR      addr;
   __DO_(dwMilliseconds != INFINITE, "NO timeout for GetQueuedCompletionStatus now!\n");
-  iocpHandle = IOCPHANDLE_TO_ADDR(CompletionPort);
+  iocpHandle = (PEVENT)CompletionPort;
   __DO(*iocpHandle -= addr);
   *lpOverlapped = (LPOVERLAPPED)addr.pVoid;
   (*lpCompletionKey) = (*lpOverlapped)->Internal->completionKey;
@@ -138,7 +151,7 @@ BOOL        PostQueuedCompletionStatus(HANDLE   CompletionPort,
 __TRY__
   PEVENT    iocpHandle;
   ADDR      addr;
-  iocpHandle = IOCPHANDLE_TO_ADDR(CompletionPort);
+  iocpHandle = (PEVENT)CompletionPort;
   addr.pVoid = lpOverlapped;
   lpOverlapped->Internal->completionKey = dwCompletionKey;
   lpOverlapped->doneSize = dwNumberOfBytesTransferred;
@@ -159,6 +172,7 @@ int         WSASend(SOCKET      s,
 __TRY
   ADDR      overlap;
   __DO_(dwBufferCount != 1, "GLdbIOCP only support one WSABUF now\n");
+  __DO_(lpOverlapped == NULL, "GLdbIOCP not support NULL OVERLAPPED\n");
   overlap.pVoid = lpOverlapped;
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
@@ -166,7 +180,7 @@ __TRY
   lpOverlapped->doneSize = 0;
   lpBuffers->len = *lpNumberOfBytesSent;
   __DO (s->writeBuffer += overlap);             // MUST add, for write order
-  __DO (*(GlobalIOCP.evHandle) += overlap);
+  __DO (*(GlobalIOCP.eventHandle) += overlap);
 __CATCH
 };
 
@@ -183,6 +197,7 @@ int         WSARecv(SOCKET      s,
 __TRY
   ADDR      overlap;
   __DO_(dwBufferCount != 1, "GLdbIOCP only support one WSABUF now\n");
+  __DO_(lpOverlapped == NULL, "GLdbIOCP not support NULL OVERLAPPED\n");
   overlap.pVoid = lpOverlapped;
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
@@ -190,7 +205,7 @@ __TRY
   lpOverlapped->doneSize = 0;
   lpBuffers->len = *lpNumberOfBytesRecvd;
   //  __DO (s->readBuffer += overlap);
-  __DO (*(GlobalIOCP.evHandle) += overlap);
+  __DO (*(GlobalIOCP.eventHandle) += overlap);
 __CATCH
 };
 
