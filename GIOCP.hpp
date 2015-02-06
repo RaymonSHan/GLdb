@@ -506,16 +506,13 @@ public:
  */
     __DO (eventHandle -= overlapaddr);
     contextaddr = overlap->Internal;
-    bufferaddr = overlap->InternalHigh;
+    //    bufferaddr = overlap->InternalHigh;
 /*
  * In fact, EPOLLIN and EPOLLREAD do almost same thing, same as EPOLLOUT and 
  *   EPOLLWRITE. I am hesitate whether remove EPOLLREAD and EPOLLWRITE.
- *
- * (bufferaddr == ZERO) means the sign from RThreadEpoll.
- * lpOverlapped in WSASend or WSARecv could NOT BE NULL.
  */
     if ((overlap->events == EPOLLIN) || (overlap->events == EPOLLREAD)) {
-      if (bufferaddr == ZERO) {
+      if (overlap->events == EPOLLIN) {
 /*
  * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
@@ -523,23 +520,25 @@ public:
 	*pOverlapStack += overlapaddr;
 	context->readBuffer -= overlapaddr;
 	if (overlapaddr == ZERO) __BREAK_OK;
-	bufferaddr = overlap->InternalHigh;
-	overlap->events = EPOLLIN;
-      }
 
-      __DO1c(readed,
-	     read(context->bHandle, buffer->buf, buffer->len));
-      if (errno == EAGAIN) {
-	context->readBuffer += overlapaddr;
-      } else if (readed > 0) {
+      }
+      bufferaddr = overlap->InternalHigh;
+      overlap->events = EPOLLIN;
+      readed = read(context->bHandle, buffer->buf, buffer->len);
+      if (readed == NEGONE) {
+	if (errno == EAGAIN) {
+	  context->readBuffer += overlapaddr;
+	} else {
+	  // close socket
+	}
+      }
+      else {
 	overlap->doneSize = readed;
 	__DO (*context->iocpHandle += overlapaddr);
-      } else {
-	// close socket
-      }
+      } 
     }
     else if ((overlap->events == EPOLLOUT) || (overlap->events == EPOLLWRITE)) {
-      if (bufferaddr == ZERO) {
+      if (overlap->events == EPOLLOUT) {
 	*pOverlapStack += overlapaddr;
       }
 
@@ -558,11 +557,11 @@ public:
 	  writed = write(context->bHandle,
 			 buffer->buf + overlap->doneSize,
 			 buffer->len - overlap->doneSize);
-	  if (errno == EAGAIN) break;
-	  if (writed == 0) {
-	    // write error close socket
-	  }
-	}
+	  if (writed == NEGONE) {
+	    if (errno == EAGAIN) break;
+	    else {
+	      // write error close socket
+	    } } }
 	overlap->doneSize += writed;
 	overlap->events = EPOLLOUT;
 	if (writed + overlap->doneSize == buffer->len) {

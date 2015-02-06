@@ -596,6 +596,8 @@ error_stop:							\
 #define     MESSAGE_ERROR                       0x0002
 #define     MESSAGE_HALT                        0x0004
 
+#define     NEGONE                              (-1)
+
 void      __MESSAGE(INT level, const char * _Format, ...);
 
 #define   __INFO(level, _Format,...) {				\
