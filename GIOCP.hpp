@@ -689,19 +689,5 @@ public:
 }IOCP;
 
 
-/*
- * Following line is for test, not request for other application
- */
-
-typedef     void SigHandle(int, siginfo_t *, void *);
-void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret);
-void        SetupSIG(int num, SigHandle func);
-
-__class_    (RThreadTest, RThread)
-public:
-  RESULT    ThreadInit(void);
-  RESULT    ThreadDoing(void);
-};
-
 #endif   // GLdb_IOCP_HPP
 

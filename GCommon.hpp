@@ -54,6 +54,13 @@
 #include    <sys/types.h>
 #include    <sys/wait.h>
 
+/*
+ * Compiler condition
+ * 
+ * It add some field into CContextItem struct
+ *   and declare CEncapsulate class, with global IOCP & MEMORY
+ */
+#define   __GLdb_SELF_USE
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 

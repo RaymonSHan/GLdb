@@ -33,7 +33,7 @@
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
 #include    "GIOCP.hpp"
-
+#include    "GEncapsulate.hpp"
 
 /*
  * All Global variable implement here
@@ -77,6 +77,8 @@ EVENT       ThreadInitFinish;
  */
 int         TimeoutEpollWait                  = -1;
 
+
+#ifdef    __GLdb_SELF_USE
 /*
  * it is for GLdbDatabase use, not for GLdbIOCP,
  * 
@@ -86,8 +88,15 @@ BLOCK       GlobalContext;
 BLOCK       GlobalBufferSmall;
 BLOCK       GlobalBufferMiddle;
 
-// NO MORE used, delete soon
-ADDR        IOCPBaseAddress;
+/*
+ * it is for __GLdb_SELF_USE GEncapsulate
+ *
+ * should add
+ */
+MEMORY      GlobalMemory;
+IOCP        GlobalIOCP;
+
+#endif  //__GLdb_SELF_USE
 
 INT         StrCmp(STRING &one, STRING &two)
 {

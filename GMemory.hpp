@@ -34,7 +34,6 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTH-
  * ERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
 #ifndef     GLdb_MEMORY_HPP
@@ -416,23 +415,29 @@ public:                                         // statistics info for debug
  *
  * This struct should in kernal, but i implement it in userspace.
  * there are all information related I/O handle for IOCP
+ *
+ * 
+ * The field in GLdb_SELF_USE is used for GLdbDatabase and other application
+ *   used __GLdbIOCP writen by myself. For all items associated to handle can 
+ *   be together.
  */
 typedef     class CContextItem {
 public:
-  //  ULONG_PTR completionKey;                      // user key for the socket
   int       bHandle;
-  BOOL      inEpollOut;
-  PEVENT    iocpHandle;                             // eventfd handle bind for user
   ULONG_PTR completionKey;                          // save user define key
+  PEVENT    iocpHandle;                             // eventfd handle bind for user
   QUERY_S   readBuffer;
   QUERY_S   writeBuffer;
-  
-  // SOCKADDR  localSocket;
-  // SOCKADDR  remoteSocket;
-  // PCONT     pPeer;
-  // LQUERY    nextPeer;
-  // PBUFF     pBuffer;
-  // LQUERY    nextBuffer;
+  BOOL      inEpollOut;  
+
+#ifdef    __GLdb_SELF_USE
+  SOCKADDR  localSocket;
+  SOCKADDR  remoteSocket;
+  PCONT     pPeer;
+  LQUERY    nextPeer;
+  PBUFF     pBuffer;
+  LQUERY    nextBuffer;
+#endif // __GLdb_SELF_USE
 }CONT;
 
 /*
@@ -441,6 +446,7 @@ public:
  * the struct used for IOCP is OVERLAPPED, which defined in GCommon.hpp
  *
  * other member is used for GLdbAPPs, 
+ * oLapped   : same as Windows use
  * wsaBuf    : InternalHigh in overlap pointer to this
  *             It pointer to bufferData, or padData if addition ahead.
  * nOper     : more information than evets in overlap

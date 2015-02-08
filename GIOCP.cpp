@@ -31,9 +31,17 @@
  */
 
 #include    "GIOCP.hpp"
+#include    "GEncapsulate.hpp"
 
+/*
+ * for use GLdbIOCP instead of GLdbDatabase, should define this two as GLOBAL var.
+ *
+ * for GLdbDatabase, already define it in GCommon.hpp
+ */
+#ifndef   __GLdb_SELF_USE
 MEMORY      GlobalMemory;
 IOCP        GlobalIOCP;
+#endif  //__GLdb_SELF_USE
 
 /*
  * return -1 for NOT socket, return >0 is listening, return 0 is not.
@@ -227,45 +235,15 @@ __TRY
 __CATCH
 };
 
-void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
-{
-  ADDR  stack, erroraddr;
-  ucontext_t *uc = (ucontext_t *)secret;
-  threadTraceInfo *tinfo;
 
-  stack.pAddr = &stack;
-  stack &= NEG_SIZE_THREAD_STACK;
-  erroraddr.pVoid = info->si_addr;
-  erroraddr &= NEG_SIZE_THREAD_STACK;
-
-  if (stack == erroraddr) {
-    stack.pVoid = mmap (stack.pChar + PAD_THREAD_STACK, sizeof(threadTraceInfo), 
-  			PROT_READ | PROT_WRITE,
-  			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
-  } else {
-    printf("Got signal %d, faulty address is %p, from %llx\n Calling: \n",
-	   sig, info->si_addr, uc->uc_mcontext.gregs[REG_RIP]);
-    if (sig != SIGTERM) displayTraceInfo(tinfo);
-    //    RpollApp.KillAllChild();
-    exit(-1);
-  }
-}
-void        SetupSIG(int num, SigHandle func)
-{
-  struct sigaction sa;
- 
-  sa.sa_sigaction = func;
-  sigemptyset (&sa.sa_mask);
-  sa.sa_flags = SA_RESTART | SA_SIGINFO;
-  sigaction(num, &sa, NULL);
-};
-
+/*
+ * for demo of GLdbIOCP initialize
+ */
+#ifndef   __GLdb_SELF_USE
 
 #define     NUMBER_CONTEXT                      5
 #define     NUMBER_BUFFER_SMALL                 10
 #define     NUMBER_BUFFER_MIDDLE                2
-
-#define     THREAD_NUM                          1
 
 int         main(int, char**)
 {
@@ -291,3 +269,5 @@ __TRY__
   
 __CATCH__
 };
+
+#endif  //__GLdb_SELF_USE
