@@ -76,7 +76,7 @@
 
 int         isListeningSocket(HANDLE handle);
 
-#ifdef      __linux
+#ifdef    __linux
 
 int         WSAStartup(WORD     wVersionRequested, 
 		       LPWSADATA lpWSAData);
@@ -116,7 +116,7 @@ int         WSARecv(SOCKET      s,
                     LPDWORD     lpFlags,
                     LPWSAOVERLAPPED     lpOverlapped,
                     LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
-#endif   // __linux
+#endif // __linux
 
 /*
  * This is buffered eventfd

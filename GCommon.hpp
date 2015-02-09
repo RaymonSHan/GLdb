@@ -50,7 +50,9 @@
 #include    <sys/epoll.h>
 #include    <sys/eventfd.h>
 #include    <sys/mman.h>
-#include    <sys/socket.h> 
+#include    <sys/param.h>
+#include    <sys/socket.h>
+#include    <sys/stat.h>
 #include    <sys/types.h>
 #include    <sys/wait.h>
 
@@ -129,13 +131,22 @@ typedef     class CBufferItem*                  PBUFF;
 typedef     class CMemoryBlock*                 PBLOCK;
 typedef     class RMultiEvent*                  PEVENT;
 
+/*
+ * GLdbDatabase interface used 
+ */
+#ifdef    __GLdb_SELF_USE
+
+typedef     class GProtocol*                    PPROT;
+typedef     class GApplication*                 PAPP;
+
+#endif  //__GLdb_SELF_USE
 
 /*
  * typedef for IOCP, compatible for Windows
  * 
  * ONLY used in linux
  */
-#ifdef      __linux
+#ifdef    __linux
 
 #define     WSADESCRIPTION_LEN                  256             // NOT know
 #define     WSASYS_STATUS_LEN                   16              // NOT know
@@ -202,7 +213,7 @@ typedef     struct _WSAOVERLAPPED {
   UINT      doneSize;
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED;
 
-#endif   // __linux
+#endif // __linux
 
 
 /*
@@ -360,7 +371,7 @@ typedef     union SOCKADDR
 {
   sockaddr_in saddrin;
   sockaddr  saddr;
-}SOCKADDR;
+}SOCK, *PSOCK;
 
 
 /*

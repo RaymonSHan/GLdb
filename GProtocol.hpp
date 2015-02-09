@@ -1,5 +1,7 @@
 /*
- * GLdb command line analynsis and start point header file
+ * GLdb PROTOCOL head file
+ *
+ * for common interface for TCP, TCPPool, FILE, maybe UDP
  *
  * GLdb is a Multi-thread customed Key-Value No-SQL memory database.
  * GLdb atomic insert voucher & update balance, provide interface for ERP.
@@ -30,23 +32,17 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef     GLdb_SERVICE_HPP
-#define     GLdb_SERVICE_HPP
-
 #include    "GCommon.hpp"
-#include    "GEncapsulate.hpp"
-
-typedef     void (*SigHandle)(int, siginfo_t *, void *);
-void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret);
-void        SetupSIG(int num, SigHandle func);
 
 #ifdef    __GLdb_SELF_USE
 
-typedef     RESULT (*SERVICE)(void);
-int         initDaemon(SERVICE service);
+#ifndef     GLdb_PROTOCOL_HPP
+#define     GLdb_PROTOCOL_HPP
 
-int         main (int, char**);
+typedef     class GProtocol
+{
+}PROT;
+
+#endif   // GLdb_PROTOCOL_HPP
 
 #endif // __GLdb_SELF_USE
-
-#endif   // GLdb_SERVICE_HPP

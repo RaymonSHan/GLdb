@@ -69,9 +69,41 @@ void        SetupSIG(int num, SigHandle func)
 
 #ifdef    __GLdb_SELF_USE
 
+int         initDaemon(SERVICE service)
+{
+  int       pidFirst, pidSecond;  
+  int       i;  
+
+  // the first child thread, for relese console
+  pidFirst = fork();
+  if (pidFirst > 0) exit(0);                      // is parent thread, exit
+  else if (pidFirst < 0) exit(1);                 // error in fork
+  setsid();                                       // first child be leader  
+
+  // the second child thread, for could not get console again
+  pidSecond = fork();
+  if (pidSecond > 0) exit(0); 
+                    // second thread could not get console
+  else if (pidSecond < 0) exit(1);                // the second never be leader
+
+  for (i = 0; i < NOFILE; ++i) close(i);            // close all handle from parent
+  
+  if (chdir("/tmp")) exit(1);                     // change working dirctory to /tmp  
+  umask(0);                                       // remove file mask
+
+  return service();                               // Real work
+};
+
+ENCAP       GlobalEncapsulate;
+
 int         main (int, char**)
 {
-  return 0;
+  SetupSIG(SIGSEGV, SIGSEGV_Handle);                            // sign 11
+  SetupSIG(SIGILL, SIGSEGV_Handle);                             // sign 4
+  SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
+
+  //  return initDaemon(ENCAP::Doing);
+  return ENCAP::Doing();
 };
 
 #endif // __GLdb_SELF_USE

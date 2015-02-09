@@ -30,8 +30,55 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef    __Gldb_SELF_USE
+#include    "GCommon.hpp"
+
+#ifdef    __GLdb_SELF_USE
 
 #include    "GEncapsulate.hpp"
+#include    "GProtocol.hpp"
+#include    "GApplication.hpp"
+
+RESULT      GEncapsulate::Doing(void)
+{
+__TRY
+  __DO(GlobalMemory.InitMemoryBlock(NUMBER_CONTEXT,
+				    NUMBER_BUFFER_SMALL,
+				    NUMBER_BUFFER_MIDDLE));
+  __DO(GlobalIOCP.InitGLdbIOCP());
+  __DO(InitEncapsulate());
+
+  if (!GlobalShouldQuit) {
+    sleep(1);
+  }
+  __DO(FreeEncapsulate());
+  __DO(GlobalIOCP.FreeGLdbIOCP());
+  __DO(GlobalMemory.FrreeMemoryBlock());
+  
+__CATCH
+};
+
+RESULT      GEncapsulate::InitEncapsulate(void)
+{
+__TRY__
+__CATCH__
+};
+
+RESULT      GEncapsulate::FreeEncapsulate(void)
+{
+__TRY__
+__CATCH__
+};
+
+RESULT      GEncapsulate::CreateApplication(PSOCK psock, PAPP papp)
+{
+__TRY__
+__CATCH__
+};
+
+RESULT      GEncapsulate::StateApplication(PAPP papp, UINT state)
+{
+__TRY__
+__CATCH__
+};
 
 #endif  //__GLdb_SELF_USE

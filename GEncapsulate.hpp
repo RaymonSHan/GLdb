@@ -2,8 +2,8 @@
  * GLdb Encapsulate common network server head file
  *
  * GEncapsulate create network server framework via GLdbIOCP.
+ * Application should implement interface defined by GEncapsulate
  *
- * Application
  * GLdb is a Multi-thread customed Key-Value No-SQL memory database.
  * GLdb atomic insert voucher & update balance, provide interface for ERP.
  * GLdb have its own Async IO system, support Windows & Linux by IOCP & epoll.
@@ -33,17 +33,23 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include    "GCommon.hpp"
+
 #ifdef    __GLdb_SELF_USE
 
 #ifndef     GLdb_ENCAPSULATE_HPP
 #define     GLdb_ENCAPSULATE_HPP
 
-#include    "GCommon.hpp"
 #include    "GMemory.hpp"
 #include    "GIOCP.hpp"
 
 #define     GlobalMemory                        GEncapsulate::globalMemory
 #define     GlobalIOCP                          GEncapsulate::globalIOCP
+
+#define     NUMBER_CONTEXT                      5
+#define     NUMBER_BUFFER_SMALL                 10
+#define     NUMBER_BUFFER_MIDDLE                2
+
 
 typedef     class GEncapsulate
 {
@@ -51,6 +57,14 @@ public:
   static    MEMORY globalMemory;
   static    IOCP globalIOCP;
 
+public:
+  static    RESULT InitEncapsulate(void);
+  static    RESULT FreeEncapsulate(void);
+  static    RESULT Doing(void);
+
+public:
+  RESULT    CreateApplication(PSOCK psock, PAPP papp);
+  RESULT    StateApplication(PAPP papp, UINT state);
 }ENCAP;
 
 #endif   // GLdb_ENCAPSULATE_HPP
