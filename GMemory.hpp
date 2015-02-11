@@ -410,6 +410,14 @@ public:                                         // statistics info for debug
 }BLOCK;
 
 
+#ifdef    __GLdb_SELF_USE
+#define     WSA_FLAG_ISLISTEN                   (1 << 10)
+#define     WSA_FLAG_ISACCEPT                   (1 << 11)
+
+#define     IS_LISTEN(pcont)                    (pcont->dwFlags & WSA_FLAG_ISLISTEN)
+#define     IS_ACCEPT(pcont)                    (pcont->dwFlags & WSA_FLAG_ISACCEPT)
+#endif // __GLdb_SELF_USE
+
 /*
  * IOCP struct, for CompleteKey
  *
@@ -417,6 +425,11 @@ public:                                         // statistics info for debug
  * there are all information related I/O handle for IOCP
  *
  * 
+ * dwFlags   : bit 0-7 same as Windows define. important WSA_FLAG_OVERLAPPED
+ *             value is 0x01.
+ *           : bit 10, WSA_FLAG_ISLISTEN, for whether is listneing socket.
+ *           : bit 11, WSA_FLAG_ISACCEPT, for my AcceptEx use
+ *
  * The field in GLdb_SELF_USE is used for GLdbDatabase and other application
  *   used __GLdbIOCP writen by myself. For all items associated to handle can 
  *   be together.
@@ -428,7 +441,8 @@ public:
   PEVENT    iocpHandle;                             // eventfd handle bind for user
   QUERY_S   readBuffer;
   QUERY_S   writeBuffer;
-  BOOL      inEpollOut;  
+  BOOL      inEpollOut;
+  DWORD     dwFlags;
 
 #ifdef    __GLdb_SELF_USE
   SOCKADDR  localSocket;

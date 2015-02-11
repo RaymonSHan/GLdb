@@ -197,6 +197,8 @@ typedef     struct __WSABUF {
  * doneSize    : NEW member, as its name. I store it in OVERLAPPED, so lpOverlapped
  *               in PostQueuedCompletionStatus() will NOT be NULL. it is different 
  *               from Windows.
+ *             : doneSize has it new means, for AcceptEx, store accept SOCKET.
+ *               for my AcceptEx, normal doneSize is always 0.
  */
 typedef     struct _WSAOVERLAPPED {
   PCONT     Internal;

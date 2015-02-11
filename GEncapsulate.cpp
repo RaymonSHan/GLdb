@@ -71,8 +71,10 @@ __CATCH__
 
 RESULT      GEncapsulate::CreateApplication(PSOCK psock, PAPP papp)
 {
-__TRY__
-__CATCH__
+__TRY
+  handleIOCP = CreateIoCompletionPort(0, 0, 0, 0);
+  __DO (handleIOCP == 0);
+__CATCH
 };
 
 RESULT      GEncapsulate::StateApplication(PAPP papp, UINT state)

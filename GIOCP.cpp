@@ -72,23 +72,34 @@ int         isListeningSocket(HANDLE handle)
  *
  * dwFlags must with OVERLAP flags, although i ignore it.
  */
-SOCKET      WSASocket(int       af, 
-		      int       type, 
-		      int       protocol,
-		      LPWSAPROTOCOL_INFO  lpProtocolInfo, 
-		      GROUP     g, 
-		      DWORD     dwFlags)
+SOCKET      WSASocket(
+            int             af, 
+	    int             type, 
+	    int             protocol,
+	    LPWSAPROTOCOL_INFO  lpProtocolInfo, 
+	    GROUP           g, 
+	    DWORD           dwFlags)
 {
   (void)     lpProtocolInfo;
   (void)     g;
-  (void)     dwFlags;
   PCONT      pcont;
   RESULT     result;
 
   result = GetContext(pcont);
   if (result) return 0;
   InitContextItem(pcont);
-  pcont->bHandle = socket(af, type, protocol);;
+
+/*
+ * for the different for AcceptEx and accept, do NOT create socket here
+ */
+#ifdef    __GLdb_SELF_USE
+  if (dwFlags & WSA_FLAG_ISACCEPT) pcont->bHandle = 0;
+  else pcont->bHandle = socket(af, type, protocol);
+#else  // __GLdb_SELF_USE
+  pcont->bHandle = socket(af, type, protocol);
+#endif // __GLdb_SELF_USE
+
+  pcont->dwFlags = dwFlags;
   return pcont;
 };
 
@@ -99,10 +110,11 @@ SOCKET      WSASocket(int       af,
  * CreateIoCompletionPort() use GetIOCPItem() to get handle, 64 at most.
  * All FileHandle add EPOLLIN into same epollHandle. with each IOCP handle.
  */
-HANDLE      CreateIoCompletionPort(SOCKET       FileHandle,
-				   HANDLE       ExistingCompletionPort,
-				   ULONG_PTR    CompletionKey,
-				   DWORD        NumberOfConcurrentThreads)
+HANDLE      CreateIoCompletionPort(
+            SOCKET          FileHandle,
+	    HANDLE          ExistingCompletionPort,
+	    ULONG_PTR       CompletionKey,
+	    DWORD           NumberOfConcurrentThreads)
 {
   (void)    NumberOfConcurrentThreads;
 __TRY__
@@ -138,11 +150,12 @@ __CATCH_1
  * Other things are simple, it wait for eventfd as IOCP hanle, and translate
  *   struct member as Windows define.
  */
-BOOL        GetQueuedCompletionStatus(HANDLE    CompletionPort,
-				      LPDWORD   lpNumberOfBytes,
-				      PULONG_PTR lpCompletionKey,
-				      LPOVERLAPPED *lpOverlapped,
-				      DWORD     dwMilliseconds)
+BOOL        GetQueuedCompletionStatus(
+            HANDLE          CompletionPort,
+	    LPDWORD         lpNumberOfBytes,
+	    PULONG_PTR      lpCompletionKey,
+	    LPOVERLAPPED   *lpOverlapped,
+	    DWORD           dwMilliseconds)
 {
   (void)dwMilliseconds;
 __TRY__
@@ -163,10 +176,11 @@ __CATCH_1
  * in normal IOCP, lpOverlapped can be NULL.
  * but in GLdbIOCP, must use valid OVERLAPPED struct for lpOverlapped
  */
-BOOL        PostQueuedCompletionStatus(HANDLE   CompletionPort,
-				       DWORD    dwNumberOfBytesTransferred,
-				       ULONG_PTR dwCompletionKey,
-				       LPOVERLAPPED lpOverlapped)
+BOOL        PostQueuedCompletionStatus(
+            HANDLE          CompletionPort,
+	    DWORD           dwNumberOfBytesTransferred,
+	    ULONG_PTR       dwCompletionKey,
+	    LPOVERLAPPED    lpOverlapped)
 {
 __TRY__
   PEVENT    iocpHandle;
@@ -185,13 +199,14 @@ __CATCH_1
  * The only thing should attention is WSASend add writeBuffer, while WSARecv not add
  *   readBuffer.
  */
-int         WSASend(SOCKET      s, 
-		    LPWSABUF    lpBuffers, 
-		    DWORD       dwBufferCount, 
-		    LPDWORD     lpNumberOfBytesSent, 
-		    DWORD       dwFlags, 
-		    LPWSAOVERLAPPED     lpOverlapped, 
-		    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+int         WSASend(
+	    SOCKET          s, 
+	    LPWSABUF        lpBuffers, 
+	    DWORD           dwBufferCount, 
+	    LPDWORD         lpNumberOfBytesSent, 
+	    DWORD           dwFlags, 
+	    LPWSAOVERLAPPED lpOverlapped, 
+	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
 {
   (void)dwFlags;
   (void)lpCompletionRoutine;
@@ -204,19 +219,20 @@ __TRY
   lpOverlapped->InternalHigh = lpBuffers;
   lpOverlapped->events = EPOLLWRITE;
   lpOverlapped->doneSize = 0;
-  lpBuffers->len = *lpNumberOfBytesSent;
+  *lpNumberOfBytesSent = lpBuffers->len;
   __DO (s->writeBuffer += overlap);
   __DO (*(GlobalIOCP.eventHandle) += overlap);
 __CATCH
 };
 
-int         WSARecv(SOCKET      s,
-                    LPWSABUF    lpBuffers,
-                    DWORD       dwBufferCount,
-                    LPDWORD     lpNumberOfBytesRecvd,
-                    LPDWORD     lpFlags,
-                    LPWSAOVERLAPPED     lpOverlapped,
-                    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+int         WSARecv(
+	    SOCKET          s,
+	    LPWSABUF        lpBuffers,
+	    DWORD           dwBufferCount,
+	    LPDWORD         lpNumberOfBytesRecvd,
+	    LPDWORD         lpFlags,
+	    LPWSAOVERLAPPED lpOverlapped,
+	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
 {
   (void)lpFlags;
   (void)lpCompletionRoutine;
@@ -229,13 +245,40 @@ __TRY
   lpOverlapped->InternalHigh = lpBuffers;
   lpOverlapped->events = EPOLLREAD;
   lpOverlapped->doneSize = 0;
-  lpBuffers->len = *lpNumberOfBytesRecvd;
+  *lpNumberOfBytesRecvd = lpBuffers->len;
 /*__DO (s->readBuffer += overlap);*/
   __DO (*(GlobalIOCP.eventHandle) += overlap);
 __CATCH
 };
 
-
+/*
+ * AccetpEx of GLdbIOCP version will not received any data from socket. It behavior
+ *   as dwReceiveDataLength = 0 in Windows.
+ */
+BOOL        AcceptEx(
+            SOCKET          sListenSocket,
+	    SOCKET          sAcceptSocket,
+	    PVOID           lpOutputBuffer,
+	    DWORD           dwReceiveDataLength,
+	    DWORD           dwLocalAddressLength,
+	    DWORD           dwRemoteAddressLength,
+	    LPDWORD         lpdwBytesReceived,
+	    LPOVERLAPPED    lpOverlapped)
+{
+  (void)lpOutputBuffer;
+  (void)dwReceiveDataLength;
+  (void)dwLocalAddressLength;
+  (void)dwRemoteAddressLength;
+  (void)lpdwBytesReceived;
+__TRY__
+  ADDR      overlap;
+  overlap.pVoid = lpOverlapped;
+  lpOverlapped->Internal = sListenSocket;
+  lpOverlapped->doneSize = (UINT)sAcceptSocket;
+  lpOverlapped->events = EPOLLACCEPT;
+  __DO (*(GlobalIOCP.eventHandle) += overlap);
+__CATCH_1
+}
 /*
  * for demo of GLdbIOCP initialize
  */

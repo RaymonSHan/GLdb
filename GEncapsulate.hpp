@@ -56,6 +56,8 @@ typedef     class GEncapsulate
 public:
   static    MEMORY globalMemory;
   static    IOCP globalIOCP;
+public:
+  HANDLE    handleIOCP;
 
 public:
   static    RESULT InitEncapsulate(void);

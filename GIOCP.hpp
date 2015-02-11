@@ -78,44 +78,75 @@ int         isListeningSocket(HANDLE handle);
 
 #ifdef    __linux
 
-int         WSAStartup(WORD     wVersionRequested, 
-		       LPWSADATA lpWSAData);
-int         WSACleanup(void);
-SOCKET      WSASocket(int       af, 
-		      int       type, 
-		      int       protocol,
-		      LPWSAPROTOCOL_INFO  lpProtocolInfo, 
-		      GROUP     g, 
-		      DWORD     dwFlags);
+int         WSAStartup(
+            WORD            wVersionRequested, 
+	    LPWSADATA       lpWSAData);
+int         WSACleanup(
+	    void);
+SOCKET      WSASocket(
+            int             af, 
+	    int             type, 
+	    int             protocol,
+	    LPWSAPROTOCOL_INFO  lpProtocolInfo, 
+	    GROUP           g, 
+	    DWORD           dwFlags);
 
-HANDLE      CreateIoCompletionPort(SOCKET       FileHandle,
-				   HANDLE       ExistingCompletionPort,
-				   ULONG_PTR    CompletionKey,
-				   DWORD        NumberOfConcurrentThreads);
-BOOL        GetQueuedCompletionStatus(HANDLE    CompletionPort,
-				      LPDWORD   lpNumberOfBytes,
-				      PULONG_PTR lpCompletionKey,
-				      LPOVERLAPPED *lpOverlapped,
-				      DWORD     dwMilliseconds);
-BOOL        PostQueuedCompletionStatus(HANDLE   CompletionPort,
-				       DWORD    dwNumberOfBytesTransferred,
-				       ULONG_PTR dwCompletionKey,
-				       LPOVERLAPPED lpOverlapped);
+HANDLE      CreateIoCompletionPort(
+            SOCKET          FileHandle,
+	    HANDLE          ExistingCompletionPort,
+	    ULONG_PTR       CompletionKey,
+	    DWORD           NumberOfConcurrentThreads);
+BOOL        GetQueuedCompletionStatus(
+            HANDLE          CompletionPort,
+	    LPDWORD         lpNumberOfBytes,
+	    PULONG_PTR      lpCompletionKey,
+	    LPOVERLAPPED   *lpOverlapped,
+	    DWORD           dwMilliseconds);
+BOOL        PostQueuedCompletionStatus(
+            HANDLE          CompletionPort,
+	    DWORD           dwNumberOfBytesTransferred,
+	    ULONG_PTR       dwCompletionKey,
+	    LPOVERLAPPED    lpOverlapped);
 
-int         WSASend(SOCKET      s, 
-		    LPWSABUF    lpBuffers, 
-		    DWORD       dwBufferCount, 
-		    LPDWORD     lpNumberOfBytesSent, 
-		    DWORD       dwFlags, 
-		    LPWSAOVERLAPPED     lpOverlapped, 
-		    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
-int         WSARecv(SOCKET      s,
-                    LPWSABUF    lpBuffers,
-                    DWORD       dwBufferCount,
-                    LPDWORD     lpNumberOfBytesRecvd,
-                    LPDWORD     lpFlags,
-                    LPWSAOVERLAPPED     lpOverlapped,
-                    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
+int         WSASend(
+	    SOCKET          s, 
+	    LPWSABUF        lpBuffers, 
+	    DWORD           dwBufferCount, 
+	    LPDWORD         lpNumberOfBytesSent, 
+	    DWORD           dwFlags, 
+	    LPWSAOVERLAPPED lpOverlapped, 
+	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
+int         WSARecv(
+	    SOCKET          s,
+	    LPWSABUF        lpBuffers,
+	    DWORD           dwBufferCount,
+	    LPDWORD         lpNumberOfBytesRecvd,
+	    LPDWORD         lpFlags,
+	    LPWSAOVERLAPPED lpOverlapped,
+	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
+
+BOOL        AcceptEx(
+            SOCKET          sListenSocket,
+	    SOCKET          sAcceptSocket,
+	    PVOID           lpOutputBuffer,
+	    DWORD           dwReceiveDataLength,
+	    DWORD           dwLocalAddressLength,
+	    DWORD           dwRemoteAddressLength,
+	    LPDWORD         lpdwBytesReceived,
+	    LPOVERLAPPED    lpOverlapped);
+BOOL        ConnectEx(
+            SOCKET          s,
+	    const struct sockaddr *name,
+	    int             namelen,
+	    PVOID           lpSendBuffer,
+	    DWORD           dwSendDataLength,
+	    LPDWORD         lpdwBytesSent,
+	    LPOVERLAPPED    lpOverlapped);
+BOOL        DisconnectEx(
+            SOCKET          hSocket,
+	    LPOVERLAPPED    lpOverlapped,
+	    DWORD           dwFlags,
+	    DWORD           reserved);
 #endif // __linux
 
 /*
@@ -331,10 +362,12 @@ public:
  * EPOLLTIMEOUT: timeout in RThreadEpoll, trigger RThreadEvent
  * EPOLLREAD   : WSARecv send this in OVERLAPPED to trigger RThreadEvent.
  * EPOLLWRITE  : WSASend send this in OVERLAPPED to trigger RThreadEvent.
+ * EPOLLACCEPT : for define accept
  */
 #define     EPOLLTIMEOUT                        (1 << 8)
 #define     EPOLLREAD                           (1 << 9)
 #define     EPOLLWRITE                          (1 << 10)
+#define     EPOLLACCEPT                         (1 << 11)
 
 /*
  * GLdbIOCP assembled by one epoll handle and one buffered eventfd. And two
@@ -360,6 +393,7 @@ public:
  * evHandle     : RThreadEvent's member, set by parent thread after initialize
  * overlapStack : struct for translate to RThreadEvent
  * overlapBuffer: really memory to store message
+ * forAcceptOnly: const for translate EPOLLACCEPT to IOCP
  */
 typedef   __class_ (RThreadEpoll, RThread)
 public:
@@ -410,8 +444,8 @@ public:
  * InternalHigh set to 0, means this sign from RThreadEpoll
  */
 	__DO (overlapStack -= overlapaddr);
-	overlap->events = waitEv[i].events;
 	overlap->Internal = (PCONT)waitEv[i].data.u64;
+	overlap->events =  waitEv[i].events;
 	overlap->InternalHigh = 0;
 	__DO (*peventHandle += overlapaddr);
       }
@@ -448,6 +482,7 @@ public:
  *
  *                If buffer exist, it trigger IOCP eventfd for read complete when 
  *                finish reading.
+ * more for accept in
  * EPOLLOUT     : send by RThreadEpoll, for last send is ok. Internal same as above.
  *                RThreadEvent first check whether the data in this OVERLAPPED have 
  *                sent completely, if not, continous send. Or trigger IOCP eventfd
@@ -466,11 +501,14 @@ public:
  *                into writeBuffer, for last OVERLAPPED may partly send.
  *                RThreadEvent do same thing as receive EPOLLOUT for EPOLLWRITE.
  * EPOLLTIMEOUT : do nothing but exit the loop.
+ * EPOLLACCEPT  : AcceptEx post buffer for accept, check acceptQuery. If exist, get
+ *                the accept, Or, add the buffer to readBuffer of listen SOCKET.
  *
  * epollHandle  : the epollHandle in RThreadEpoll, set by parent thread after initialize.
  * evHandle     : buffered eventfd, entity of pevHandle in RThreadEpoll
  * poverlapStack: pointer to overlapStack in RThreadEvent, for free OVERLAPPED from 
  *                RThreadEvent in EPOLLIN & EPOLLOUT.
+ * acceptStack  : buffer accetp sign wait for PostAccept
  *
  * readBuffer is add by RThreadEvent, while writeBuffer is add by WSASend.
  * For receive buffer is empty, the order is unrelated. while send buffer MUST in order.
@@ -495,33 +533,71 @@ public:
   {
   __TRY
     int     readed, writed, state;
-    ADDR    contextaddr, overlapaddr, bufferaddr;
+    ADDR    contextaddr, overlapaddr, bufferaddr, listenaddr;
     PCONT   &context = (PCONT &)contextaddr;
     LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
     LPWSABUF &buffer = (LPWSABUF &)bufferaddr; 
     struct  epoll_event ev;
+    UINT    tempevent = EPOLLREAD;
+    socklen_t tempsize = sizeof(SOCKADDR);
 
 /*
  * Wait eventfd, then get CContextItem and WSABuffer address
  */
     __DO (eventHandle -= overlapaddr);
     contextaddr = overlap->Internal;
-    //    bufferaddr = overlap->InternalHigh;
-/*
- * In fact, EPOLLIN and EPOLLREAD do almost same thing, same as EPOLLOUT and 
- *   EPOLLWRITE. I am hesitate whether remove EPOLLREAD and EPOLLWRITE.
- */
-    if ((overlap->events == EPOLLIN) || (overlap->events == EPOLLREAD)) {
-      if (overlap->events == EPOLLIN) {
+
+    if (overlap->events == EPOLLIN) {
 /*
  * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
  */
-	*pOverlapStack += overlapaddr;
-	context->readBuffer -= overlapaddr;
-	if (overlapaddr == ZERO) __BREAK_OK;
+      *pOverlapStack += overlapaddr;
+      context->readBuffer -= overlapaddr;
 
+#ifdef    __GLdb_SELF_USE
+/*
+ * For listening SOCKET will NOT use writeBuffer, it store whether there are
+ *   accept income.
+ */
+      if (IS_LISTEN(context)) {
+	tempevent = EPOLLACCEPT;
+	__DO(context->writeBuffer += contextaddr);
       }
+#endif // __GLdb_SELF_USE
+
+      if (overlapaddr == ZERO) __BREAK_OK;
+      overlap->events = tempevent;
+    }
+
+    if (overlap->events == EPOLLOUT) {
+      *pOverlapStack += overlapaddr;
+      overlap->events = EPOLLWRITE;             // maybe not necessary
+    }
+
+#ifdef    __GLdb_SELF_USE
+    if (overlap->events == EPOLLACCEPT) {
+/*
+ * do half work of AcceptEx, only return accept SOCKET, but not receive first packet
+ *
+ * Here overlap->doneSize is SOCKET for accept, if it is not 0, means this SOCKET
+ *   is creted without WSA_FLAG_ISACCEPT, it should be closed, and replaced by 
+ *   really accept SOCKET.
+ * Here context is listening SOCKET
+ */
+      context->writeBuffer -= listenaddr;
+      if (listenaddr != ZERO) {
+	if (overlap->doneSize) close(overlap->doneSize);
+	overlap->doneSize = accept(context->bHandle, 
+				   &(context->remoteSocket.saddr), &tempsize);
+	__DO (*context->iocpHandle += overlapaddr);
+      } else {
+	context->readBuffer += overlapaddr;
+      }
+    }
+#endif // __GLdb_SELF_USE
+
+    if (overlap->events == EPOLLREAD) {
       bufferaddr = overlap->InternalHigh;
       overlap->events = EPOLLIN;
       readed = read(context->bHandle, buffer->buf, buffer->len);
@@ -536,12 +612,8 @@ public:
 	overlap->doneSize = readed;
 	__DO (*context->iocpHandle += overlapaddr);
       } 
-    }
-    else if ((overlap->events == EPOLLOUT) || (overlap->events == EPOLLWRITE)) {
-      if (overlap->events == EPOLLOUT) {
-	*pOverlapStack += overlapaddr;
-      }
-
+    } 
+    if (overlap->events == EPOLLWRITE) {
 /*
  * this loop will be break in three condition.
  * 1: writeBuffer is empty, then remove EPOLLOUT from epoll if necessary
@@ -603,6 +675,7 @@ public:
     return 0;
   };
 }TEVENT, *PTEVENT;
+
 
 #define     NUMBER_MAX_IOCP                     LIST_MIDDLE
 
