@@ -33,15 +33,94 @@
  */
 
 #include    "GCommon.hpp"
+#include    "GEncapsulate.hpp"
 
 #ifdef    __GLdb_SELF_USE
 
 #ifndef     GLdb_PROTOCOL_HPP
 #define     GLdb_PROTOCOL_HPP
 
+inline      BOOL CloseSocket(SOCKET sock) 
+{
+  return close(sock->bHandle); 
+};
+inline      BOOL CloseOtherHandle(SOCKET sock) 
+{
+  return close(sock->bHandle); 
+};
+inline      BOOL CloseNullHandle(SOCKET sock) 
+{
+  (void)sock;
+  return 0; 
+};
+
+
 typedef     class GProtocol
 {
+public:
+  long      ProtocolNumber;
+  long      ProtocolFlag;
+  BOOL    (*MyCloseHandle)(SOCKET sock);	
+public:
+  GProtocol();
+  RESULT    CreateNew(PCONT pcont, ADDR para, UINT size)
+  { return 0; };
+  RESULT    CreateRemote(PCONT pcont, ADDR para, UINT size)
+  { return 0; };
+  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  { return 0; };
+  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  { return 0; };
+  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  { return 0; };
+  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  { return 0; };
+  RESULT    PostClose(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  { return 0; };
+
+  UINT virtual GetContextLength(PCONT pcont, PBUFF pbuff);
 }PROT;
+
+typedef     class GNoneProtocol : public GProtocol
+{
+public:
+  GNoneProtocol() : GProtocol() {};
+  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  { return 0; };
+  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  { return 0; };
+  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  { return 0; };
+  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  { return 0; };
+}NPROT, *PNPROT;
+
+typedef     class GIPProtocol : public GProtocol
+{
+protected:
+  RESULT    BindLocalSocket(PCONT pcont, PPROT pProtocol, PSOCK addr);
+}IPPROT;
+
+typedef     class GTCPProtocol : public GIPProtocol
+{
+public:
+  GTCPProtocol() : GIPProtocol()
+  {
+    MyCloseHandle = CloseSocket;
+  };
+  RESULT    CreateNew(PCONT pcont, ADDR para, UINT size)
+  { return 0; };
+  RESULT    CreateRemote(PCONT pcont, ADDR para, UINT size)
+  { return 0; };
+  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  { return 0; };
+  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  { return 0; };
+  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  { return 0; };
+  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  { return 0; };
+}TCPPROT;
 
 #endif   // GLdb_PROTOCOL_HPP
 

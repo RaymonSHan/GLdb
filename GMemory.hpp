@@ -409,15 +409,6 @@ public:                                         // statistics info for debug
 #endif  // _TESTCOUNT
 }BLOCK;
 
-
-#ifdef    __GLdb_SELF_USE
-#define     WSA_FLAG_ISLISTEN                   (1 << 10)
-#define     WSA_FLAG_ISACCEPT                   (1 << 11)
-
-#define     IS_LISTEN(pcont)                    (pcont->dwFlags & WSA_FLAG_ISLISTEN)
-#define     IS_ACCEPT(pcont)                    (pcont->dwFlags & WSA_FLAG_ISACCEPT)
-#endif // __GLdb_SELF_USE
-
 /*
  * IOCP struct, for CompleteKey
  *
@@ -445,6 +436,8 @@ public:
   DWORD     dwFlags;
 
 #ifdef    __GLdb_SELF_USE
+  PPROT     pProtocol;
+  PAPP      pApplication;
   SOCKADDR  localSocket;
   SOCKADDR  remoteSocket;
   PCONT     pPeer;
@@ -479,9 +472,12 @@ public:
     UCHAR   bufferData[size];					\
   }classname, *JOIN(P,classname);
 
+#define     SIZE_SMALL_BUFFER                  (SIZE_HUGE_PAGE-sizeof(BUFF_0)-SIZEADDR)
+#define     SIZE_MIDDLE_BUFFER                 (SIZE_HUGE_PAGE*16-sizeof(BUFF_0)-SIZEADDR)
+
 BUFFER_CLASS(BUFF_0, 0)
-BUFFER_CLASS(BUFF_S, SIZE_HUGE_PAGE-sizeof(BUFF_0)-SIZEADDR)
-BUFFER_CLASS(BUFF_M, SIZE_HUGE_PAGE*16-sizeof(BUFF_0)-SIZEADDR)
+BUFFER_CLASS(BUFF_S, SIZE_SMALL_BUFFER)
+BUFFER_CLASS(BUFF_M, SIZE_MIDDLE_BUFFER)
 
 #define     GlobalContext                       CMemoryAlloc::globalContext
 #define     GlobalBufferSmall                   CMemoryAlloc::globalBufferSmall

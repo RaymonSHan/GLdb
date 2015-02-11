@@ -34,6 +34,7 @@
 
 #ifdef    __GLdb_SELF_USE
 
+#include    "GMemory.hpp"
 #include    "GEncapsulate.hpp"
 #include    "GProtocol.hpp"
 #include    "GApplication.hpp"
@@ -59,8 +60,9 @@ __CATCH
 
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
-__TRY__
-__CATCH__
+__TRY
+
+__CATCH
 };
 
 RESULT      GEncapsulate::FreeEncapsulate(void)
@@ -69,14 +71,57 @@ __TRY__
 __CATCH__
 };
 
-RESULT      GEncapsulate::CreateApplication(PSOCK psock, PAPP papp)
+#define     ACCEPTNUMBER                        5
+
+RESULT      GEncapsulate::CreateApplication(
+            PCONT          &cliCont,
+	    PCONT          &serCont,
+	    PAPP            pApp,
+	    PPROT           cliProt,
+	    ADDR            cliPara,
+	    UINT            cliSize,
+	    PPROT           serProt,
+	    ADDR            serPara,
+            UINT            serSize)
 {
 __TRY
-  handleIOCP = CreateIoCompletionPort(0, 0, 0, 0);
-  __DO (handleIOCP == 0);
-__CATCH
+  UINT      i;
+  PBUFF     newbuff;
+
+  cliCont = serCont = 0;
+  __DO (pApp == 0);
+  if (cliProt) {
+    __DO (GetContext(cliCont));
+    cliCont->pApplication = pApp;
+    cliCont->pProtocol = cliProt;
+    __DO (ProFunc(cliProt, fCreateNew)
+	  (cliCont, cliPara, cliSize));
+    cliCont->pPeer = cliCont;
+
+    for(i=0; i<ACCEPTNUMBER; i++) {
+      __DO (GetBufferSmall(newbuff));
+      __DO (NoneProFunc(cliProt, fPostAccept)
+	    (cliCont, newbuff, SIZE_SMALL_BUFFER, OP_ACCEPT));
+    }
+  }
+  if (serProt) {
+    __DO (GetContext(serCont));
+    serCont->pApplication = pApp;
+    serCont->pProtocol = serProt;
+    __DO (ProFunc(serProt, fCreateRemote)
+	  (serCont, serPara, serSize));
+    serCont->pPeer = NULL;
+  }
+  if (cliCont && serCont) {
+    cliCont->pPeer = serCont;
+  }
+__CATCH_BEGIN
+  if (cliCont) FreeContext(cliCont);
+  if (serCont) FreeContext(serCont);
+__CATCH_END
 };
 
+												
 RESULT      GEncapsulate::StateApplication(PAPP papp, UINT state)
 {
 __TRY__

@@ -95,6 +95,8 @@ BLOCK       GlobalBufferMiddle;
  */
 MEMORY      GlobalMemory;
 IOCP        GlobalIOCP;
+PHANDLE     FPHandle[MAX_PROTOCOL];
+AHANDLE     FAHandle[MAX_APPLICATION];
 
 #endif  //__GLdb_SELF_USE
 

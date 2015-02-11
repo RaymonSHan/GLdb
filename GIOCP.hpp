@@ -74,15 +74,15 @@
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
 
-int         isListeningSocket(HANDLE handle);
+int         isListeningSocket(
+	    HANDLE handle);
 
 #ifdef    __linux
 
 int         WSAStartup(
             WORD            wVersionRequested, 
 	    LPWSADATA       lpWSAData);
-int         WSACleanup(
-	    void);
+int         WSACleanup(void);
 SOCKET      WSASocket(
             int             af, 
 	    int             type, 
@@ -147,7 +147,17 @@ BOOL        DisconnectEx(
 	    LPOVERLAPPED    lpOverlapped,
 	    DWORD           dwFlags,
 	    DWORD           reserved);
+
+#define     WSA_FLAG_OVERLAPPED                 (1 << 0)
 #endif // __linux
+
+#ifdef    __GLdb_SELF_USE
+#define     WSA_FLAG_ISLISTEN                   (1 << 10)
+#define     WSA_FLAG_ISACCEPT                   (1 << 11)
+
+#define     IS_LISTEN(pcont)                    (pcont->dwFlags & WSA_FLAG_ISLISTEN)
+#define     IS_ACCEPT(pcont)                    (pcont->dwFlags & WSA_FLAG_ISACCEPT)
+#endif // __GLdb_SELF_USE
 
 /*
  * This is buffered eventfd
