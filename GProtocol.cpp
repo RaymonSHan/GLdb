@@ -31,3 +31,29 @@
  */
 
 #include    "GProtocol.hpp"
+
+RESULT      GNoneProtocol::PostAccept(
+	    PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+{
+__TRY
+  pbuff->nOper = op;
+  if (pcont->bHandle == 0) {
+    FreeBuffer(pbuff);
+    __BREAK_OK;
+  } else {
+    return ProFunc(pcont->pProtocol, fPostAccept)(pcont, pbuff, size, op);
+  }
+__CATCH
+}
+
+RESULT      GNoneProtocol::PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+{
+__TRY__
+  pbuff->nOper = op;
+  return ProFunc(pcont->pProtocol, fPostConnect)(pcont, pbuff, size, op);
+__CATCH__
+}
+//  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+//  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+
+

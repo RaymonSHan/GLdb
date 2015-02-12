@@ -280,6 +280,214 @@ __TRY__
 __CATCH_1
 }
 
+RESULT      RThreadEpoll::ThreadInit(void)
+{
+__TRY
+  ADDR      addr;
+    
+  GlobalMemory.InitThreadMemory(1);
+  addr = (PVOID)overlapBuffer;
+  __DO1_(epollHandle, epoll_create(1), "Error in create epoll\n");
+  overlapStack.FullArrayStack(addr, sizeof(OVERLAPPED), LIST_SMALL);
+__CATCH
+};
+
+RESULT      RThreadEpoll::ThreadDoing(void)
+{
+__TRY
+  int       evNumber, i;
+  ADDR      overlapaddr;
+  LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
+
+  __DO1 (evNumber,
+	 epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
+
+  if (waitEv == 0) {
+    __DO (overlapStack -= overlapaddr);
+    overlap->events = EPOLLTIMEOUT;
+    __DO (*peventHandle += overlapaddr);
+  } else {
+    for (i = 0; i < evNumber; i++) {
+/*
+ * the buffer for overlap is small, send sign one by one, not group.
+ * continuous add sign do not switch thread.
+ * InternalHigh set to 0, means this sign from RThreadEpoll
+ */
+      __DO (overlapStack -= overlapaddr);
+      overlap->Internal = (PCONT)waitEv[i].data.u64;
+      overlap->events =  waitEv[i].events;
+      overlap->InternalHigh = 0;
+      __DO (*peventHandle += overlapaddr);
+    }
+  }
+__CATCH
+};
+
+RESULT      RThreadEvent::ThreadInit(void)
+{
+__TRY
+  GlobalMemory.InitThreadMemory(1);
+  __DO_(eventHandle.InitArrayEvent(), "Error in create eventEv\n");
+__CATCH
+};
+
+RESULT      RThreadEvent::ThreadDoing(void)
+{
+__TRY
+  int     readed, writed, state;
+  ADDR    contextaddr, overlapaddr, bufferaddr, listenaddr;
+  PCONT   &context = (PCONT &)contextaddr;
+  LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
+  LPWSABUF &buffer = (LPWSABUF &)bufferaddr; 
+  struct  epoll_event ev;
+  UINT    tempevent = EPOLLREAD;
+  socklen_t tempsize = sizeof(SOCKADDR);
+
+/*
+ * Wait eventfd, then get CContextItem and WSABuffer address
+ */
+  __DO (eventHandle -= overlapaddr);
+  contextaddr = overlap->Internal;
+
+  if (overlap->events == EPOLLIN) {
+/*
+ * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
+ *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
+ */
+    *pOverlapStack += overlapaddr;
+    context->readBuffer -= overlapaddr;
+
+
+#ifdef    __GLdb_SELF_USE
+/*
+ * For listening SOCKET will NOT use writeBuffer, it store whether there are
+ *   accept income.
+ */
+    if (IS_LISTEN(context)) {
+      tempevent = EPOLLACCEPT;
+      __DO(context->writeBuffer += contextaddr);
+    }
+#endif // __GLdb_SELF_USE
+
+    if (overlapaddr == ZERO) __BREAK_OK;
+    overlap->events = tempevent;
+  }
+
+  if (overlap->events == EPOLLOUT) {
+    *pOverlapStack += overlapaddr;
+    overlap->events = EPOLLWRITE;             // maybe not necessary
+  }
+
+#ifdef    __GLdb_SELF_USE
+  if (overlap->events == EPOLLACCEPT) {
+/*
+ * do half work of AcceptEx, only return accept SOCKET, but not receive first packet
+ *
+ * Here overlap->doneSize is SOCKET for accept, if it is not 0, means this SOCKET
+ *   is creted without WSA_FLAG_ISACCEPT, it should be closed, and replaced by 
+ *   really accept SOCKET.
+ * Here context is listening SOCKET
+ */
+    context->writeBuffer -= listenaddr;
+    if (listenaddr != ZERO) {
+      if (overlap->doneSize) close(overlap->doneSize);
+      overlap->doneSize = accept(context->bHandle, 
+				 &(context->remoteSocket.saddr), &tempsize);
+      __DO (*context->iocpHandle += overlapaddr);
+    } else {
+      context->readBuffer += overlapaddr;
+    }
+  }
+#endif // __GLdb_SELF_USE
+
+  if (overlap->events == EPOLLREAD) {
+    bufferaddr = overlap->InternalHigh;
+    overlap->events = EPOLLIN;
+    readed = read(context->bHandle, buffer->buf, buffer->len);
+    if (readed == NEGONE) {
+      if (errno == EAGAIN) {
+	context->readBuffer += overlapaddr;
+      } else {
+	// close socket
+      }
+    }
+    else {
+      overlap->doneSize = readed;
+      __DO (*context->iocpHandle += overlapaddr);
+    } 
+  } 
+  if (overlap->events == EPOLLWRITE) {
+
+/*
+ * this loop will be break in three condition.
+ * 1: writeBuffer is empty, then remove EPOLLOUT from epoll if necessary
+ * 2: errno == EAGAIN, then add EPOLLOUT to epoll if necessary.
+ * 3: writed + doneSize != len,
+ *    This means partly send, do same thing as EAGAIN happen, but is this exist?
+ */
+    while (true) {
+      writed = 0;
+      context->writeBuffer.TryGet(overlapaddr);
+      if (overlapaddr == ZERO) break;
+      if (buffer->len - overlap->doneSize) {
+	writed = write(context->bHandle,
+		       buffer->buf + overlap->doneSize,
+		       buffer->len - overlap->doneSize);
+	if (writed == NEGONE) {
+	  if (errno == EAGAIN) break;
+	  else {
+	    // write error close socket
+	  } } }
+      overlap->doneSize += writed;
+      overlap->events = EPOLLOUT;
+      if (writed + overlap->doneSize == buffer->len) {
+	context->writeBuffer -= overlapaddr;
+	if (*context->iocpHandle += overlapaddr) {
+	  // IOCP error close socket
+	}
+      } else break;
+    }
+    if (overlapaddr == ZERO) {
+      if (!context->inEpollOut) __BREAK_OK;
+      __DO1 (state,
+	     epoll_ctl(epollHandle, 
+		       EPOLL_CTL_DEL, 
+		       context->bHandle, 
+		       &ev));
+      context->inEpollOut = 0;
+    } else {
+      if (context->inEpollOut) __BREAK_OK;
+      ev.events = EPOLLET | EPOLLOUT;
+      ev.data.u64 = contextaddr.aLong;
+      __DO1 (state,
+	     epoll_ctl(epollHandle, 
+		       EPOLL_CTL_ADD, 
+		       context->bHandle, 
+		       &ev));
+      context->inEpollOut = 1;
+    }
+  }
+  else if (overlap->events == EPOLLTIMEOUT) {
+    // set some
+    __BREAK_OK;
+  }
+__CATCH
+};
+
+
+#ifdef    __GLdb_SELF_USE
+RESULT      RThreadWork::ThreadInit(void)
+{
+  GlobalMemory.InitThreadMemory(1);
+  return 0;
+};
+
+RESULT      RThreadWork::ThreadDoing(void)
+{
+
+  return 0;
+};
+#endif  //__GLdb_SELF_USE
 
 /*
  * for demo of GLdbIOCP initialize

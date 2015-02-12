@@ -180,7 +180,6 @@ RESULT      CMemoryBlock::SetThreadArea(UINT getsize, UINT maxsize, UINT freesiz
  * It cost me ten hours.
  */
   GetThreadMemoryInfo();
-
 __TRY__
   start.pAddr = &(info->localCache[0]);
   info->memoryStack.InitArrayStack(start, maxsize, SINGLE_THREAD,
@@ -305,11 +304,20 @@ __TRY
 __CATCH
 };
 
+RESULT      ReferenceContext(PCONT pcont)
+{
+  ADDR      addr;
+  addr = PCONT_TO_ADDR(pcont);
+  addr.pList->incRefCount();
+  return 0;
+}
+
 RESULT      FreeContext(PCONT pcont)
 {
   ADDR      addr;
   addr = PCONT_TO_ADDR(pcont);
-  return GlobalContext.FreeMemoryList(addr);
+  return addr.pList->decRefCount();
+  //  return GlobalContext.FreeMemoryList(addr);
 };
 
 #define     BUFFER_FUNCTION(name)				\
@@ -321,8 +329,8 @@ RESULT      FreeContext(PCONT pcont)
     addr.AllocType = &JOIN(Global,name);		        \
     addr.RefCount = INIT_REFCOUNT;				\
     pbuff = ADDR_TO_PBUFF(addr);				\
- __CATCH						        \
-   };								\
+  __CATCH						        \
+  };								\
   RESULT    JOIN(Free,name)(PBUFF pbuff)			\
   {								\
     ADDR    addr;						\
@@ -332,6 +340,22 @@ RESULT      FreeContext(PCONT pcont)
 
 BUFFER_FUNCTION(BufferSmall)
 BUFFER_FUNCTION(BufferMiddle)
+
+RESULT      ReferenceBuffer(PBUFF pbuff)
+{
+  ADDR      addr;
+  addr = PBUFF_TO_ADDR(pbuff);
+  addr.pList->incRefCount();
+  return 0;
+}
+
+RESULT      FreeBuffer(PBUFF pbuff)
+{
+  ADDR      addr;
+  addr = PBUFF_TO_ADDR(pbuff);
+  return addr.pList->decRefCount();
+};
+
 
 /*
  * Following is for debug memory pool program

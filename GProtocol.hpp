@@ -63,19 +63,19 @@ public:
   BOOL    (*MyCloseHandle)(SOCKET sock);	
 public:
   GProtocol();
-  RESULT    CreateNew(PCONT pcont, ADDR para, UINT size)
+  RESULT    CreateNew(PCONT, ADDR, UINT)
   { return 0; };
-  RESULT    CreateRemote(PCONT pcont, ADDR para, UINT size)
+  RESULT    CreateRemote(PCONT, ADDR, UINT)
   { return 0; };
-  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  RESULT    PostAccept(PCONT, PBUFF, UINT, UINT)
   { return 0; };
-  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  RESULT    PostConnect(PCONT, PBUFF, UINT, UINT)
   { return 0; };
-  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  RESULT    PostSend(PCONT, PBUFF, UINT, UINT, UINT)
   { return 0; };
-  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+  RESULT    PostReceive(PCONT, PBUFF, UINT, UINT, UINT)
   { return 0; };
-  RESULT    PostClose(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+  RESULT    PostClose(PCONT, PBUFF, UINT, UINT)
   { return 0; };
 
   UINT virtual GetContextLength(PCONT pcont, PBUFF pbuff);
@@ -85,14 +85,10 @@ typedef     class GNoneProtocol : public GProtocol
 {
 public:
   GNoneProtocol() : GProtocol() {};
-  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
-  { return 0; };
-  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
-  { return 0; };
-  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
-  { return 0; };
-  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
-  { return 0; };
+  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
 }NPROT, *PNPROT;
 
 typedef     class GIPProtocol : public GProtocol

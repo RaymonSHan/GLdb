@@ -360,7 +360,6 @@ public:
   __TRY
     __DO_(info->memoryStack -= addr,
          "No more list CMemoryAlloc %p", this);
-
     if (TimeoutInit) {
       if (!timeout) timeout = TimeoutInit;
       addr.CountDown = GlobalTime + timeout;       // it is timeout time
@@ -461,21 +460,24 @@ public:
  * padData   : for small encapsulation data added ahead real infomation
  * bufferData: Real information, for/from I/O
  */
+typedef     class CBufferItem {
+public:
+  WSAOVERLAPPED oLapped;
+  WSABUF    wsaBuf;
+  UINT      nOper;
+  STR_S     bufferName;
+  UCHAR     padData[CHAR_SMALL];
+}BUFF;
+
 #define     BUFFER_CLASS(classname, size)		        \
-  typedef   class classname {					\
+  typedef   class classname : public CBufferItem {		\
   public:							\
-    WSAOVERLAPPED oLapped;					\
-    WSABUF  wsaBuf;						\
-    INT     nOper;						\
-    STR_S   bufferName;						\
-    UCHAR   padData[CHAR_SMALL];				\
     UCHAR   bufferData[size];					\
   }classname, *JOIN(P,classname);
 
-#define     SIZE_SMALL_BUFFER                  (SIZE_HUGE_PAGE-sizeof(BUFF_0)-SIZEADDR)
-#define     SIZE_MIDDLE_BUFFER                 (SIZE_HUGE_PAGE*16-sizeof(BUFF_0)-SIZEADDR)
+#define     SIZE_SMALL_BUFFER                  (SIZE_HUGE_PAGE-sizeof(BUFF)-SIZEADDR)
+#define     SIZE_MIDDLE_BUFFER                 (SIZE_HUGE_PAGE*16-sizeof(BUFF)-SIZEADDR)
 
-BUFFER_CLASS(BUFF_0, 0)
 BUFFER_CLASS(BUFF_S, SIZE_SMALL_BUFFER)
 BUFFER_CLASS(BUFF_M, SIZE_MIDDLE_BUFFER)
 
@@ -485,6 +487,7 @@ BUFFER_CLASS(BUFF_M, SIZE_MIDDLE_BUFFER)
 
 RESULT      InitContextItem(PCONT pcont);
 RESULT      GetContext(PCONT &pcont, UINT timeout = 0);
+RESULT      ReferenceContext(PCONT pcont);
 RESULT      FreeContext(PCONT addr);
 
 #define     BUFFER_FUNCTION_DECLARE(name)			\
@@ -493,6 +496,12 @@ RESULT      FreeContext(PCONT addr);
 
 BUFFER_FUNCTION_DECLARE(BufferSmall)
 BUFFER_FUNCTION_DECLARE(BufferMiddle)
+
+/*
+ * Common free all size buffer
+ */
+RESULT      ReferenceBuffer(PBUFF pbuff);
+RESULT      FreeBuffer(PBUFF pbuff);
 
 /*
  * Global memory manager
@@ -515,7 +524,7 @@ public:
   {
   __TRY
     __DO (globalContext.InitMemoryBlock
-	 (numcontext, sizeof(CONT), SIZE_CACHE, TIMEOUT_TCP));
+	 (numcontext, sizeof(CONT), SIZE_CACHE, ZERO));
     __DO (globalBufferSmall.InitMemoryBlock
 	 (numbuffersmall, sizeof(BUFF_S), SIZE_NORMAL_PAGE, ZERO));
     __DO (globalBufferMiddle.InitMemoryBlock
@@ -530,6 +539,15 @@ public:
     __DO(globalBufferSmall.FreeMemoryBlock());
     __DO(globalBufferMiddle.FreeMemoryBlock());
   __CATCH
+  };
+  RESULT    InitThreadMemory(UINT need)
+  {
+    UINT    getsize = 0, maxsize = 8, freesize = 4;
+    if (need) getsize = 4;
+    GlobalContext.SetThreadArea(getsize, maxsize, freesize, 0);
+    GlobalBufferSmall.SetThreadArea(getsize, maxsize, freesize, 0);
+    GlobalBufferMiddle.SetThreadArea(getsize, maxsize, freesize, 0);
+    return 0;
   };
 /*
  * should add Timeout, to CountTimeout all memory pool

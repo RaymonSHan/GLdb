@@ -50,9 +50,9 @@
 #define     FAHandle                            GEncapsulate::fAHandle
 
 
-#define     NUMBER_CONTEXT                      5
-#define     NUMBER_BUFFER_SMALL                 10
-#define     NUMBER_BUFFER_MIDDLE                2
+#define     NUMBER_CONTEXT                      50
+#define     NUMBER_BUFFER_SMALL                 100
+#define     NUMBER_BUFFER_MIDDLE                20
 
 #define	    fOnAccept                           0
 #define	    fOnConnect                          1

@@ -799,6 +799,7 @@ public:
   };
   UINT      GetNumber(void)
   {
+    if (arrayEnd < arrayFree) return 0;
     return ((arrayEnd - arrayFree) / SIZEADDR + 1);
   };
 }STACK, *PSTACK;

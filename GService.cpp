@@ -102,6 +102,7 @@ int         main (int, char**)
   SetupSIG(SIGILL, SIGSEGV_Handle);                             // sign 4
   SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
 
+  printf("start\n");
   //  return initDaemon(ENCAP::Doing);
   return ENCAP::Doing();
 };
