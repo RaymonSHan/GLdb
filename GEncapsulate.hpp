@@ -95,7 +95,7 @@ typedef     RESULT (GApplication::*AHandle)(PCONT, PBUFF&, UINT);
 #define     AppFunc(p, f)					\
   (p->* (FAHandle[p->ApplicationNumber].fFunction[f]))
 
-#define     MAX_PROTOCOL                        16
+#define     MAX_PROTOCOL                        32
 #define     MAX_APPLICATION                     32
 
 typedef     struct ProtocolHandles
@@ -165,7 +165,7 @@ public:
   static    PHANDLE fPHandle[MAX_PROTOCOL];
   static    AHANDLE fAHandle[MAX_APPLICATION];
 public:
-  HANDLE    handleIOCP;
+  //  HANDLE    handleIOCP;
 
 public:
   static    RESULT InitEncapsulate(void);

@@ -60,9 +60,8 @@ __CATCH
 
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
-__TRY
-
-__CATCH
+__TRY__
+__CATCH__
 };
 
 RESULT      GEncapsulate::FreeEncapsulate(void)
@@ -90,6 +89,9 @@ __TRY
 
   cliCont = serCont = 0;
   __DO (pApp == 0);
+  globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP);
+  __DO (pApp->handleIOCP == 0);
+
   if (cliProt) {
     __DO (GetContext(cliCont));
     cliCont->pApplication = pApp;

@@ -134,6 +134,7 @@ typedef     struct threadMemoryInfo {
  */
 #define     TIMEOUT_QUIT                        2
 #define     TIMEOUT_TCP                         20
+#define     TIMEOUT_INFINITE                    0x7fffffffffffffff
 /*
  * free CListItem, only dec the refcount, it will be delete only no more reference, 
  */
@@ -166,6 +167,7 @@ public:
     LockInc(refCount);
   };
   RESULT    decRefCount(void);
+
 }LIST;
 
 #define     UsedList                             pList->usedList
@@ -175,6 +177,7 @@ public:
 #define     IncRefCount                          pList->incRefCount
 #define     DecRefCount                          pList->decRefCount
 
+void        ReflushTimeout(PCONT pcont, UINT timeoutww);
 
 /*
  * this is have not test
@@ -267,6 +270,7 @@ private:
   UINT      TotalSize;
   STACK     globalStack;
 
+public:
   UINT      TimeoutInit;
   threadMemoryInfo *threadListStart;
 

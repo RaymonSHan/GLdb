@@ -40,6 +40,11 @@
 #ifndef     GLdb_PROTOCOL_HPP
 #define     GLdb_PROTOCOL_HPP
 
+#define     PROTOCOL_NONE                       0
+#define     PROTOCOL_TCP                        6
+#define     PROTOCOL_UDP                        17
+#define     PROTOCOL_FILE                       21
+
 inline      BOOL CloseSocket(SOCKET sock) 
 {
   return close(sock->bHandle); 
@@ -94,7 +99,7 @@ public:
 typedef     class GIPProtocol : public GProtocol
 {
 protected:
-  RESULT    BindLocalSocket(PCONT pcont, PPROT pProtocol, PSOCK addr);
+  RESULT    BindLocalSocket(PCONT &pcont, PPROT pProtocol, PSOCK sock);
 }IPPROT;
 
 typedef     class GTCPProtocol : public GIPProtocol
@@ -104,18 +109,12 @@ public:
   {
     MyCloseHandle = CloseSocket;
   };
-  RESULT    CreateNew(PCONT pcont, ADDR para, UINT size)
-  { return 0; };
-  RESULT    CreateRemote(PCONT pcont, ADDR para, UINT size)
-  { return 0; };
-  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
-  { return 0; };
-  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
-  { return 0; };
-  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
-  { return 0; };
-  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
-  { return 0; };
+  RESULT    CreateNew(PCONT pcont, ADDR para, UINT size);
+  RESULT    CreateRemote(PCONT pcont, ADDR para, UINT size);
+  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
 }TCPPROT;
 
 #endif   // GLdb_PROTOCOL_HPP

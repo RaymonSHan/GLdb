@@ -301,6 +301,7 @@ __TRY
   addr.AllocType = &GlobalContext;
   addr.RefCount = INIT_REFCOUNT;
   pcont = ADDR_TO_PCONT(addr);
+  InitContextItem(pcont);
 __CATCH
 };
 
@@ -308,7 +309,7 @@ RESULT      ReferenceContext(PCONT pcont)
 {
   ADDR      addr;
   addr = PCONT_TO_ADDR(pcont);
-  addr.pList->incRefCount();
+  addr.IncRefCount();
   return 0;
 }
 
@@ -316,8 +317,16 @@ RESULT      FreeContext(PCONT pcont)
 {
   ADDR      addr;
   addr = PCONT_TO_ADDR(pcont);
-  return addr.pList->decRefCount();
+  return addr.DecRefCount();
   //  return GlobalContext.FreeMemoryList(addr);
+};
+
+void        ReflushTimeout(PCONT pcont, UINT timeout)
+{
+  ADDR      addr;
+  addr = PCONT_TO_ADDR(pcont);
+  if (timeout) timeout = addr.AllocType->TimeoutInit;
+  addr.CountDown = timeout;
 };
 
 #define     BUFFER_FUNCTION(name)				\
@@ -345,7 +354,7 @@ RESULT      ReferenceBuffer(PBUFF pbuff)
 {
   ADDR      addr;
   addr = PBUFF_TO_ADDR(pbuff);
-  addr.pList->incRefCount();
+  addr.IncRefCount();
   return 0;
 }
 
@@ -353,7 +362,7 @@ RESULT      FreeBuffer(PBUFF pbuff)
 {
   ADDR      addr;
   addr = PBUFF_TO_ADDR(pbuff);
-  return addr.pList->decRefCount();
+  return addr.DecRefCount();
 };
 
 

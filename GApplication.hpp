@@ -44,6 +44,7 @@ typedef     class GApplication
 public:
   UINT      ApplicationNumber;
   UINT      ApplicationFlag;
+  HANDLE    handleIOCP;
 
 public:
   RESULT    OnAccept(PCONT pcont, PBUFF &pbuff, UINT size, UINT op)

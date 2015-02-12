@@ -87,7 +87,7 @@ SOCKET      WSASocket(
 
   result = GetContext(pcont);
   if (result) return 0;
-  InitContextItem(pcont);
+  //  InitContextItem(pcont);
 
 /*
  * for the different for AcceptEx and accept, do NOT create socket here
@@ -337,6 +337,7 @@ __TRY
   int     readed, writed, state;
   ADDR    contextaddr, overlapaddr, bufferaddr, listenaddr;
   PCONT   &context = (PCONT &)contextaddr;
+  PCONT   clicont;
   LPOVERLAPPED &overlap = (LPOVERLAPPED &)overlapaddr;
   LPWSABUF &buffer = (LPWSABUF &)bufferaddr; 
   struct  epoll_event ev;
@@ -390,7 +391,8 @@ __TRY
  */
     context->writeBuffer -= listenaddr;
     if (listenaddr != ZERO) {
-      if (overlap->doneSize) close(overlap->doneSize);
+      clicont = (PCONT)overlap->doneSize;
+      if (clicont->bHandle) close(clicont->bHandle);
       overlap->doneSize = accept(context->bHandle, 
 				 &(context->remoteSocket.saddr), &tempsize);
       __DO (*context->iocpHandle += overlapaddr);

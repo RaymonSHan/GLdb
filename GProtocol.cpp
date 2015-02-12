@@ -30,7 +30,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include    "GIOCP.hpp"
 #include    "GProtocol.hpp"
+#include    "GApplication.hpp"
 
 RESULT      GNoneProtocol::PostAccept(
 	    PCONT pcont, PBUFF pbuff, UINT size, UINT op)
@@ -44,16 +46,91 @@ __TRY
     return ProFunc(pcont->pProtocol, fPostAccept)(pcont, pbuff, size, op);
   }
 __CATCH
-}
+};
 
-RESULT      GNoneProtocol::PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+RESULT      GNoneProtocol::PostConnect(
+	    PCONT pcont, PBUFF pbuff, UINT size, UINT op)
 {
 __TRY__
   pbuff->nOper = op;
   return ProFunc(pcont->pProtocol, fPostConnect)(pcont, pbuff, size, op);
 __CATCH__
-}
-//  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
-//  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+};
+
+RESULT      GNoneProtocol::PostSend(
+	    PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+{
+__TRY__
+  pbuff->nOper = op;
+  ReflushTimeout(pcont, 0);
+  return ProFunc(pcont->pProtocol, fPostSend)(pcont, pbuff, size, op, opside);
+__CATCH__
+};
+
+// this is easy way for test now.
+RESULT      GNoneProtocol::PostReceive(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+{
+__TRY__
+  pbuff->nOper = op;
+  ReflushTimeout(pcont, 0);
+  return ProFunc(pcont->pProtocol, fPostReceive)(pcont, pbuff, size, op, opside);
+__CATCH__
+};
 
 
+RESULT      GIPProtocol::BindLocalSocket(
+	    PCONT &pcont, PPROT pProtocol, PSOCK sock)
+{
+__TRY
+  int       ptype;
+  int       pnumber;
+
+  __DO (pcont == 0);
+  if (pProtocol->ProtocolNumber == PROTOCOL_TCP) {
+    ptype = SOCK_STREAM;
+    pnumber = PROTOCOL_TCP;
+  } else if (pProtocol->ProtocolNumber == PROTOCOL_UDP) {
+    ptype = SOCK_DGRAM;
+    pnumber = PROTOCOL_UDP;
+  } else __BREAK;
+
+  __DO1(pcont->bHandle, socket(AF_INET, ptype, pnumber));
+  bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK));
+  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+
+__CATCH
+};
+
+
+RESULT      GTCPProtocol::CreateNew(PCONT pcont, ADDR para, UINT size)
+{
+  (void)size;
+__TRY
+  PSOCK     sock = (PSOCK)para.pVoid;
+
+  __DO (BindLocalSocket(pcont, this, sock));
+  ReflushTimeout(pcont, TIMEOUT_INFINITE);
+  listen(pcont->bHandle, SOMAXCONN);
+__CATCH
+};
+
+RESULT      GTCPProtocol::CreateRemote(PCONT pcont, ADDR para, UINT size)
+{
+};
+
+RESULT      GTCPProtocol::PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+{
+};
+
+RESULT      GTCPProtocol::PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+{
+};
+
+RESULT      GTCPProtocol::PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+{
+};
+
+RESULT      GTCPProtocol::PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+{
+};
