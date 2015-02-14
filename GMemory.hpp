@@ -491,6 +491,7 @@ BUFFER_CLASS(BUFF_M, SIZE_MIDDLE_BUFFER)
 
 RESULT      InitContextItem(PCONT pcont);
 RESULT      GetContext(PCONT &pcont, UINT timeout = 0);
+RESULT      GetDupContext(PCONT &newcont, PCONT pcont);
 RESULT      ReferenceContext(PCONT pcont);
 RESULT      FreeContext(PCONT addr);
 

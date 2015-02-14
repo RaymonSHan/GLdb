@@ -89,7 +89,8 @@ __TRY
 
   cliCont = serCont = 0;
   __DO (pApp == 0);
-  globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP);
+  if (!pApp->handleIOCP)
+    globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP);
   __DO (pApp->handleIOCP == 0);
 
   if (cliProt) {

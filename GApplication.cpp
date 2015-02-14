@@ -30,4 +30,66 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include    "GMemory.hpp"
 #include    "GApplication.hpp"
+#include    "GEncapsulate.hpp"
+
+RESULT      GNoneApplication::OnAccept(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+{
+  (void)    size;
+
+__TRY
+  PCONT     newcont;
+  PBUFF     newbuff;
+
+  __DO (GetBufferSmall(newbuff));
+  __DO (NoneProFunc(pcont->pProtocol, fPostAccept)
+	(pcont, newbuff, SIZE_SMALL_BUFFER, OP_ACCEPT));
+  pbuff->nOper = OP_CLIENT_READ;
+  newcont = (PCONT)pbuff->oLapped.doneSize;
+  //  __DO ( GetDupContext(newcont, pcont));
+  __DO (CreateIoCompletionPort(
+        newcont, pcont->pApplication->handleIOCP, (ULONG_PTR)newcont, 0));
+__CATCH
+};
+
+RESULT      GNoneApplication::OnConnect(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+{ return 0; };
+
+RESULT      GNoneApplication::OnClientRead(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+{
+__TRY
+  __DO (AppFunc(pcont->pApplication, fOnClientRead)
+	(pcont, pbuff, size));
+__CATCH
+};
+
+RESULT      GNoneApplication::OnClientWrite(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+{
+__TRY
+  __DO (AppFunc(pcont->pApplication, fOnClientWrite)
+	(pcont, pbuff, size));
+__CATCH
+};
+
+RESULT      GNoneApplication::OnServerRead(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+  { return 0; };
+RESULT      GNoneApplication::OnServerWrite(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+  { return 0; };
+RESULT      GNoneApplication::OnClose(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+  { return 0; };
+RESULT      GNoneApplication::OnPassby(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+  { return 0; };
+
+
+
+RESULT      GEchoApplication::OnClientRead(PCONT pcont, PBUFF &pbuff, UINT size)
+  { return 0; };
