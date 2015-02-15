@@ -103,7 +103,7 @@ int         main (int, char**)
   SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
 
   //  return initDaemon(ENCAP::Doing);
-  return ENCAP::Doing();
+  return GlobalEncapsulate.Doing();
 };
 
 #endif // __GLdb_SELF_USE

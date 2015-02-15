@@ -42,13 +42,16 @@
 
 #include    "GMemory.hpp"
 #include    "GIOCP.hpp"
+#include    "GProtocol.hpp"
+#include    "GApplication.hpp"
 
 #define     GlobalMemory                        GEncapsulate::globalMemory
 #define     GlobalIOCP                          GEncapsulate::globalIOCP
 
 #define     FPHandle                            GEncapsulate::fPHandle
 #define     FAHandle                            GEncapsulate::fAHandle
-
+#define     NoneProt                            GEncapsulate::noneProt
+#define     NoneApp                             GEncapsulate::noneApp
 
 #define     NUMBER_CONTEXT                      50
 #define     NUMBER_BUFFER_SMALL                 100
@@ -114,10 +117,10 @@ typedef     struct ApplicationHandles
   AHandle   fFunction[16];
 }AHANDLE;
 
-#define     RegisterProtocl(cname, protocol, num, flag)			\
+#define     RegisterProtocol(cname, protocol, num, flag)		\
 {									\
-  protocol->ProtocolNumber = num;					\
-  protocol->PrococolFlag = flag;					\
+  protocol.ProtocolNumber = num;					\
+  protocol.ProtocolFlag = flag;						\
   ENCAP::fPHandle[num].fCreateNew =					\
     (PNew)&cname::CreateNew;						\
   ENCAP::fPHandle[num].fCreateRemote =					\
@@ -136,8 +139,8 @@ typedef     struct ApplicationHandles
 
 #define     RegisterApplication(cname, app, num, flag)			\
 {									\
-  app->ApplicationNumber = num;						\
-  app->ApplicationFlag = flag;						\
+  app.ApplicationNumber = num;						\
+  app.ApplicationFlag = flag;						\
   ENCAP::fAHandle[num].fFunction[fOnAccept] =				\
     (AHandle)&cname::OnAccept;						\
   ENCAP::fAHandle[num].fFunction[fOnConnect] =				\
@@ -145,7 +148,7 @@ typedef     struct ApplicationHandles
   ENCAP::fAHandle[num].fFunction[fOnClientRead] =			\
     (AHandle)&cname::OnClientRead;					\
   ENCAP::fAHandle[num].fFunction[fOnClientWrite] =			\
-    (AHandle)&cname::fOnClientWrite;					\
+    (AHandle)&cname::OnClientWrite;					\
   ENCAP::fAHandle[num].fFunction[fOnServerRead] =			\
     (AHandle)&cname::OnServerRead;					\
   ENCAP::fAHandle[num].fFunction[fOnServerWrite] =			\
@@ -164,13 +167,18 @@ public:
 
   static    PHANDLE fPHandle[MAX_PROTOCOL];
   static    AHANDLE fAHandle[MAX_APPLICATION];
-public:
-  //  HANDLE    handleIOCP;
+
+  static    NPROT noneProt;
+  static    NAPP noneApp;
 
 public:
-  static    RESULT InitEncapsulate(void);
-  static    RESULT FreeEncapsulate(void);
-  static    RESULT Doing(void);
+  GTCP      tcpProt;
+  ECHO      echoApp;
+  PCONT     listenCont;
+public:
+  RESULT    InitEncapsulate(void);
+  RESULT    FreeEncapsulate(void);
+  RESULT    Doing(void);
 
 public:
   RESULT    CreateApplication(

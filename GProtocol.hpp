@@ -67,7 +67,7 @@ public:
   long      ProtocolFlag;
   BOOL    (*MyCloseHandle)(SOCKET sock);	
 public:
-  GProtocol();
+  GProtocol() {};
   RESULT    CreateNew(PCONT, ADDR, UINT)
   { return 0; };
   RESULT    CreateRemote(PCONT, ADDR, UINT)
@@ -83,7 +83,7 @@ public:
   RESULT    PostClose(PCONT, PBUFF, UINT, UINT)
   { return 0; };
 
-  UINT virtual GetContextLength(PCONT pcont, PBUFF pbuff);
+  //  UINT virtual GetContextLength(PCONT pcont, PBUFF pbuff);
 }PROT;
 
 typedef     class GNoneProtocol : public GProtocol
@@ -115,7 +115,7 @@ public:
   RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
   RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
   RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
-}TCPPROT;
+}GTCP;
 
 #endif   // GLdb_PROTOCOL_HPP
 

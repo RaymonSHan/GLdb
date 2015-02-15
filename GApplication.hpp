@@ -39,6 +39,8 @@
 #ifndef     GLdb_APPLICATION_HPP
 #define     GLdb_APPLICATION_HPP
 
+#define     APPLICATION_ECHO                    7
+
 typedef     class GApplication
 {
 public:

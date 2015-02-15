@@ -478,6 +478,7 @@ __CATCH
 
 
 #ifdef    __GLdb_SELF_USE
+
 RESULT      RThreadWork::ThreadInit(void)
 {
   GlobalMemory.InitThreadMemory(1);
@@ -486,13 +487,82 @@ RESULT      RThreadWork::ThreadInit(void)
 
 RESULT      RThreadWork::ThreadDoing(void)
 {
+__TRY
+  int       size;
+  PCONT     pcont;
+  PBUFF     pbuff;
+  UINT      noper;
 
+  __DO (GetQueuedCompletionStatus(
+       (HANDLE)handleIOCP, (DWORD*)&size, 
+       (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, WSA_INFINITE));
+  if (size == -1) __BREAK_OK;
+  noper = pbuff->nOper;
+
+  if (size) NoneAppFunc(&NoneApp, noper - OP_BASE)(pcont, pbuff, size);
+  else NoneAppFunc(&NoneApp, fOnClose)(pcont, pbuff, size);
+__CATCH
+};
+
+#endif  //__GLdb_SELF_USE
+
+RESULT      GLdbIOCP::InitGLdbIOCP()
+{
+__TRY__
+  int     i;
+  ADDR    addr;
+
+  for (i=0; i<NUMBER_MAX_IOCP; i++) {
+    addr = (PVOID)&(iocpHandle[i]);
+    iocpHandleFree += addr;
+  }
+  threadEpoll.ThreadClone();
+  threadEvent.ThreadClone();
+    // for test Get/Free Context/Buffer();
+    //threadWork[0].ThreadClone();
+
+/*
+ * YES, this code may be execute before threadEvent initialized.
+ * but threadEpoll is initialized surely.
+ */
+  epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
+  eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
+  pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
+  RThread::ThreadStart();
+
+__CATCH__
+};
+
+RESULT      GLdbIOCP::FreeGLdbIOCP()
+{
+  ADDR    addr;
+  PEVENT  pevent;
+  int     status;
+  while (!(iocpHandleUsed -= addr)) {
+    pevent = (PEVENT)(addr.pVoid);
+    pevent->FreeArrayEvent();
+  }
+  waitpid(-1, &status, __WCLONE);
+  waitpid(-1, &status, __WCLONE);
   return 0;
 };
-#endif  //__GLdb_SELF_USE
+
+RESULT      GLdbIOCP::GetIOCPItem(ADDR &addr)
+{
+__TRY
+  PEVENT  pevent;
+  __DO (iocpHandleFree -= addr);
+  __DO (iocpHandleUsed += addr);
+  pevent = (PEVENT)(addr.pVoid);
+
+  __DO (pevent->InitArrayEvent());
+__CATCH
+};
+
 
 /*
  * for demo of GLdbIOCP initialize
+ * NOT USED for my program
  */
 #ifndef   __GLdb_SELF_USE
 

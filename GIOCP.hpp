@@ -148,6 +148,7 @@ BOOL        DisconnectEx(
 	    DWORD           dwFlags,
 	    DWORD           reserved);
 
+#define     WSA_INFINITE                        -1
 #define     WSA_FLAG_OVERLAPPED                 (1 << 0)
 #endif // __linux
 
@@ -508,10 +509,15 @@ public:
 
 #ifdef    __GLdb_SELF_USE
 typedef   __class_ (RThreadWork, RThread)
+private:
+  PEVENT    handleIOCP;
 public:
   RThreadWork() {};
   RESULT    ThreadInit(void);
   RESULT    ThreadDoing(void);
+  void      SetupHandle(HANDLE handle) {
+    handleIOCP = (PEVENT)handle;
+  };
 }TWORK, *PTWORK;
 
 #endif // __GLdb_SELF_USE
@@ -552,56 +558,9 @@ public:
   PSTACK_S  pOverlapStack;
 
 public:
-  RESULT    InitGLdbIOCP()
-  {
-  __TRY__
-    int     i;
-    ADDR    addr;
-
-    for (i=0; i<NUMBER_MAX_IOCP; i++) {
-      addr = (PVOID)&(iocpHandle[i]);
-      iocpHandleFree += addr;
-    }
-    //    threadEpoll.ThreadClone();
-    //    threadEvent.ThreadClone();
-    // for test Get/Free Context/Buffer();
-    threadWork[0].ThreadClone();
-
-/*
- * YES, this code may be execute before threadEvent initialized.
- * but threadEpoll is initialized surely.
- */
-    epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
-    eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
-    pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
-    RThread::ThreadStart();
-
-  __CATCH__
-  };
-  RESULT    FreeGLdbIOCP()
-  {
-    ADDR    addr;
-    PEVENT  pevent;
-    int     status;
-    while (!(iocpHandleUsed -= addr)) {
-      pevent = (PEVENT)(addr.pVoid);
-      pevent->FreeArrayEvent();
-    }
-    waitpid(-1, &status, __WCLONE);
-    waitpid(-1, &status, __WCLONE);
-    return 0;
-  };
-  RESULT    GetIOCPItem(ADDR &addr)
-  {
-  __TRY
-    PEVENT  pevent;
-    __DO (iocpHandleFree -= addr);
-    __DO (iocpHandleUsed += addr);
-    pevent = (PEVENT)(addr.pVoid);
-
-    __DO (pevent->InitArrayEvent());
-  __CATCH
-  };
+  RESULT    InitGLdbIOCP();
+  RESULT    FreeGLdbIOCP();
+  RESULT    GetIOCPItem(ADDR &addr);
 }IOCP;
 
 

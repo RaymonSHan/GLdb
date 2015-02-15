@@ -97,6 +97,8 @@ MEMORY      GlobalMemory;
 IOCP        GlobalIOCP;
 PHANDLE     FPHandle[MAX_PROTOCOL];
 AHANDLE     FAHandle[MAX_APPLICATION];
+NPROT       NoneProt;
+NAPP        NoneApp;
 
 #endif  //__GLdb_SELF_USE
 

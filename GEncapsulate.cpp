@@ -36,8 +36,6 @@
 
 #include    "GMemory.hpp"
 #include    "GEncapsulate.hpp"
-#include    "GProtocol.hpp"
-#include    "GApplication.hpp"
 
 RESULT      GEncapsulate::Doing(void)
 {
@@ -47,6 +45,8 @@ __TRY
 				    NUMBER_BUFFER_MIDDLE));
   __DO(GlobalIOCP.InitGLdbIOCP());
   __DO(InitEncapsulate());
+
+  //  CreateApplication
 
   if (!GlobalShouldQuit) {
     sleep(1);
@@ -61,6 +61,24 @@ __CATCH
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
 __TRY__
+  PCONT     nullcont = NULL;
+  char      local_addr[] = "127.0.0.1";  
+  SOCK      sock;
+  ADDR      addr, nulladdr;
+
+  RegisterProtocol(GTCP, tcpProt, PROTOCOL_TCP, 0);
+  RegisterApplication(ECHO, echoApp, APPLICATION_ECHO, 0);
+
+  bzero(&sock.saddrin, sizeof(sockaddr_in));   
+  sock.saddrin.sin_family = AF_INET; 
+  inet_aton(local_addr,&(sock.saddrin.sin_addr));
+  sock.saddrin.sin_port=htons(8998);
+  addr = &sock;
+  nulladdr = ZERO;
+
+  CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
+		    (PPROT)&tcpProt, addr, sizeof(SOCK), 
+		    NULL, nulladdr, 0);
 __CATCH__
 };
 
