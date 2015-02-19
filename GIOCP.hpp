@@ -208,6 +208,8 @@ public:
     ADDR    WRITEADDR = {1};
     int     status;
     __DO (eventQuery += addr);
+    DD("in %p += %lld\n", &eventQuery, addr.aLong);
+    if (addr.aLong) __DOc_(1, "in +=");
     __DO1(status,
 	  write(eventFd, &WRITEADDR, SIZEADDR));
   __CATCH
@@ -220,6 +222,7 @@ public:
     __DO1(status,
 	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
+    DD("in %p -= %lld\n", &eventQuery, addr.aLong);
   __CATCH
   };
 }EVENT;
@@ -517,6 +520,7 @@ public:
   RESULT    ThreadDoing(void);
   void      SetupHandle(HANDLE handle) {
     handleIOCP = (PEVENT)handle;
+  DD("in sethandle %p\n", handleIOCP);
   };
 }TWORK, *PTWORK;
 
@@ -552,6 +556,7 @@ private:
   TEVENT    threadEvent;
   TWORK     threadWork[NUMBER_MAX_WORK];
 
+  volatile  UINT nowWorkThread;
 public:
   int       epollHandle;
   PEVENT    eventHandle;
@@ -561,6 +566,7 @@ public:
   RESULT    InitGLdbIOCP();
   RESULT    FreeGLdbIOCP();
   RESULT    GetIOCPItem(ADDR &addr);
+  RESULT    StartWork(HANDLE handle, UINT num);
 }IOCP;
 
 

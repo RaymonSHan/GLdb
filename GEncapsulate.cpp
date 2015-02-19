@@ -46,8 +46,6 @@ __TRY
   __DO(GlobalIOCP.InitGLdbIOCP());
   __DO(InitEncapsulate());
 
-  //  CreateApplication
-
   if (!GlobalShouldQuit) {
     sleep(1);
   }
@@ -66,7 +64,9 @@ __TRY__
   SOCK      sock;
   ADDR      addr, nulladdr;
 
+  RegisterProtocol(NPROT, noneProt, PROTOCOL_NONE, 0);
   RegisterProtocol(GTCP, tcpProt, PROTOCOL_TCP, 0);
+  RegisterApplication(NAPP, noneApp, APPLICATION_NONE, 0);
   RegisterApplication(ECHO, echoApp, APPLICATION_ECHO, 0);
 
   bzero(&sock.saddrin, sizeof(sockaddr_in));   
@@ -75,10 +75,13 @@ __TRY__
   sock.saddrin.sin_port=htons(8998);
   addr = &sock;
   nulladdr = ZERO;
-
   CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
 		    (PPROT)&tcpProt, addr, sizeof(SOCK), 
 		    NULL, nulladdr, 0);
+  GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
+
+  // move to here, for lazy, may change control clone laterww
+  RThread::ThreadStart();
 __CATCH__
 };
 
@@ -88,7 +91,7 @@ __TRY__
 __CATCH__
 };
 
-#define     ACCEPTNUMBER                        5
+#define     ACCEPTNUMBER                        1
 
 RESULT      GEncapsulate::CreateApplication(
             PCONT          &cliCont,
@@ -109,20 +112,19 @@ __TRY
   __DO (pApp == 0);
   if (!pApp->handleIOCP)
     globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP);
-  __DO (pApp->handleIOCP == 0);
 
+  __DO (pApp->handleIOCP == 0);
   if (cliProt) {
-    __DO (GetContext(cliCont));
+   __DO (GetContext(cliCont));
     cliCont->pApplication = pApp;
     cliCont->pProtocol = cliProt;
     __DO (ProFunc(cliProt, fCreateNew)
 	  (cliCont, cliPara, cliSize));
     cliCont->pPeer = cliCont;
-
     for(i=0; i<ACCEPTNUMBER; i++) {
       __DO (GetBufferSmall(newbuff));
       __DO (NoneProFunc(cliProt, fPostAccept)
-	    (cliCont, newbuff, SIZE_SMALL_BUFFER, OP_ACCEPT));
+	    (cliCont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
     }
   }
   if (serProt) {

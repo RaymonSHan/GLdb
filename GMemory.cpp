@@ -148,7 +148,7 @@ RESULT      CMemoryBlock::TimeoutAll(void)
 {
 __TRY
   GlobalTime = time(NULL);
-  threadMemoryInfo *list = threadListStart;
+  PMEMINFO  list = threadListStart;
   while (list) {
     __DO (CountTimeout(list->localUsedList));
     list = list->threadListNext;
@@ -225,7 +225,7 @@ __CATCH__
 void        CMemoryBlock::DisplayFree(void)
 {
   INT       freenumber = 0, num = 0;;
-  threadMemoryInfo *list;
+  PMEMINFO  list;
   threadTraceInfo* info;
   PSTACK    stack;
   ADDR      addr;
@@ -329,26 +329,34 @@ void        ReflushTimeout(PCONT pcont, UINT timeout)
   addr.CountDown = timeout;
 };
 
-#define     BUFFER_FUNCTION(name)				\
-  RESULT    JOIN(Get,name)(PBUFF &pbuff)			\
+#define     BUFFER_FUNCTION(name, tname)			\
+  RESULT    JOIN(Init,name)(PBUFF pbuff)			\
+  {								\
+    JOIN(P, tname) psbuff = (JOIN(P, tname)) pbuff;		\
+    pbuff->wsaBuf.len = JOIN(SIZE_, tname);			\
+    pbuff->wsaBuf.buf = psbuff->bufferData;			\
+    return (pbuff == NULL);					\
+  };								\
+  RESULT    JOIN(Get, name)(PBUFF &pbuff)			\
   {								\
   __TRY								\
     ADDR    addr;						\
-    __DO(JOIN(Global,name).GetMemoryList(addr, 0));		\
-    addr.AllocType = &JOIN(Global,name);		        \
+    __DO(JOIN(Global, name).GetMemoryList(addr, 0));		\
+    addr.AllocType = &JOIN(Global, name);		        \
     addr.RefCount = INIT_REFCOUNT;				\
     pbuff = ADDR_TO_PBUFF(addr);				\
+    JOIN(Init, name)(pbuff);					\
   __CATCH						        \
   };								\
   RESULT    JOIN(Free,name)(PBUFF pbuff)			\
   {								\
     ADDR    addr;						\
     addr = PBUFF_TO_ADDR(pbuff);				\
-    return JOIN(Global,name).FreeMemoryList(addr);		\
+    return JOIN(Global, name).FreeMemoryList(addr);		\
   }
 
-BUFFER_FUNCTION(BufferSmall)
-BUFFER_FUNCTION(BufferMiddle)
+BUFFER_FUNCTION(BufferSmall, BUFF_S)
+BUFFER_FUNCTION(BufferMiddle, BUFF_M)
 
 RESULT      ReferenceBuffer(PBUFF pbuff)
 {
@@ -374,7 +382,7 @@ RESULT      FreeBuffer(PBUFF pbuff)
 #define PRINT_COLOR(p) printf("\e[0;%sm", p)
 #define RESTORE_COLOR printf("\e[0;37m")
 
-void        CMemoryBlock::DisplayLocal(threadMemoryInfo* info)
+void        CMemoryBlock::DisplayLocal(PMEMINFO info)
 {
   ADDR list;
 
@@ -431,9 +439,9 @@ void        CMemoryBlock::DisplayInfo(void)
 
 void        CMemoryBlock::DisplayContext(void)
 {
-  INT   i = 0;
-  ADDR  nlist;
-  threadMemoryInfo *info;
+  INT       i = 0;
+  ADDR      nlist;
+  PMEMINFO  info;
   GlobalTime = time(NULL);
 
   info = threadListStart;

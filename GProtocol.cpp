@@ -109,6 +109,7 @@ RESULT      GTCPProtocol::CreateNew(PCONT pcont, ADDR para, UINT size)
 __TRY
   PSOCK     sock = (PSOCK)para.pVoid;
 
+  pcont->dwFlags |= WSA_FLAG_ISLISTEN;
   __DO (BindLocalSocket(pcont, this, sock));
   ReflushTimeout(pcont, TIMEOUT_INFINITE);
   listen(pcont->bHandle, SOMAXCONN);
@@ -117,20 +118,39 @@ __CATCH
 
 RESULT      GTCPProtocol::CreateRemote(PCONT pcont, ADDR para, UINT size)
 {
+__TRY__
+__CATCH__
 };
 
 RESULT      GTCPProtocol::PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
 {
+  PCONT     clicont;
+  socklen_t sizet = sizeof(SOCK);
+__TRY__
+  clicont = (PCONT)pbuff->oLapped.doneSize;
+  AcceptEx((SOCKET)pcont, clicont, NULL, 0, 0, 0, NULL, &(pbuff->oLapped));
+  //  clicont->bHandle = accept(pcont->bHandle, &(clicont->remoteSocket.saddr), &sizet);
+__CATCH__
 };
 
 RESULT      GTCPProtocol::PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
 {
+__TRY__
+
+__CATCH__
 };
 
 RESULT      GTCPProtocol::PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
 {
+__TRY__
+  DWORD     dwflags = 0;
+  pbuff->wsaBuf.len = size;
+  WSASend((SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), dwflags, &(pbuff->oLapped), NULL);
+__CATCH__
 };
 
 RESULT      GTCPProtocol::PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
 {
+__TRY__
+__CATCH__
 };

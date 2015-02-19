@@ -44,11 +44,13 @@ __TRY
   PBUFF     newbuff;
 
   __DO (GetBufferSmall(newbuff));
+  __DO (GetContext(newcont));
+  newbuff->oLapped.doneSize = UINT(newcont);
   __DO (NoneProFunc(pcont->pProtocol, fPostAccept)
-	(pcont, newbuff, SIZE_SMALL_BUFFER, OP_ACCEPT));
+	(pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
   pbuff->nOper = OP_CLIENT_READ;
+  // to make sure, maybe changed when accept
   newcont = (PCONT)pbuff->oLapped.doneSize;
-  //  __DO ( GetDupContext(newcont, pcont));
   __DO (CreateIoCompletionPort(
         newcont, pcont->pApplication->handleIOCP, (ULONG_PTR)newcont, 0));
 __CATCH
@@ -62,6 +64,7 @@ RESULT      GNoneApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
+  printf("IN application \n");
   __DO (AppFunc(pcont->pApplication, fOnClientRead)
 	(pcont, pbuff, size));
 __CATCH

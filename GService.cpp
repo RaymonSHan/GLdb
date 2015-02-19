@@ -44,9 +44,11 @@ void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
   erroraddr &= NEG_SIZE_THREAD_STACK;
 
   if (stack == erroraddr) {
-    stack.pVoid = mmap (stack.pChar + PAD_THREAD_STACK, sizeof(threadTraceInfo), 
+    stack.pVoid = mmap (stack.pChar + PAD_THREAD_STACK, 
+			sizeof(threadTraceInfo) + 4 * sizeof(MEMINFO),
   			PROT_READ | PROT_WRITE,
   			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+    GlobalMemory.InitThreadMemory(1);
   } else {
     printf("Got signal %d, faulty address is %p, from %llx\n Calling: \n",
 	   sig, info->si_addr, uc->uc_mcontext.gregs[REG_RIP]);

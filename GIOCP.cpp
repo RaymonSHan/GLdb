@@ -87,7 +87,6 @@ SOCKET      WSASocket(
 
   result = GetContext(pcont);
   if (result) return 0;
-  //  InitContextItem(pcont);
 
 /*
  * for the different for AcceptEx and accept, do NOT create socket here
@@ -317,6 +316,8 @@ __TRY
       overlap->Internal = (PCONT)waitEv[i].data.u64;
       overlap->events =  waitEv[i].events;
       overlap->InternalHigh = 0;
+      DD("in epoll overlap:%llx,  Internal:%llx, events:%d\n", overlapaddr.aLong, (UINT)waitEv[i].data.u64 ,waitEv[i].events );
+      DD("   Internal:%p, events:%lld\n", overlap->Internal,  overlap->events);
       __DO (*peventHandle += overlapaddr);
     }
   }
@@ -349,22 +350,25 @@ __TRY
  */
   __DO (eventHandle -= overlapaddr);
   contextaddr = overlap->Internal;
+  DD("in Event %p, %llx, event:%lld\n", &overlapaddr, overlapaddr.aLong, overlap->events);
 
   if (overlap->events == EPOLLIN) {
 /*
  * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
  */
+    D(EPOLLIN);
     *pOverlapStack += overlapaddr;
     context->readBuffer -= overlapaddr;
-
 
 #ifdef    __GLdb_SELF_USE
 /*
  * For listening SOCKET will NOT use writeBuffer, it store whether there are
  *   accept income.
  */
+    D(BEFORELISTEN);
     if (IS_LISTEN(context)) {
+      D(ISLISTEN);
       tempevent = EPOLLACCEPT;
       __DO(context->writeBuffer += contextaddr);
     }
@@ -381,6 +385,7 @@ __TRY
 
 #ifdef    __GLdb_SELF_USE
   if (overlap->events == EPOLLACCEPT) {
+    D(inACCEPT);
 /*
  * do half work of AcceptEx, only return accept SOCKET, but not receive first packet
  *
@@ -389,16 +394,25 @@ __TRY
  *   really accept SOCKET.
  * Here context is listening SOCKET
  */
+
     context->writeBuffer -= listenaddr;
+
     if (listenaddr != ZERO) {
-      clicont = (PCONT)overlap->doneSize;
+      clicont = (PCONT)overlap;
+      //      clicont = (PCONT)overlap->doneSize;
+      D(a1);
       if (clicont->bHandle) close(clicont->bHandle);
+
+      D(a2);
       overlap->doneSize = accept(context->bHandle, 
 				 &(context->remoteSocket.saddr), &tempsize);
+      D(a3);
       __DO (*context->iocpHandle += overlapaddr);
+      D(a4);
     } else {
       context->readBuffer += overlapaddr;
     }
+
   }
 #endif // __GLdb_SELF_USE
 
@@ -482,6 +496,7 @@ __CATCH
 RESULT      RThreadWork::ThreadInit(void)
 {
   GlobalMemory.InitThreadMemory(1);
+  DD("in work init %p\n", handleIOCP);
   return 0;
 };
 
@@ -496,6 +511,8 @@ __TRY
   __DO (GetQueuedCompletionStatus(
        (HANDLE)handleIOCP, (DWORD*)&size, 
        (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, WSA_INFINITE));
+
+  D(inworking);
   if (size == -1) __BREAK_OK;
   noper = pbuff->nOper;
 
@@ -509,17 +526,16 @@ __CATCH
 RESULT      GLdbIOCP::InitGLdbIOCP()
 {
 __TRY__
-  int     i;
-  ADDR    addr;
+  int       i;
+  ADDR      addr;
 
   for (i=0; i<NUMBER_MAX_IOCP; i++) {
     addr = (PVOID)&(iocpHandle[i]);
     iocpHandleFree += addr;
   }
+  nowWorkThread = 0;
   threadEpoll.ThreadClone();
   threadEvent.ThreadClone();
-    // for test Get/Free Context/Buffer();
-    //threadWork[0].ThreadClone();
 
 /*
  * YES, this code may be execute before threadEvent initialized.
@@ -528,29 +544,35 @@ __TRY__
   epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
   eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
   pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
-  RThread::ThreadStart();
+
+  // move this line to encapsulate, for lazy, may change control clone later
+  //  RThread::ThreadStart();
 
 __CATCH__
 };
 
 RESULT      GLdbIOCP::FreeGLdbIOCP()
 {
-  ADDR    addr;
-  PEVENT  pevent;
-  int     status;
+  ADDR      addr;
+  PEVENT    pevent;
+  int       status;
+  UINT      i;
   while (!(iocpHandleUsed -= addr)) {
     pevent = (PEVENT)(addr.pVoid);
     pevent->FreeArrayEvent();
   }
-  waitpid(-1, &status, __WCLONE);
-  waitpid(-1, &status, __WCLONE);
+/*
+ * for all worThread and Epoll & Event
+ */
+  for (i=0; i<nowWorkThread + 2; i++)  
+    waitpid(-1, &status, __WCLONE);
   return 0;
 };
 
 RESULT      GLdbIOCP::GetIOCPItem(ADDR &addr)
 {
 __TRY
-  PEVENT  pevent;
+  PEVENT    pevent;
   __DO (iocpHandleFree -= addr);
   __DO (iocpHandleUsed += addr);
   pevent = (PEVENT)(addr.pVoid);
@@ -559,6 +581,17 @@ __TRY
 __CATCH
 };
 
+RESULT      GLdbIOCP::StartWork(HANDLE handle, UINT num)
+{
+  UINT      nowwork = LockAdd(nowWorkThread, num);
+  UINT      i;
+__TRY__
+  for (i = nowwork; i < nowwork + num; i++) {
+    threadWork[i].SetupHandle(handle);
+    threadWork[i].ThreadClone();
+  }
+__CATCH__
+};
 
 /*
  * for demo of GLdbIOCP initialize

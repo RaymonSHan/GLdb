@@ -973,5 +973,8 @@ public:
   };
 }TIME, *PTIME;
 
+#define     D(a)                                printf("%s\n", #a);
+#define     DD                                  printf
+
 #endif   // GLdb_COMMON_HPP
 

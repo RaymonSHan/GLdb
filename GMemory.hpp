@@ -94,7 +94,7 @@ public:
 		: "m" (off), "i"(NEG_SIZE_THREAD_STACK));
 
 #define     GetThreadMemoryInfo()		                \
-  threadMemoryInfo *info;					\
+  PMEMINFO  info;						\
   getThreadInfo(info, nowOffset);
 
 /*
@@ -113,7 +113,7 @@ typedef     struct threadMemoryInfo {
   UINT      threadFlag;
   ADDR      localUsedList;
   threadMemoryInfo *threadListNext;
-}threadMemoryInfo;
+}MEMINFO, *PMEMINFO;
 
 
 /*
@@ -272,7 +272,7 @@ private:
 
 public:
   UINT      TimeoutInit;
-  threadMemoryInfo *threadListStart;
+  PMEMINFO  threadListStart;
 
 public:
 /*
@@ -284,7 +284,7 @@ public:
  * every thread use it MUST call SetThreadArea() before it use TLS
  */
   CMemoryBlock()
-  : RThreadResource(sizeof(threadMemoryInfo))
+  : RThreadResource(sizeof(MEMINFO))
   { 
     RealBlock = ZERO;
     TotalNumber = BorderSize = ArraySize = TotalSize = 0;
@@ -405,7 +405,7 @@ public:                                         // statistics info for debug
   UINT      GetCount, GetSuccessCount;
   UINT      FreeCount, FreeSuccessCount;
   UINT      MinFree;  
-  void      DisplayLocal(threadMemoryInfo* info);
+  void      DisplayLocal(PMEMINFO info);
   void      DisplayArray(void);
   void      DisplayInfo(void);
   void      DisplayContext(void);
@@ -450,6 +450,16 @@ public:
 #endif // __GLdb_SELF_USE
 }CONT;
 
+#define     GlobalContext                       CMemoryAlloc::globalContext
+#define     GlobalBufferSmall                   CMemoryAlloc::globalBufferSmall
+#define     GlobalBufferMiddle                  CMemoryAlloc::globalBufferMiddle
+
+RESULT      InitContextItem(PCONT pcont);
+RESULT      GetContext(PCONT &pcont, UINT timeout = 0);
+RESULT      GetDupContext(PCONT &newcont, PCONT pcont);
+RESULT      ReferenceContext(PCONT pcont);
+RESULT      FreeContext(PCONT addr);
+
 /*
  * IOCP struct, for Overlapped
  *
@@ -469,38 +479,26 @@ public:
   WSAOVERLAPPED oLapped;
   WSABUF    wsaBuf;
   UINT      nOper;
+  unsigned int      nSize;
   STR_S     bufferName;
   UCHAR     padData[CHAR_SMALL];
 }BUFF;
 
-#define     BUFFER_CLASS(classname, size)		        \
-  typedef   class classname : public CBufferItem {		\
+#define     BUFFER_CLASS(name, tname)				\
+  typedef   class name : public CBufferItem {			\
   public:							\
-    UCHAR   bufferData[size];					\
-  }classname, *JOIN(P,classname);
+    UCHAR   bufferData[JOIN(SIZE_, tname)];			\
+  }tname, *JOIN(P, tname);					\
+								\
+  RESULT    JOIN(Init, name)(PBUFF buff);			\
+  RESULT    JOIN(Get, name)(PBUFF &pbuff);			\
+  RESULT    JOIN(Free, name)(PBUFF pbuff);
 
-#define     SIZE_SMALL_BUFFER                  (SIZE_HUGE_PAGE-sizeof(BUFF)-SIZEADDR)
-#define     SIZE_MIDDLE_BUFFER                 (SIZE_HUGE_PAGE*16-sizeof(BUFF)-SIZEADDR)
+#define     SIZE_BUFF_S                        (SIZE_HUGE_PAGE-sizeof(BUFF)-SIZEADDR)
+#define     SIZE_BUFF_M                        (SIZE_HUGE_PAGE*16-sizeof(BUFF)-SIZEADDR)
 
-BUFFER_CLASS(BUFF_S, SIZE_SMALL_BUFFER)
-BUFFER_CLASS(BUFF_M, SIZE_MIDDLE_BUFFER)
-
-#define     GlobalContext                       CMemoryAlloc::globalContext
-#define     GlobalBufferSmall                   CMemoryAlloc::globalBufferSmall
-#define     GlobalBufferMiddle                  CMemoryAlloc::globalBufferMiddle
-
-RESULT      InitContextItem(PCONT pcont);
-RESULT      GetContext(PCONT &pcont, UINT timeout = 0);
-RESULT      GetDupContext(PCONT &newcont, PCONT pcont);
-RESULT      ReferenceContext(PCONT pcont);
-RESULT      FreeContext(PCONT addr);
-
-#define     BUFFER_FUNCTION_DECLARE(name)			\
-  RESULT    JOIN(Get,name)(PBUFF &pbuff);			\
-  RESULT    JOIN(Free,name)(PBUFF pbuff);
-
-BUFFER_FUNCTION_DECLARE(BufferSmall)
-BUFFER_FUNCTION_DECLARE(BufferMiddle)
+BUFFER_CLASS(BufferSmall, BUFF_S)
+BUFFER_CLASS(BufferMiddle, BUFF_M)
 
 /*
  * Common free all size buffer
