@@ -44,7 +44,10 @@ __TRY
 				    NUMBER_BUFFER_SMALL,
 				    NUMBER_BUFFER_MIDDLE));
   __DO(GlobalIOCP.InitGLdbIOCP());
+
+  usleep(1000);
   __DO(InitEncapsulate());
+
 
   if (!GlobalShouldQuit) {
     sleep(1);
@@ -81,7 +84,6 @@ __TRY__
   GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
 
   // move to here, for lazy, may change control clone laterww
-  RThread::ThreadStart();
 __CATCH__
 };
 
@@ -94,8 +96,8 @@ __CATCH__
 #define     ACCEPTNUMBER                        1
 
 RESULT      GEncapsulate::CreateApplication(
-            PCONT          &cliCont,
-	    PCONT          &serCont,
+            PCONT           &cliCont,
+	    PCONT           &serCont,
 	    PAPP            pApp,
 	    PPROT           cliProt,
 	    ADDR            cliPara,

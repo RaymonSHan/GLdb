@@ -148,7 +148,7 @@ RESULT      CMemoryBlock::TimeoutAll(void)
 {
 __TRY
   GlobalTime = time(NULL);
-  PMEMINFO  list = threadListStart;
+  PMINFO    list = threadListStart;
   while (list) {
     __DO (CountTimeout(list->localUsedList));
     list = list->threadListNext;
@@ -225,8 +225,8 @@ __CATCH__
 void        CMemoryBlock::DisplayFree(void)
 {
   INT       freenumber = 0, num = 0;;
-  PMEMINFO  list;
-  threadTraceInfo* info;
+  PMINFO    list;
+  PTINFO    info;
   PSTACK    stack;
   ADDR      addr;
   INT       i = 0;
@@ -237,7 +237,7 @@ void        CMemoryBlock::DisplayFree(void)
     stack = &(list->memoryStack);
     addr.pVoid = list;
     addr.aLong = (addr.aLong & NEG_SIZE_THREAD_STACK) + PAD_THREAD_STACK;
-    info = (threadTraceInfo*)addr.pVoid;
+    info = (PTINFO)addr.pVoid;
     num = stack->GetNumber();
     if (info->threadName)
       printf("Id:%2lld:%20s:%3llx;    ", i++, info->threadName, num);
@@ -311,7 +311,7 @@ RESULT      ReferenceContext(PCONT pcont)
   addr = PCONT_TO_ADDR(pcont);
   addr.IncRefCount();
   return 0;
-}
+};
 
 RESULT      FreeContext(PCONT pcont)
 {
@@ -330,7 +330,7 @@ void        ReflushTimeout(PCONT pcont, UINT timeout)
 };
 
 #define     BUFFER_FUNCTION(name, tname)			\
-  RESULT    JOIN(Init,name)(PBUFF pbuff)			\
+  RESULT    JOIN(Init, name)(PBUFF pbuff)			\
   {								\
     JOIN(P, tname) psbuff = (JOIN(P, tname)) pbuff;		\
     pbuff->wsaBuf.len = JOIN(SIZE_, tname);			\
@@ -353,7 +353,7 @@ void        ReflushTimeout(PCONT pcont, UINT timeout)
     ADDR    addr;						\
     addr = PBUFF_TO_ADDR(pbuff);				\
     return JOIN(Global, name).FreeMemoryList(addr);		\
-  }
+  };
 
 BUFFER_FUNCTION(BufferSmall, BUFF_S)
 BUFFER_FUNCTION(BufferMiddle, BUFF_M)
@@ -364,7 +364,7 @@ RESULT      ReferenceBuffer(PBUFF pbuff)
   addr = PBUFF_TO_ADDR(pbuff);
   addr.IncRefCount();
   return 0;
-}
+};
 
 RESULT      FreeBuffer(PBUFF pbuff)
 {
@@ -433,7 +433,7 @@ void        CMemoryBlock::DisplayInfo(void)
     item.pList = RealBlock.pList;
     for (int i=0; i<TotalNumber; i++) {
       printf("%5d:%p, %p,\n", i, item.pList, item.pList->usedList.pVoid);
-      item.aLong += BorderSize;
+       item.aLong += BorderSize;
   }
 };
 

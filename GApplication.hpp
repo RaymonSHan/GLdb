@@ -66,27 +66,34 @@ public:
   { return 0; };
   RESULT    OnPassby(PCONT, PBUFF, UINT)
   { return 0; };
-}APP;
-
+}APP, *PAPP;
 
 typedef     class GNoneApplication : public GApplication
 {
 public:
-  RESULT    OnAccept(PCONT pcont, PBUFF &pbuff, UINT size);
-  RESULT    OnConnect(PCONT pcont, PBUFF &pbuff, UINT size);
-  RESULT    OnClientRead(PCONT pcont, PBUFF &pbuff, UINT size);
-  RESULT    OnClientWrite(PCONT pcont, PBUFF &pbuff, UINT size);
-  RESULT    OnServerRead(PCONT pcont, PBUFF &pbuff, UINT size);
-  RESULT    OnServerWrite(PCONT pcont, PBUFF &pbuff, UINT size);
-  RESULT    OnClose(PCONT pcont, PBUFF &pbuff, UINT size);
-  RESULT    OnPassby(PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnAccept(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnConnect(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnClientRead(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnClientWrite(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnServerRead(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnServerWrite(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnClose(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnPassby(
+            PCONT pcont, PBUFF &pbuff, UINT size);
 }NAPP, *PNAPP;
 
 typedef     class GEchoApplication : public GApplication
 {
 public:
-  RESULT    OnClientRead(PCONT pcont, PBUFF &pbuff, UINT size);
-
+  RESULT    OnClientRead(
+            PCONT pcont, PBUFF &pbuff, UINT size);
 }ECHO, *PECHO;
 
 #endif   // GLdb_APPLICATION_HPP

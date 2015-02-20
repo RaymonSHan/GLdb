@@ -112,7 +112,7 @@ int         WSASend(
 	    SOCKET          s, 
 	    LPWSABUF        lpBuffers, 
 	    DWORD           dwBufferCount, 
-	    LPDWORD         lpNumberOfBytesSent, 
+	    PUINT           lpNumberOfBytesSent, 
 	    DWORD           dwFlags, 
 	    LPWSAOVERLAPPED lpOverlapped, 
 	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
@@ -120,7 +120,7 @@ int         WSARecv(
 	    SOCKET          s,
 	    LPWSABUF        lpBuffers,
 	    DWORD           dwBufferCount,
-	    LPDWORD         lpNumberOfBytesRecvd,
+	    PUINT           lpNumberOfBytesRecvd,
 	    LPDWORD         lpFlags,
 	    LPWSAOVERLAPPED lpOverlapped,
 	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
@@ -148,7 +148,7 @@ BOOL        DisconnectEx(
 	    DWORD           dwFlags,
 	    DWORD           reserved);
 
-#define     WSA_INFINITE                        -1
+#define     WSA_INFINITE                        NEGONE
 #define     WSA_FLAG_OVERLAPPED                 (1 << 0)
 #endif // __linux
 
@@ -175,7 +175,7 @@ BOOL        DisconnectEx(
  *        two thread nest, one loop is (2us, 3us, 6us)
  *        ten thread nest, one loop is (4us, 8us, 23us)
  */
-#define     MAX_HANDLE_LOCK                     LIST_SMALL-1
+#define     MAX_HANDLE_LOCK                     (LIST_SMALL-1)
 
 typedef     class RMultiEvent
 {
@@ -200,7 +200,12 @@ public:
   RESULT    FreeArrayEvent()
   {
     if (eventFd) close(eventFd);
+    eventFd = 0;
     return 0;
+  };
+  RESULT    IsInitArrayEvent()
+  {
+    return (eventFd == 0);
   };
   RESULT    operator += (ADDR addr)
   {
@@ -208,8 +213,8 @@ public:
     ADDR    WRITEADDR = {1};
     int     status;
     __DO (eventQuery += addr);
-    DD("in %p += %lld\n", &eventQuery, addr.aLong);
-    if (addr.aLong) __DOc_(1, "in +=");
+    //    DD("in %p += %lld\n", &eventQuery, addr.aLong);
+    //    if (addr.aLong) __DOc_(1, "in +=");
     __DO1(status,
 	  write(eventFd, &WRITEADDR, SIZEADDR));
   __CATCH
@@ -222,10 +227,10 @@ public:
     __DO1(status,
 	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
-    DD("in %p -= %lld\n", &eventQuery, addr.aLong);
+    //    DD("in %p -= %lld\n", &eventQuery, addr.aLong);
   __CATCH
   };
-}EVENT;
+}EVENT, *PEVENT;
 
 /* 
  * Basic thread, only finish clone, init, loop, kill
@@ -276,22 +281,25 @@ public:
   ~RThread()
   {
     threadStartEvent.FreeArrayEvent();
-  }
+  };
 
 /*
  * The first time, ThreadStartEvent hsa not initialized, or wait for sign for
  *   last child thread finish its initialize.
  * Then clone this child with started at RThreadFunc().
+ *
+ * For workthread, do not control init order, so init is false
  */
-  RESULT    ThreadClone(void)
+  RESULT    ThreadClone(BOOL init)
   {
   __TRY
     ADDR    result = {0};
-
-    if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
-    else {
-      ThreadStartEvent.InitArrayEvent();
-      ThreadInitFinish.InitArrayEvent();
+    if (init) {
+      if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
+      else {
+	ThreadStartEvent.InitArrayEvent();
+	ThreadInitFinish.InitArrayEvent();
+      }
     }
     __DO_(result.aLong, "GlobalEvent Initialize Error\n");
     LockInc(GlobalThreadNumber);
@@ -343,10 +351,11 @@ public:
     ADDR    result;
 
     result = thread->SystemThreadInit();
-    __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
-    __DO_(result.aLong, "Thread Initialize Error\n");
-
-    __DO (ThreadInitFinish -= result);
+    if (!ThreadStartEvent.IsInitArrayEvent()) {
+      __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
+      __DO_(result.aLong, "Thread Initialize Error\n");
+      __DO (ThreadInitFinish -= result);
+    }
     while ((!thread->shouldQuit) && (!GlobalShouldQuit))
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
     __DO_(thread->ThreadFree(), "Thread Free Error\n");
@@ -361,7 +370,7 @@ public:
   virtual   RESULT ThreadDoing(void) = 0;
   virtual   RESULT ThreadFree(void) { return 0; };
 
-}THREAD;
+}THREAD, *PTHREAD;
 
 
 #define     NUMBER_MAX_EV                       20
@@ -420,7 +429,7 @@ public:
   int       epollHandle;
   PEVENT    peventHandle;
   STACK_S   overlapStack;
-  OVERLAPPED overlapBuffer[LIST_SMALL + 1];
+  OLAP      overlapBuffer[LIST_SMALL + 1];
 public:
   RThreadEpoll()
   {
@@ -520,7 +529,6 @@ public:
   RESULT    ThreadDoing(void);
   void      SetupHandle(HANDLE handle) {
     handleIOCP = (PEVENT)handle;
-  DD("in sethandle %p\n", handleIOCP);
   };
 }TWORK, *PTWORK;
 
@@ -567,7 +575,7 @@ public:
   RESULT    FreeGLdbIOCP();
   RESULT    GetIOCPItem(ADDR &addr);
   RESULT    StartWork(HANDLE handle, UINT num);
-}IOCP;
+}IOCP, *PIOCP;
 
 
 #endif   // GLdb_IOCP_HPP

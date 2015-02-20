@@ -94,7 +94,7 @@ public:
 		: "m" (off), "i"(NEG_SIZE_THREAD_STACK));
 
 #define     GetThreadMemoryInfo()		                \
-  PMEMINFO  info;						\
+  PMINFO    info;						\
   getThreadInfo(info, nowOffset);
 
 /*
@@ -112,8 +112,8 @@ typedef     struct threadMemoryInfo {
   ADDR      localCache [MAX_LOCAL_CACHE + 1];
   UINT      threadFlag;
   ADDR      localUsedList;
-  threadMemoryInfo *threadListNext;
-}MEMINFO, *PMEMINFO;
+  PMINFO    threadListNext;
+}MINFO, *PMINFO;
 
 
 /*
@@ -167,8 +167,7 @@ public:
     LockInc(refCount);
   };
   RESULT    decRefCount(void);
-
-}LIST;
+}LIST, *PLIST;
 
 #define     UsedList                             pList->usedList
 #define     CountDown                            pList->countDown
@@ -272,7 +271,7 @@ private:
 
 public:
   UINT      TimeoutInit;
-  PMEMINFO  threadListStart;
+  PMINFO    threadListStart;
 
 public:
 /*
@@ -284,7 +283,7 @@ public:
  * every thread use it MUST call SetThreadArea() before it use TLS
  */
   CMemoryBlock()
-  : RThreadResource(sizeof(MEMINFO))
+  : RThreadResource(sizeof(MINFO))
   { 
     RealBlock = ZERO;
     TotalNumber = BorderSize = ArraySize = TotalSize = 0;
@@ -410,7 +409,7 @@ public:                                         // statistics info for debug
   void      DisplayInfo(void);
   void      DisplayContext(void);
 #endif  // _TESTCOUNT
-}BLOCK;
+}BLOCK, *PBLOCK;
 
 /*
  * IOCP struct, for CompleteKey
@@ -448,7 +447,7 @@ public:
   PBUFF     pBuffer;
   LQUERY    nextBuffer;
 #endif // __GLdb_SELF_USE
-}CONT;
+}CONT, *PCONT;
 
 #define     GlobalContext                       CMemoryAlloc::globalContext
 #define     GlobalBufferSmall                   CMemoryAlloc::globalBufferSmall
@@ -470,19 +469,20 @@ RESULT      FreeContext(PCONT addr);
  * wsaBuf    : InternalHigh in overlap pointer to this
  *             It pointer to bufferData, or padData if addition ahead.
  * nOper     : more information than evets in overlap
+ * nSize     : save the readed / writed byte
  * bufferName: name this buffer for search
  * padData   : for small encapsulation data added ahead real infomation
  * bufferData: Real information, for/from I/O
  */
 typedef     class CBufferItem {
 public:
-  WSAOVERLAPPED oLapped;
+  OLAP      oLapped;
   WSABUF    wsaBuf;
   UINT      nOper;
-  unsigned int      nSize;
+  UINT      nSize;
   STR_S     bufferName;
   UCHAR     padData[CHAR_SMALL];
-}BUFF;
+}BUFF, *PBUFF;
 
 #define     BUFFER_CLASS(name, tname)				\
   typedef   class name : public CBufferItem {			\
@@ -555,6 +555,6 @@ public:
 /*
  * should add Timeout, to CountTimeout all memory pool
  */
-}MEMORY;
+}MEMORY, *PMEMORY;
 
 #endif   // GLdb_MEMORY_HPP

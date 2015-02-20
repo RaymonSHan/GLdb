@@ -75,7 +75,7 @@ EVENT       ThreadInitFinish;
  *                    So, RThreadEpoll trigger sign every TimeoutEpollWait time.
  *                    The different from classic IOCP is, all IOCP must use same tiemout.
  */
-int         TimeoutEpollWait                  = -1;
+int         TimeoutEpollWait                  = NEGONE;
 
 
 #ifdef    __GLdb_SELF_USE
@@ -127,8 +127,8 @@ INT         StrCmp(STRING &one, STRING &two)
 
 void __MESSAGE(INT level, const char * _Format, ...) 
 {
-  va_list ap;
-  threadTraceInfo *info;
+  va_list   ap;
+  PTINFO    info;
 
   if (!level) return;
   if (_Format) {

@@ -68,7 +68,7 @@
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
  * range is about +/- 9 thousand billion, enough for enterprise use.
  */
-#define     ONE_DOLLAR_VALUE                    (100*100*100)
+#define     ONE_DOLLAR_VALUE                    (1000*1000)
 /*
  * only for short
  */
@@ -124,12 +124,15 @@ typedef     signed long long int*               PMONEY;
 typedef     volatile long long int*             PLOCK;
 typedef     void*                               PVOID;
 
-typedef     union ADDR*                         PADDR;
-typedef     class CListItem*                    PLIST;
-typedef     class CContextItem*                 PCONT;
-typedef     class CBufferItem*                  PBUFF;
-typedef     class CMemoryBlock*                 PBLOCK;
-typedef     class RMultiEvent*                  PEVENT;
+typedef     union  ADDR*                        PADDR;
+typedef     struct threadTraceInfo*             PTINFO;
+typedef     struct threadMemoryInfo*            PMINFO;
+typedef     class  CListItem*                   PLIST;
+typedef     class  CContextItem*                PCONT;
+typedef     class  CBufferItem*                 PBUFF;
+typedef     class  CMemoryBlock*                PBLOCK;
+typedef     class  RArrayStack*                 PSTACK;
+typedef     class  RMultiEvent*                 PEVENT;
 
 /*
  * GLdbDatabase interface used 
@@ -183,7 +186,7 @@ typedef     struct WSAData {
 typedef     struct __WSABUF {
   UINT      len;
   PUCHAR    buf;
-}WSABUF, *LPWSABUF;
+}WSABUF, *LPWSABUF, *PWSABUF;
 
 /*
  * The most important struct for IOCP in Windows
@@ -213,7 +216,8 @@ typedef     struct _WSAOVERLAPPED {
   HANDLE    hEvent;
   UINT      events;
   UINT      doneSize;
-}WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED;
+  SOCKET    accSocket;
+}WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED, OLAP, *POLAP;
 
 #endif // __linux
 
@@ -469,7 +473,7 @@ typedef     struct threadTraceInfo {
   PUCHAR    threadName;
   UINT      pad[2];
   perTraceInfo calledInfo[MAX_NEST_LOOP];
-}threadTraceInfo;
+}TINFO, *PTINFO;
 
 #define     beginCall()						\
   asm volatile ("movq %%rsp, %%rcx;"				\
@@ -549,7 +553,7 @@ typedef     struct threadTraceInfo {
   protected:							\
   virtual const char* getThreadName(void) {			\
     return #name; };						\
-  threadTraceInfo *threadInfo;					\
+  PTINFO    threadInfo;						\
   private:
 
 #define   __class_(name, base)		                	\
@@ -569,7 +573,7 @@ typedef     struct threadTraceInfo {
  * make TRY & CATCH and TraceInfo together
  */
 #define    _TO_MARK(x)                         _rm_ ## x
-#define    _rm_MarkMax                          0xffffffff      // for mark en
+#define    _rm_MarkMax                          0xffffffff
 
 #define	  __TRY                                                 \
   UINT ret_err = __LINE__;					\
@@ -630,7 +634,7 @@ void      __MESSAGE(INT level, const char * _Format, ...);
 #define   __DO1c_(val, func, _Format,...) {			\
     setLine();							\
     val = func;							\
-    if (val == -1) 						\
+    if (val == NEGONE) 						\
       __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
   };
 #define   __DO1c(val, func) {					\
@@ -641,7 +645,7 @@ void      __MESSAGE(INT level, const char * _Format, ...);
 #define   __DO1_(val, func, _Format,...) {			\
     setLine();							\
     val = func;							\
-    if (val == -1) {						\
+    if (val == NEGONE) {					\
       __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
       __BREAK							\
     }								\
@@ -649,7 +653,7 @@ void      __MESSAGE(INT level, const char * _Format, ...);
 #define   __DO1(val, func) {					\
     setLine();							\
     val = func;							\
-    if (val == -1) __BREAK;					\
+    if (val == NEGONE) __BREAK;					\
   };
 
 #define   __DOc_(func, _Format,...) {				\
@@ -705,14 +709,14 @@ private:
   ADDR      arrayStart;
   ADDR      arrayEnd;
   ADDR      arrayFree;
-  RArrayStack *parentArray;
+  PSTACK    parentArray;
   BOOL      singleThread;
   UINT      getSize;
   UINT      freeSize;
 
 public:
   void      InitArrayStack(ADDR start, UINT number, BOOL singlethread = 0,
-			   RArrayStack *parent = 0, UINT getsize = 0, UINT freesize = 0)
+			   PSTACK parent = 0, UINT getsize = 0, UINT freesize = 0)
   {
     inProcess = NOT_IN_PROCESS;
     arrayStart = start;

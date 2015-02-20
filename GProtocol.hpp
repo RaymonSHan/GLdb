@@ -90,10 +90,14 @@ typedef     class GNoneProtocol : public GProtocol
 {
 public:
   GNoneProtocol() : GProtocol() {};
-  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
-  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
-  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
-  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+  RESULT    PostAccept(
+	    PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostConnect(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostSend(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+  RESULT    PostReceive(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
 }NPROT, *PNPROT;
 
 typedef     class GIPProtocol : public GProtocol
@@ -109,12 +113,18 @@ public:
   {
     MyCloseHandle = CloseSocket;
   };
-  RESULT    CreateNew(PCONT pcont, ADDR para, UINT size);
-  RESULT    CreateRemote(PCONT pcont, ADDR para, UINT size);
-  RESULT    PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
-  RESULT    PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op);
-  RESULT    PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
-  RESULT    PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+  RESULT    CreateNew(
+            PCONT pcont, ADDR para, UINT size);
+  RESULT    CreateRemote(
+            PCONT pcont, ADDR para, UINT size);
+  RESULT    PostAccept(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostConnect(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+  RESULT    PostSend(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+  RESULT    PostReceive(
+            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
 }GTCP;
 
 #endif   // GLdb_PROTOCOL_HPP

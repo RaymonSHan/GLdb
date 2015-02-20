@@ -34,9 +34,9 @@
 
 void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 {
-  ADDR  stack, erroraddr;
+  ADDR      stack, erroraddr;
   ucontext_t *uc = (ucontext_t *)secret;
-  threadTraceInfo *tinfo;
+  PTINFO    tinfo;
 
   stack.pAddr = &stack;
   stack &= NEG_SIZE_THREAD_STACK;
@@ -45,7 +45,7 @@ void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 
   if (stack == erroraddr) {
     stack.pVoid = mmap (stack.pChar + PAD_THREAD_STACK, 
-			sizeof(threadTraceInfo) + 4 * sizeof(MEMINFO),
+			sizeof(TINFO) + 4 * sizeof(MINFO),
   			PROT_READ | PROT_WRITE,
   			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
     GlobalMemory.InitThreadMemory(1);

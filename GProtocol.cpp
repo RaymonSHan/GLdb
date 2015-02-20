@@ -124,12 +124,14 @@ __CATCH__
 
 RESULT      GTCPProtocol::PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
 {
-  PCONT     clicont;
-  socklen_t sizet = sizeof(SOCK);
+  (void)size;
+  (void)op;
 __TRY__
-  clicont = (PCONT)pbuff->oLapped.doneSize;
+  PCONT     clicont;
+  D(InPostAccept);
+  clicont = pbuff->oLapped.accSocket;
+  DD("    pcont:%p, clicont:%p\n", pcont, clicont);
   AcceptEx((SOCKET)pcont, clicont, NULL, 0, 0, 0, NULL, &(pbuff->oLapped));
-  //  clicont->bHandle = accept(pcont->bHandle, &(clicont->remoteSocket.saddr), &sizet);
 __CATCH__
 };
 
