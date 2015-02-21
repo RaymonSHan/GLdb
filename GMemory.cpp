@@ -264,17 +264,7 @@ void        CMemoryBlock::DisplayFree(void)
  * GetContext & FreeContext use the address after CListItem
  * GetBufferxx & FreeBufferxx to same thing
  */
-#define     ADDR_TO_PCONT(addr)                                 \
-  ((PCONT)(addr.pChar + sizeof(LIST)))
 
-#define     PCONT_TO_ADDR(pcont)                                \
-  ((PCHAR)(pcont) - sizeof(LIST))
-
-#define     ADDR_TO_PBUFF(addr)                                 \
-  ((PBUFF)(addr.pChar + sizeof(LIST)))
-
-#define     PBUFF_TO_ADDR(pbuff)                                \
-  ((PCHAR)(pbuff) - sizeof(LIST))
 
 RESULT      InitContextItem(PCONT pcont)
 {
@@ -318,7 +308,6 @@ RESULT      FreeContext(PCONT pcont)
   ADDR      addr;
   addr = PCONT_TO_ADDR(pcont);
   return addr.DecRefCount();
-  //  return GlobalContext.FreeMemoryList(addr);
 };
 
 void        ReflushTimeout(PCONT pcont, UINT timeout)

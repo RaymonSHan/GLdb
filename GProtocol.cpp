@@ -35,21 +35,21 @@
 #include    "GApplication.hpp"
 
 RESULT      GNoneProtocol::PostAccept(
-	    PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
-__TRY
+__TRY__
   pbuff->nOper = op;
-  if (pcont->bHandle == 0) {
-    FreeBuffer(pbuff);
-    __BREAK_OK;
-  } else {
+  // if (pcont->bHandle == 0) {
+  //   FreeBuffer(pbuff);
+  //   __BREAK_OK;
+  // } else {
     return ProFunc(pcont->pProtocol, fPostAccept)(pcont, pbuff, size, op);
-  }
-__CATCH
+    //  }
+__CATCH__
 };
 
 RESULT      GNoneProtocol::PostConnect(
-	    PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
 __TRY__
   pbuff->nOper = op;
@@ -58,7 +58,7 @@ __CATCH__
 };
 
 RESULT      GNoneProtocol::PostSend(
-	    PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
 __TRY__
   pbuff->nOper = op;
@@ -69,7 +69,7 @@ __CATCH__
 
 // this is easy way for test now.
 RESULT      GNoneProtocol::PostReceive(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
 __TRY__
   pbuff->nOper = op;
@@ -103,7 +103,8 @@ __CATCH
 };
 
 
-RESULT      GTCPProtocol::CreateNew(PCONT pcont, ADDR para, UINT size)
+RESULT      GTCPProtocol::CreateNew(
+            PCONT pcont, ADDR para, UINT size)
 {
   (void)size;
 __TRY
@@ -116,33 +117,37 @@ __TRY
 __CATCH
 };
 
-RESULT      GTCPProtocol::CreateRemote(PCONT pcont, ADDR para, UINT size)
+RESULT      GTCPProtocol::CreateRemote(
+            PCONT pcont, ADDR para, UINT size)
 {
 __TRY__
 __CATCH__
 };
 
-RESULT      GTCPProtocol::PostAccept(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+RESULT      GTCPProtocol::PostAccept(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
   (void)size;
   (void)op;
-__TRY__
+__TRY
   PCONT     clicont;
   D(InPostAccept);
-  clicont = pbuff->oLapped.accSocket;
-  DD("    pcont:%p, clicont:%p\n", pcont, clicont);
+  __DO (GetContext(clicont));
+  pbuff->oLapped.accSocket = clicont;
   AcceptEx((SOCKET)pcont, clicont, NULL, 0, 0, 0, NULL, &(pbuff->oLapped));
-__CATCH__
+__CATCH
 };
 
-RESULT      GTCPProtocol::PostConnect(PCONT pcont, PBUFF pbuff, UINT size, UINT op)
+RESULT      GTCPProtocol::PostConnect(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
 __TRY__
 
 __CATCH__
 };
 
-RESULT      GTCPProtocol::PostSend(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+RESULT      GTCPProtocol::PostSend(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
 __TRY__
   DWORD     dwflags = 0;
@@ -151,7 +156,8 @@ __TRY__
 __CATCH__
 };
 
-RESULT      GTCPProtocol::PostReceive(PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside)
+RESULT      GTCPProtocol::PostReceive(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
 __TRY__
 __CATCH__

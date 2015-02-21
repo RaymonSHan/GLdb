@@ -43,9 +43,10 @@ __TRY
   __DO(GlobalMemory.InitMemoryBlock(NUMBER_CONTEXT,
 				    NUMBER_BUFFER_SMALL,
 				    NUMBER_BUFFER_MIDDLE));
+  GlobalMemory.InitThreadMemory(1);
   __DO(GlobalIOCP.InitGLdbIOCP());
 
-  usleep(1000);
+  sleep(1);
   __DO(InitEncapsulate());
 
 
@@ -112,12 +113,13 @@ __TRY
 
   cliCont = serCont = 0;
   __DO (pApp == 0);
-  if (!pApp->handleIOCP)
+  if (!pApp->handleIOCP) {
     globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP);
+  }
 
   __DO (pApp->handleIOCP == 0);
   if (cliProt) {
-   __DO (GetContext(cliCont));
+    __DO (GetContext(cliCont));
     cliCont->pApplication = pApp;
     cliCont->pProtocol = cliProt;
     __DO (ProFunc(cliProt, fCreateNew)
@@ -125,6 +127,7 @@ __TRY
     cliCont->pPeer = cliCont;
     for(i=0; i<ACCEPTNUMBER; i++) {
       __DO (GetBufferSmall(newbuff));
+      DD("in CreateApplication cont:%p, buff:%p,\n", cliCont,  newbuff);
       __DO (NoneProFunc(cliProt, fPostAccept)
 	    (cliCont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
     }

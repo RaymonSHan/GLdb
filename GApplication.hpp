@@ -50,21 +50,21 @@ public:
   HANDLE    handleIOCP;
 
 public:
-  RESULT    OnAccept(PCONT, PBUFF, UINT)
+  RESULT    OnAccept(PCONT, PBUFF&, UINT)
   { return 0; };
-  RESULT    OnConnect(PCONT, PBUFF, UINT)
+  RESULT    OnConnect(PCONT, PBUFF&, UINT)
   { return 0; };
-  RESULT    OnClientRead(PCONT, PBUFF, UINT)
+  RESULT    OnClientRead(PCONT, PBUFF&, UINT)
   { return 0; };
-  RESULT    OnClientWrite(PCONT, PBUFF, UINT)
+  RESULT    OnClientWrite(PCONT, PBUFF&, UINT)
   { return 0; };
-  RESULT    OnServerRead(PCONT, PBUFF, UINT)
+  RESULT    OnServerRead(PCONT, PBUFF&, UINT)
   { return 0; };
-  RESULT    OnServerWrite(PCONT, PBUFF, UINT)
+  RESULT    OnServerWrite(PCONT, PBUFF&, UINT)
   { return 0; };
-  RESULT    OnClose(PCONT, PBUFF, UINT)
+  RESULT    OnClose(PCONT, PBUFF&, UINT)
   { return 0; };
-  RESULT    OnPassby(PCONT, PBUFF, UINT)
+  RESULT    OnPassby(PCONT, PBUFF&, UINT)
   { return 0; };
 }APP, *PAPP;
 

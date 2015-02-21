@@ -271,10 +271,11 @@ BOOL        AcceptEx(
   (void)lpdwBytesReceived;
 __TRY__
   ADDR      overlap;
-  overlap.pVoid = lpOverlapped;
+
   lpOverlapped->Internal = sListenSocket;
   lpOverlapped->accSocket = sAcceptSocket;
   lpOverlapped->events = EPOLLACCEPT;
+  overlap.pVoid = lpOverlapped;
   __DO (*(GlobalIOCP.eventHandle) += overlap);
 __CATCH_1
 }
@@ -317,8 +318,6 @@ __TRY
       overlap->Internal = (PCONT)waitEv[i].data.u64;
       overlap->events = waitEv[i].events;
       overlap->InternalHigh = 0;
-      DD("in epoll overlap:%llx,  Internal:%llx, events:%d\n", overlapaddr.aLong, (UINT)waitEv[i].data.u64 ,waitEv[i].events );
-      DD("   Internal:%p, events:%lld\n", overlap->Internal,  overlap->events);
       __DO (*peventHandle += overlapaddr);
     }
   }
@@ -353,7 +352,6 @@ __TRY
   __DO (eventHandle -= overlapaddr);
   contextaddr = overlap->Internal;
   D(WorkEventThread);
-  DD("in Event %p, %llx, event:%lld\n", &overlapaddr, overlapaddr.aLong, overlap->events);
 
   if (overlap->events == EPOLLIN) {
 /*
@@ -498,7 +496,6 @@ __CATCH
 RESULT      RThreadWork::ThreadInit(void)
 {
   GlobalMemory.InitThreadMemory(1);
-  DD("in work init %p\n", handleIOCP);
   return 0;
 };
 
@@ -541,6 +538,7 @@ __TRY__
   threadEpoll.ThreadClone(true);
   threadEvent.ThreadClone(true);
   RThread::ThreadStart();
+  sleep(1);
 /*
  * YES, this code may be execute before threadEvent initialized.
  * but threadEpoll is initialized surely.
@@ -548,7 +546,7 @@ __TRY__
   epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
   eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
   pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
-
+DD("Global epoll:%x, event:%p\n", epollHandle, eventHandle);
   // move this line to encapsulate, for lazy, may change control clone later
   //  RThread::ThreadStart();
 

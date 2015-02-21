@@ -72,15 +72,15 @@ public:
   { return 0; };
   RESULT    CreateRemote(PCONT, ADDR, UINT)
   { return 0; };
-  RESULT    PostAccept(PCONT, PBUFF, UINT, UINT)
+  RESULT    PostAccept(PCONT, PBUFF&, UINT, UINT)
   { return 0; };
-  RESULT    PostConnect(PCONT, PBUFF, UINT, UINT)
+  RESULT    PostConnect(PCONT, PBUFF&, UINT, UINT)
   { return 0; };
-  RESULT    PostSend(PCONT, PBUFF, UINT, UINT, UINT)
+  RESULT    PostSend(PCONT, PBUFF&, UINT, UINT, UINT)
   { return 0; };
-  RESULT    PostReceive(PCONT, PBUFF, UINT, UINT, UINT)
+  RESULT    PostReceive(PCONT, PBUFF&, UINT, UINT, UINT)
   { return 0; };
-  RESULT    PostClose(PCONT, PBUFF, UINT, UINT)
+  RESULT    PostClose(PCONT, PBUFF&, UINT, UINT)
   { return 0; };
 
   //  UINT virtual GetContextLength(PCONT pcont, PBUFF pbuff);
@@ -91,13 +91,13 @@ typedef     class GNoneProtocol : public GProtocol
 public:
   GNoneProtocol() : GProtocol() {};
   RESULT    PostAccept(
-	    PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op);
   RESULT    PostConnect(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op);
   RESULT    PostSend(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
   RESULT    PostReceive(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
 }NPROT, *PNPROT;
 
 typedef     class GIPProtocol : public GProtocol
@@ -118,13 +118,13 @@ public:
   RESULT    CreateRemote(
             PCONT pcont, ADDR para, UINT size);
   RESULT    PostAccept(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op);
   RESULT    PostConnect(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op);
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op);
   RESULT    PostSend(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
   RESULT    PostReceive(
-            PCONT pcont, PBUFF pbuff, UINT size, UINT op, UINT opside);
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
 }GTCP;
 
 #endif   // GLdb_PROTOCOL_HPP

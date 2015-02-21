@@ -219,6 +219,11 @@ typedef     struct _WSAOVERLAPPED {
   SOCKET    accSocket;
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED, OLAP, *POLAP;
 
+#define     DOLAP(olap)						\
+  printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld, acc:%p\n",	\
+	 olap, olap->Internal, olap->InternalHigh, olap->events,\
+	 olap->doneSize, olap->accSocket);
+
 #endif // __linux
 
 

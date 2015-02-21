@@ -44,8 +44,7 @@ __TRY
   PBUFF     newbuff;
 
   __DO (GetBufferSmall(newbuff));
-  __DO (GetContext(newcont));
-  newbuff->oLapped.accSocket = newcont;
+
   __DO (NoneProFunc(pcont->pProtocol, fPostAccept)
 	(pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
   pbuff->nOper = OP_CLIENT_READ;

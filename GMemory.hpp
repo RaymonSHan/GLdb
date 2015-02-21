@@ -506,6 +506,19 @@ BUFFER_CLASS(BufferMiddle, BUFF_M)
 RESULT      ReferenceBuffer(PBUFF pbuff);
 RESULT      FreeBuffer(PBUFF pbuff);
 
+
+#define     ADDR_TO_PCONT(addr)                                 \
+  ((PCONT)(addr.pChar + sizeof(LIST)))
+
+#define     PCONT_TO_ADDR(pcont)                                \
+  ((PCHAR)(pcont) - sizeof(LIST))
+
+#define     ADDR_TO_PBUFF(addr)                                 \
+  ((PBUFF)(addr.pChar + sizeof(LIST)))
+
+#define     PBUFF_TO_ADDR(pbuff)                                \
+  ((PCHAR)(pbuff) - sizeof(LIST))
+
 /*
  * Global memory manager
  *
