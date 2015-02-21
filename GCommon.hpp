@@ -132,6 +132,7 @@ typedef     class  CContextItem*                PCONT;
 typedef     class  CBufferItem*                 PBUFF;
 typedef     class  CMemoryBlock*                PBLOCK;
 typedef     class  RArrayStack*                 PSTACK;
+typedef     class  RArrayQuery*                 PQUERY;
 typedef     class  RMultiEvent*                 PEVENT;
 
 /*
@@ -143,6 +144,9 @@ typedef     class GProtocol*                    PPROT;
 typedef     class GApplication*                 PAPP;
 
 #endif  //__GLdb_SELF_USE
+
+#define     D(a)                                printf("%s\n", #a);
+#define     DD                                  printf
 
 /*
  * typedef for IOCP, compatible for Windows
@@ -803,6 +807,7 @@ public:
     arrayFree += SIZEADDR;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
+    addr = ZERO;
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
@@ -867,6 +872,14 @@ public:
   RESULT    operator += (ADDR addr)
   {
   __TRY
+
+    if (this == (PQUERY)0x520000206238) {
+      DD("readBuffer += %llx\n", addr.aLong);
+    }
+    if (this == (PQUERY)0x5200002062e8) {
+      DD("writeBuffer += %llx\n", addr.aLong);
+    }
+
     if (!singleThread) __LOCK(inProcess);
     __DO (freeStart == freeEnd);
     *(freeStart.pAddr) = addr;
@@ -880,6 +893,7 @@ public:
   RESULT    operator -= (ADDR &addr)
   {
   __TRY
+
     ADDR    freeend;
     if (!singleThread) __LOCK(inProcess);
     freeend = freeEnd + SIZEADDR;
@@ -887,8 +901,17 @@ public:
     __DO (freeend == freeStart);
     addr = *(freeend.pAddr);
     freeEnd = freeend;
+
+    if (this == (PQUERY)0x520000206238) {
+      DD("readBuffer -= %llx\n", addr.aLong);
+    }
+    if (this == (PQUERY)0x5200002062e8) {
+      DD("writeBuffer -= %llx\n", addr.aLong);
+    }
+
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
+    addr = ZERO;
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
@@ -981,9 +1004,6 @@ public:
     };
   };
 }TIME, *PTIME;
-
-#define     D(a)                                printf("%s\n", #a);
-#define     DD                                  printf
 
 #endif   // GLdb_COMMON_HPP
 

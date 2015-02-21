@@ -213,6 +213,7 @@ public:
   __TRY
     ADDR    WRITEADDR = {1};
     int     status;
+
     __DO (eventQuery += addr);
     __DO1(status,
 	  write(eventFd, &WRITEADDR, SIZEADDR));
@@ -223,6 +224,7 @@ public:
   __TRY
     ADDR    READADDR;
     int     status;
+
     __DO1(status,
 	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);

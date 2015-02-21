@@ -162,7 +162,9 @@ __TRY__
   ADDR      addr;
 
   iocpHandle = (PEVENT)CompletionPort;
+  DD("GetQueryCompletionStatus wait : %p\n", iocpHandle);
   __DO(*iocpHandle -= addr);
+  D(AfterGetQueryCompletionStatus);
   *lpOverlapped = (POLAP)addr.pVoid;
   if (addr != ZERO) {
     (*lpCompletionKey) = (*lpOverlapped)->Internal->completionKey;
@@ -271,7 +273,7 @@ BOOL        AcceptEx(
   (void)lpdwBytesReceived;
 __TRY__
   ADDR      overlap;
-
+ D(inAcceptEx);
   lpOverlapped->Internal = sListenSocket;
   lpOverlapped->accSocket = sAcceptSocket;
   lpOverlapped->events = EPOLLACCEPT;
@@ -299,10 +301,8 @@ __TRY
   ADDR      overlapaddr;
   POLAP     &overlap = (POLAP &)overlapaddr;
 
-  D(BeginEpollThread);
   __DO1 (evNumber,
 	 epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
-  D(WorkEpollThread);
   if (waitEv == 0) {
     __DO (overlapStack -= overlapaddr);
     overlap->events = EPOLLTIMEOUT;
@@ -345,21 +345,19 @@ __TRY
   UINT    tempevent = EPOLLREAD;
   socklen_t tempsize = sizeof(SOCKADDR);
 
-  D(BeginEventThread);
 /*
  * Wait eventfd, then get CContextItem and WSABuffer address
  */
   __DO (eventHandle -= overlapaddr);
   contextaddr = overlap->Internal;
-  D(WorkEventThread);
 
   if (overlap->events == EPOLLIN) {
 /*
  * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
  */
-    D(InEPOLLIN);
     *pOverlapStack += overlapaddr;
+    //    overlapaddr = ZERO;
     context->readBuffer -= overlapaddr;
 
 #ifdef    __GLdb_SELF_USE
@@ -368,11 +366,9 @@ __TRY
  *   ReadBuffer for EPOLLACCEPT is accSocket query wait for accept.
  *   WriteBuffer for EPOLLACCEPT is incoming accept query
  */
-    D(BEFORELISTEN);
     if (IS_LISTEN(context)) {
       D(ISLISTEN);
       tempevent = EPOLLACCEPT;
-      D(AddListenWriteBuffer);
       __DO(context->writeBuffer += contextaddr);
     }
 #endif // __GLdb_SELF_USE
@@ -388,7 +384,6 @@ __TRY
 
 #ifdef    __GLdb_SELF_USE
   if (overlap->events == EPOLLACCEPT) {
-    D(inACCEPT);
 /*
  * do half work of AcceptEx, only return accept SOCKET, but not receive first packet
  *
@@ -398,9 +393,8 @@ __TRY
  * Here context is listening SOCKET.
  */
 
-    context->writeBuffer -= listenaddr;
-
-    if (listenaddr != ZERO) {
+    if (!(context->writeBuffer -= listenaddr)) {
+      //    if (listenaddr != ZERO) {
       clicont = (PCONT)overlap->accSocket;
       D(a1);
       if (clicont->bHandle) close(clicont->bHandle);
@@ -408,7 +402,14 @@ __TRY
       clicont->bHandle = accept(context->bHandle, 
 			      &(context->remoteSocket.saddr), &tempsize);
       D(a3);
+      DD("add iocp to %p\n", context->iocpHandle);
       __DO (*context->iocpHandle += overlapaddr);
+
+      ADDR pp;
+     __DO (*context->iocpHandle -= pp);
+
+
+
       D(a4);
     } else {
       context->readBuffer += overlapaddr;
@@ -457,7 +458,7 @@ __TRY
       overlap->doneSize += writed;
       overlap->events = EPOLLOUT;
       if (writed + overlap->doneSize == buffer->len) {
-	context->writeBuffer -= overlapaddr;
+	context->writeBuffer -= overlapaddr;  // must have ??
 	if (*context->iocpHandle += overlapaddr) {
 	  // IOCP error close socket
 	}
@@ -496,6 +497,7 @@ __CATCH
 RESULT      RThreadWork::ThreadInit(void)
 {
   GlobalMemory.InitThreadMemory(1);
+
   return 0;
 };
 
@@ -508,10 +510,10 @@ __TRY
   UINT      noper;
 
   D(BeginWrokThread);
-  __DO (GetQueuedCompletionStatus(
-       (HANDLE)handleIOCP, (DWORD*)&size, 
-       (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
-       WSA_INFINITE));
+  GetQueuedCompletionStatus(
+            (HANDLE)handleIOCP, (DWORD*)&size, 
+            (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
+            WSA_INFINITE);
 
   D(WorkWorkThread);
   if (size == -1) __BREAK_OK;
@@ -536,9 +538,11 @@ __TRY__
   }
   nowWorkThread = 0;
   threadEpoll.ThreadClone(true);
-  threadEvent.ThreadClone(true);
-  RThread::ThreadStart();
   sleep(1);
+  threadEvent.ThreadClone(true);
+  sleep(1);
+  RThread::ThreadStart();
+
 /*
  * YES, this code may be execute before threadEvent initialized.
  * but threadEpoll is initialized surely.

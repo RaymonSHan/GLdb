@@ -44,7 +44,7 @@ __TRY
   PBUFF     newbuff;
 
   __DO (GetBufferSmall(newbuff));
-
+  D(InOnAccept);
   __DO (NoneProFunc(pcont->pProtocol, fPostAccept)
 	(pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
   pbuff->nOper = OP_CLIENT_READ;

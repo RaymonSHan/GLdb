@@ -50,9 +50,10 @@ __TRY
   __DO(InitEncapsulate());
 
 
-  if (!GlobalShouldQuit) {
+  while (!GlobalShouldQuit) {
     sleep(1);
   }
+  D(TOFREEALL);
   __DO(FreeEncapsulate());
   __DO(GlobalIOCP.FreeGLdbIOCP());
   __DO(GlobalMemory.FrreeMemoryBlock());
@@ -79,9 +80,11 @@ __TRY__
   sock.saddrin.sin_port=htons(8998);
   addr = &sock;
   nulladdr = ZERO;
+  echoApp.handleIOCP = 0;
   CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
 		    (PPROT)&tcpProt, addr, sizeof(SOCK), 
 		    NULL, nulladdr, 0);
+  DD("readBuffer:%p, writeBuffer:%p\n", &(listenCont->readBuffer), &(listenCont->writeBuffer));
   GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
 
   // move to here, for lazy, may change control clone laterww

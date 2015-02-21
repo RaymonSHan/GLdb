@@ -48,8 +48,6 @@ void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 			sizeof(TINFO) + 4 * sizeof(MINFO),
   			PROT_READ | PROT_WRITE,
   			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
-    printf("in handle\n\n\n");
-
   } else {
     printf("Got signal %d, faulty address is %p, from %llx\n Calling: \n",
 	   sig, info->si_addr, uc->uc_mcontext.gregs[REG_RIP]);
