@@ -53,7 +53,6 @@ __TRY
   while (!GlobalShouldQuit) {
     sleep(1);
   }
-  D(TOFREEALL);
   __DO(FreeEncapsulate());
   __DO(GlobalIOCP.FreeGLdbIOCP());
   __DO(GlobalMemory.FrreeMemoryBlock());

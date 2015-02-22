@@ -215,6 +215,9 @@ public:
     int     status;
 
     __DO (eventQuery += addr);
+    if (this == (PEVENT)0x61f408) {
+      DD("event += %llx\n", addr.aLong);
+    }    
     __DO1(status,
 	  write(eventFd, &WRITEADDR, SIZEADDR));
   __CATCH
@@ -228,6 +231,9 @@ public:
     __DO1(status,
 	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
+    if (this == (PEVENT)0x61f408) {
+      DD("event -= %llx\n", addr.aLong);
+    }
   __CATCH
   };
 }EVENT, *PEVENT;

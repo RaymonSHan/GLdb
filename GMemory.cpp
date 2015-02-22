@@ -295,6 +295,15 @@ __TRY
 __CATCH
 };
 
+RESULT      GetDupContext(PCONT &newcont, PCONT pcont)
+{
+__TRY
+  __DO (GetContext(newcont, 0));
+  newcont->pProtocol = pcont->pProtocol;
+  newcont->pApplication = pcont->pApplication;
+__CATCH
+};
+
 RESULT      ReferenceContext(PCONT pcont)
 {
   ADDR      addr;

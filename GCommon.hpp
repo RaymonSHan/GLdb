@@ -147,6 +147,9 @@ typedef     class GApplication*                 PAPP;
 
 #define     D(a)                                printf("%s\n", #a);
 #define     DD                                  printf
+#define     DX(a)                               printf("  %s:%llx\n", #a, a);
+#define     DP(a)                               printf("  %s:%p\n", #a, a);
+#define     DI(a)                               printf("  %s:%d\n", #a, a);
 
 /*
  * typedef for IOCP, compatible for Windows
@@ -879,7 +882,6 @@ public:
     if (this == (PQUERY)0x5200002062e8) {
       DD("writeBuffer += %llx\n", addr.aLong);
     }
-
     if (!singleThread) __LOCK(inProcess);
     __DO (freeStart == freeEnd);
     *(freeStart.pAddr) = addr;
@@ -923,7 +925,9 @@ public:
     if (freeend == arrayEnd) freeend = arrayStart;
     __DO (freeend == freeStart);
     addr = *(freeend.pAddr);
-  __CATCH
+  __CATCH_BEGIN
+    addr = ZERO;
+  __CATCH_END
   };
   UINT      GetNumber(void)
   {

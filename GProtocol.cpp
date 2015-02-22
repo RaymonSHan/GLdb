@@ -111,7 +111,7 @@ __TRY
   PSOCK     sock = (PSOCK)para.pVoid;
 
   pcont->dwFlags |= WSA_FLAG_ISLISTEN;
-  __DO (BindLocalSocket(pcont, this, sock));
+  BindLocalSocket(pcont, this, sock);
   ReflushTimeout(pcont, TIMEOUT_INFINITE);
   listen(pcont->bHandle, SOMAXCONN);
 __CATCH
@@ -132,7 +132,7 @@ RESULT      GTCPProtocol::PostAccept(
 __TRY
   PCONT     clicont;
   D(InPostAccept);
-  __DO (GetContext(clicont));
+  __DO (GetDupContext(clicont, pcont));
   pbuff->oLapped.accSocket = clicont;
   AcceptEx((SOCKET)pcont, clicont, NULL, 0, 0, 0, NULL, &(pbuff->oLapped));
 __CATCH
@@ -160,5 +160,9 @@ RESULT      GTCPProtocol::PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
 __TRY__
+  D(INTCPPostReceive);
+  DWORD     dwflags = 0;
+  pbuff->wsaBuf.len = size;
+  WSARecv((SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), &dwflags, &(pbuff->oLapped), NULL);
 __CATCH__
 };
