@@ -37,7 +37,6 @@
 RESULT      GNoneProtocol::PostAccept(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
-__TRY__
   pbuff->nOper = op;
   // if (pcont->bHandle == 0) {
   //   FreeBuffer(pbuff);
@@ -45,37 +44,30 @@ __TRY__
   // } else {
     return ProFunc(pcont->pProtocol, fPostAccept)(pcont, pbuff, size, op);
     //  }
-__CATCH__
 };
 
 RESULT      GNoneProtocol::PostConnect(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
-__TRY__
   pbuff->nOper = op;
   return ProFunc(pcont->pProtocol, fPostConnect)(pcont, pbuff, size, op);
-__CATCH__
 };
 
 RESULT      GNoneProtocol::PostSend(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
-__TRY__
   pbuff->nOper = op;
   ReflushTimeout(pcont, 0);
   return ProFunc(pcont->pProtocol, fPostSend)(pcont, pbuff, size, op, opside);
-__CATCH__
 };
 
 // this is easy way for test now.
 RESULT      GNoneProtocol::PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
-__TRY__
   pbuff->nOper = op;
   ReflushTimeout(pcont, 0);
   return ProFunc(pcont->pProtocol, fPostReceive)(pcont, pbuff, size, op, opside);
-__CATCH__
 };
 
 
@@ -84,18 +76,18 @@ RESULT      GIPProtocol::BindLocalSocket(
 {
 __TRY
   int       ptype;
-  int       pnumber;
+
 
   __DO (pcont == 0);
   if (pProtocol->ProtocolNumber == PROTOCOL_TCP) {
-    ptype = SOCK_STREAM;
-    pnumber = PROTOCOL_TCP;
+    ptype = SOCK_STREAM | SOCK_NONBLOCK;
+ 
   } else if (pProtocol->ProtocolNumber == PROTOCOL_UDP) {
-    ptype = SOCK_DGRAM;
-    pnumber = PROTOCOL_UDP;
+    ptype = SOCK_DGRAM | SOCK_NONBLOCK;
+
   } else __BREAK;
 
-  __DO1(pcont->bHandle, socket(AF_INET, ptype, pnumber));
+  __DO1(pcont->bHandle, socket(AF_INET, ptype, 0));
   bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK));
   CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
 
@@ -106,7 +98,7 @@ __CATCH
 RESULT      GTCPProtocol::CreateNew(
             PCONT pcont, ADDR para, UINT size)
 {
-  (void)size;
+  (void)    size;
 __TRY
   PSOCK     sock = (PSOCK)para.pVoid;
 
@@ -127,11 +119,10 @@ __CATCH__
 RESULT      GTCPProtocol::PostAccept(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
-  (void)size;
-  (void)op;
+  (void)    size;
+  (void)    op;
 __TRY
   PCONT     clicont;
-  D(InPostAccept);
   __DO (GetDupContext(clicont, pcont));
   pbuff->oLapped.accSocket = clicont;
   AcceptEx((SOCKET)pcont, clicont, NULL, 0, 0, 0, NULL, &(pbuff->oLapped));
@@ -160,7 +151,6 @@ RESULT      GTCPProtocol::PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
 __TRY__
-  D(INTCPPostReceive);
   DWORD     dwflags = 0;
   pbuff->wsaBuf.len = size;
   WSARecv((SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), &dwflags, &(pbuff->oLapped), NULL);

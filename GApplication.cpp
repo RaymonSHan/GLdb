@@ -44,19 +44,16 @@ __TRY
   PBUFF     newbuff;
 
   __DO (GetBufferSmall(newbuff));
-  D(InOnAccept);
   __DO (NoneProFunc(pcont->pProtocol, fPostAccept)
 	(pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
   pbuff->nOper = OP_CLIENT_READ;
   // to make sure, maybe changed when accept
   newcont = (PCONT)pbuff->oLapped.accSocket;
-  DP(newcont);
+  pbuff->oLapped.accSocket = 0;
   CreateIoCompletionPort(
         newcont, pcont->pApplication->handleIOCP, (ULONG_PTR)newcont, 0);
-  D(InOnAccept1);
   __DO (NoneProFunc(newcont->pProtocol, fPostReceive)
 	(newcont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
-  D(InOnAccept2);
 __CATCH
 };
 
@@ -77,7 +74,7 @@ __CATCH
 RESULT      GNoneApplication::OnClientWrite(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
-  (void)size;
+  (void)    size;
 __TRY
   D(NONEOnClientWrite);
   __DO (NoneProFunc(pcont->pProtocol, fPostReceive)
@@ -104,7 +101,7 @@ RESULT      GEchoApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  D(inOnClientRead);
+  D(EchoOnClientRead);
   *((PUINT)(pbuff->wsaBuf.buf)) = 0x4041424360616263;
   NoneProFunc(pcont->pProtocol, fPostSend)(pcont, pbuff, 8, OP_CLIENT_WRITE, OPSIDE_CLIENT);
 __CATCH

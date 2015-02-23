@@ -37,6 +37,7 @@
 #include    "GMemory.hpp"
 #include    "GEncapsulate.hpp"
 
+
 RESULT      GEncapsulate::Doing(void)
 {
 __TRY
@@ -46,9 +47,8 @@ __TRY
   GlobalMemory.InitThreadMemory(1);
   __DO(GlobalIOCP.InitGLdbIOCP());
 
-  sleep(1);
+  //  sleep(1);
   __DO(InitEncapsulate());
-
 
   while (!GlobalShouldQuit) {
     sleep(1);
@@ -83,7 +83,6 @@ __TRY__
   CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
 		    (PPROT)&tcpProt, addr, sizeof(SOCK), 
 		    NULL, nulladdr, 0);
-  DD("readBuffer:%p, writeBuffer:%p\n", &(listenCont->readBuffer), &(listenCont->writeBuffer));
   GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
 
   // move to here, for lazy, may change control clone laterww
@@ -129,7 +128,6 @@ __TRY
     cliCont->pPeer = cliCont;
     for(i=0; i<ACCEPTNUMBER; i++) {
       __DO (GetBufferSmall(newbuff));
-      DD("in CreateApplication cont:%p, buff:%p,\n", cliCont,  newbuff);
       __DO (NoneProFunc(cliProt, fPostAccept)
 	    (cliCont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
     }

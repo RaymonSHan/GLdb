@@ -104,6 +104,7 @@ int         main (int, char**)
   SetupSIG(SIGTERM, SIGSEGV_Handle);                            // sign 15
 
   //  return initDaemon(ENCAP::Doing);
+
   return GlobalEncapsulate.Doing();
 };
 

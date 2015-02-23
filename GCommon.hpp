@@ -596,15 +596,14 @@ typedef     struct threadTraceInfo {
 #define   __CATCH_BEGIN                                         \
   endCall();							\
   return 0;							\
-error_stop:
-
+error_stop:							\
+  endCall();
 #define   __BETWEEN(x,y)                                        \
   if (ret_err >= _TO_MARK(x) && ret_err <= _TO_MARK(y))
 #define   __AFTER(x)                                            \
   if (ret_err >= _TO_MARK(x))
 
 #define   __CATCH_END                                           \
-  endCall();							\
   return ret_err;
 #define   __CATCH                                               \
   endCall();							\
@@ -875,13 +874,6 @@ public:
   RESULT    operator += (ADDR addr)
   {
   __TRY
-
-    if (this == (PQUERY)0x520000206238) {
-      DD("readBuffer += %llx\n", addr.aLong);
-    }
-    if (this == (PQUERY)0x5200002062e8) {
-      DD("writeBuffer += %llx\n", addr.aLong);
-    }
     if (!singleThread) __LOCK(inProcess);
     __DO (freeStart == freeEnd);
     *(freeStart.pAddr) = addr;
@@ -903,13 +895,6 @@ public:
     __DO (freeend == freeStart);
     addr = *(freeend.pAddr);
     freeEnd = freeend;
-
-    if (this == (PQUERY)0x520000206238) {
-      DD("readBuffer -= %llx\n", addr.aLong);
-    }
-    if (this == (PQUERY)0x5200002062e8) {
-      DD("writeBuffer -= %llx\n", addr.aLong);
-    }
 
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
@@ -1009,5 +994,9 @@ public:
   };
 }TIME, *PTIME;
 
-#endif   // GLdb_COMMON_HPP
 
+
+RESULT      L1(void);
+RESULT      L2(void);
+
+#endif   // GLdb_COMMON_HPP

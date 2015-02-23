@@ -55,7 +55,7 @@ inline      BOOL CloseOtherHandle(SOCKET sock)
 };
 inline      BOOL CloseNullHandle(SOCKET sock) 
 {
-  (void)sock;
+  (void)    sock;
   return 0; 
 };
 
