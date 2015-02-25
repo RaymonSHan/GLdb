@@ -136,7 +136,7 @@ BOOL        AcceptEx(
 	    LPOVERLAPPED    lpOverlapped);
 BOOL        ConnectEx(
             SOCKET          s,
-	    const struct sockaddr *name,
+	    PSOCK           name,
 	    int             namelen,
 	    PVOID           lpSendBuffer,
 	    DWORD           dwSendDataLength,

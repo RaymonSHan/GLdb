@@ -36,7 +36,7 @@
 #include    "GCommon.hpp"
 
 #define     TOZERO(desc)					\
-  memset(desc, 0, sizeof(desc))
+  bzero(desc, sizeof(desc))
 
 
 #endif   // GLdb_TOOLS_HPP

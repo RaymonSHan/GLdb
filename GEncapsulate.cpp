@@ -64,27 +64,41 @@ RESULT      GEncapsulate::InitEncapsulate(void)
 {
 __TRY__
   PCONT     nullcont = NULL;
-  char      local_addr[] = "127.0.0.1";  
-  SOCK      sock;
-  ADDR      addr, nulladdr;
+  char      local_addr[] = "127.0.0.1";
+  char      remote_addr[] = "192,168,1,1";
+  SOCK      sockcli, sockser;
+  ADDR      addrcli, addrser, nulladdr;
 
   RegisterProtocol(NPROT, noneProt, PROTOCOL_NONE, 0);
   RegisterProtocol(GTCP, tcpProt, PROTOCOL_TCP, 0);
   RegisterApplication(NAPP, noneApp, APPLICATION_NONE, 0);
   RegisterApplication(ECHO, echoApp, APPLICATION_ECHO, 0);
+  RegisterApplication(FORWARD, forwardApp, APPLICATION_FORWARD, 0);
 
-  bzero(&sock.saddrin, sizeof(sockaddr_in));   
-  sock.saddrin.sin_family = AF_INET; 
-  inet_aton(local_addr,&(sock.saddrin.sin_addr));
-  sock.saddrin.sin_port=htons(8998);
-  addr = &sock;
-  nulladdr = ZERO;
-  echoApp.handleIOCP = 0;
+  bzero(&sockcli.saddrin, sizeof(sockaddr_in));   
+  sockcli.saddrin.sin_family = AF_INET; 
+  inet_aton(local_addr,&(sockcli.saddrin.sin_addr));
+  sockcli.saddrin.sin_port=htons(8998);
+  addrcli = &sockcli;
+
+  bzero(&sockser.saddrin, sizeof(sockaddr_in));   
+  sockser.saddrin.sin_family = AF_INET; 
+  inet_aton(remote_addr,&(sockser.saddrin.sin_addr));
+  sockser.saddrin.sin_port=htons(80);
+  addrser = &sockser;
+
+/*
+  nulladdr = 0;
   CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
-		    (PPROT)&tcpProt, addr, sizeof(SOCK), 
+		    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
 		    NULL, nulladdr, 0);
   GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
+ */
 
+  CreateApplication(listenCont, nullcont, (PAPP)&forwardApp, 
+		    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
+		    (PPROT)&tcpProt, addrser, sizeof(SOCK));
+  GlobalIOCP.StartWork(forwardApp.handleIOCP, 1);
   // move to here, for lazy, may change control clone laterww
 __CATCH__
 };
@@ -149,7 +163,7 @@ __CATCH_BEGIN
 __CATCH_END
 };
 
-												
+
 RESULT      GEncapsulate::StateApplication(PAPP papp, UINT state)
 {
 __TRY__

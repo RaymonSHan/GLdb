@@ -72,7 +72,7 @@ RESULT      GNoneProtocol::PostReceive(
 
 
 RESULT      GIPProtocol::BindLocalSocket(
-	    PCONT &pcont, PPROT pProtocol, PSOCK sock)
+	    PCONT &pcont, PPROT pProtocol)
 {
 __TRY
   int       ptype;
@@ -87,9 +87,6 @@ __TRY
   } else __BREAK;
 
   __DO1(pcont->bHandle, socket(AF_INET, ptype, 0));
-  bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK));
-  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
-
 __CATCH
 };
 
@@ -102,7 +99,9 @@ __TRY__
   PSOCK     sock = (PSOCK)para.pVoid;
 
   pcont->dwFlags |= WSA_FLAG_ISLISTEN;
-  BindLocalSocket(pcont, this, sock);
+  BindLocalSocket(pcont, this);
+  bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK));
+  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
   ReflushTimeout(pcont, TIMEOUT_INFINITE);
   listen(pcont->bHandle, SOMAXCONN);
 __CATCH__
@@ -112,6 +111,7 @@ RESULT      GTCPProtocol::CreateRemote(
             PCONT pcont, ADDR para, UINT size)
 {
 __TRY__
+  memcpy(&(pcont->localSocket), para.pVoid, size);
 __CATCH__
 };
 
@@ -122,6 +122,7 @@ RESULT      GTCPProtocol::PostAccept(
   (void)    op;
 __TRY
   PCONT     clicont;
+
   __DO (GetDupContext(clicont, pcont));
   pbuff->oLapped.accSocket = clicont;
   AcceptEx((SOCKET)pcont, clicont, NULL, 0, 0, 0, NULL, &(pbuff->oLapped));
@@ -131,8 +132,12 @@ __CATCH
 RESULT      GTCPProtocol::PostConnect(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
+  (void)    size;
+  (void)    op;
 __TRY__
-
+  BindLocalSocket(pcont, this);
+  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  ConnectEx((SOCKET)pcont, &(pcont->localSocket), sizeof(SOCK), 0, 0, 0, &(pbuff->oLapped));
 __CATCH__
 };
 

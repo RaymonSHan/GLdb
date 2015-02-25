@@ -103,7 +103,7 @@ public:
 typedef     class GIPProtocol : public GProtocol
 {
 protected:
-  RESULT    BindLocalSocket(PCONT &pcont, PPROT pProtocol, PSOCK sock);
+  RESULT    BindLocalSocket(PCONT &pcont, PPROT pProtocol);
 }IPPROT;
 
 typedef     class GTCPProtocol : public GIPProtocol

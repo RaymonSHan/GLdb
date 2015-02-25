@@ -42,6 +42,8 @@
 
 #define     APPLICATION_NONE                    0
 #define     APPLICATION_ECHO                    7
+#define     APPLICATION_FORWARD                 8
+#define     APPLICATION_SESSION                 31
 
 typedef     class GApplication
 {
@@ -51,6 +53,10 @@ public:
   HANDLE    handleIOCP;
 
 public:
+  GApplication()
+  {
+    handleIOCP = 0;
+  };
   RESULT    OnAccept(PCONT, PBUFF&, UINT)
   { return 0; };
   RESULT    OnConnect(PCONT, PBUFF&, UINT)
@@ -121,6 +127,15 @@ public:
   RESULT    OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size);
 }ECHO, *PECHO;
+
+typedef     class GForwardApplication : public GApplication
+{
+public:
+  RESULT    OnClientRead(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+  RESULT    OnServerRead(
+            PCONT pcont, PBUFF &pbuff, UINT size);
+}FORWARD, *PFORWARD;
 
 #endif   // GLdb_APPLICATION_HPP
 

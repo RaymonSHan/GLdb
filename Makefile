@@ -20,7 +20,7 @@ VERSION=1.0
 DISTDIR=$(top)GLdb-$(VERSION)
 top_builddir = 
 
-DEP_FILES=.deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P .deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P
+DEP_FILES=.deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P .deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P .deps/GTools.P
 
 all: GLdbtest
 

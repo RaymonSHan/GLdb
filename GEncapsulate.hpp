@@ -176,6 +176,7 @@ public:
 public:
   GTCP      tcpProt;
   ECHO      echoApp;
+  FORWARD   forwardApp;
   PCONT     listenCont;
 public:
   RESULT    InitEncapsulate(void);

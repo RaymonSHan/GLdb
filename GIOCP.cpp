@@ -276,7 +276,21 @@ __TRY__
   overlap.pVoid = lpOverlapped;
   __DO (*(GlobalIOCP.eventHandle) += overlap);
 __CATCH_1
-}
+};
+
+BOOL        ConnectEx(
+            SOCKET          s,
+	    PSOCK           name,
+	    int             namelen,
+	    PVOID           lpSendBuffer,
+	    DWORD           dwSendDataLength,
+	    LPDWORD         lpdwBytesSent,
+	    LPOVERLAPPED    lpOverlapped)
+{
+  (void)    lpSendBuffer;
+  (void)    dwSendDataLength;
+  (void)    lpdwBytesSent;
+};
 
 RESULT      RThreadEpoll::ThreadInit(void)
 {
@@ -503,7 +517,7 @@ __TRY
   if (size == -1) __BREAK_OK;
   noper = pbuff->nOper;
 
-  if (size || noper == OP_ACCEPT) 
+  if (size || noper == OP_ACCEPT || noper == OP_CONNECT) 
     NoneAppFunc(&NoneApp, noper - OP_BASE)(pcont, pbuff, size);
   else 
     NoneAppFunc(&NoneApp, fOnClose)(pcont, pbuff, size);

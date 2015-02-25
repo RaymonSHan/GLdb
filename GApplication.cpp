@@ -34,13 +34,30 @@
 #include    "GApplication.hpp"
 #include    "GEncapsulate.hpp"
 
+/*
+ * pPeer relation
+ *
+ * Client Context and Server Context are peer. every context may point to NULL,
+ *   self, its peer. so there are nine conditions, as following
+ *
+ * 1. cli->pPeer = NULL;            ser->pPeer = NULL;
+ * 2. cli->pPeer = NULL;            ser->pPeer = ser;
+ * 3. cli->pPeer = NULL;            ser->pPeer = cli;
+ * 4. cli->pPeer = cli;             ser->pPeer = NULL;
+ * 5. cli->pPeer = cli;             ser->pPeer = ser;
+ * 6. cli->pPeer = cli;             ser->pPeer = cli;
+ * 7. cli->pPeer = ser;             ser->pPeer = NULL;
+ * 8. cli->pPeer = ser;             ser->pPeer = ser;
+ * 9. cli->pPeer = ser;             ser->pPeer = cli;
+ */
+
 RESULT      GNoneApplication::OnAccept(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
   (void)    size;
 
 __TRY
-  PCONT     newcont;
+  PCONT     clicont, sercont;
   PBUFF     newbuff;
 
   __DO (GetBufferSmall(newbuff));
@@ -48,24 +65,39 @@ __TRY
 	(pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
   pbuff->nOper = OP_CLIENT_READ;
   // to make sure, maybe changed when accept
-  newcont = (PCONT)pbuff->oLapped.accSocket;
+  clicont = (PCONT)pbuff->oLapped.accSocket;
   pbuff->oLapped.accSocket = 0;
   CreateIoCompletionPort(
-        newcont, pcont->pApplication->handleIOCP, (ULONG_PTR)newcont, 0);
-  __DO (NoneProFunc(&NoneProt, fPostReceive)
-	(newcont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
+        clicont, pcont->pApplication->handleIOCP, (ULONG_PTR)clicont, 0);
+  if (pcont->pPeer == NULL) {
+    __DO (NoneProFunc(&NoneProt, fPostReceive)
+	  (clicont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
+  } else {
+    __DO (GetDupContext(sercont, pcont->pPeer));
+    clicont->pPeer = sercont;
+    sercont->pPeer = clicont;
+    // this should add into GetDupContext()
+    memcpy(&(sercont->localSocket), &(pcont->pPeer->localSocket), sizeof(SOCK));
+    __DO (NoneProFunc(&NoneProt, fPostConnect)
+	  (sercont, pbuff, 0, OP_CONNECT));
+  }
 __CATCH
 };
 
 RESULT      GNoneApplication::OnConnect(
             PCONT pcont, PBUFF &pbuff, UINT size)
-{ return 0; };
+{
+  (void)    size;
+__TRY
+  __DO (NoneProFunc(&NoneProt, fPostReceive)
+	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
+__CATCH
+};
 
 RESULT      GNoneApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  D(NONEOnClientRead);
   __DO (AppFunc(pcont, fOnClientRead)
 	(pcont, pbuff, size));
 __CATCH
@@ -76,7 +108,6 @@ RESULT      GNoneApplication::OnClientWrite(
 {
   (void)    size;
 __TRY
-  D(NONEOnClientWrite);
   __DO (NoneProFunc(&NoneProt, fPostReceive)
 	(pcont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH
@@ -84,10 +115,23 @@ __CATCH
 
 RESULT      GNoneApplication::OnServerRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
-  { return 0; };
+{
+__TRY
+  __DO (AppFunc(pcont, fOnServerRead)
+	(pcont, pbuff, size));
+__CATCH
+};
+
 RESULT      GNoneApplication::OnServerWrite(
             PCONT pcont, PBUFF &pbuff, UINT size)
-  { return 0; };
+{ 
+  (void)    size;
+__TRY
+  __DO (NoneProFunc(&NoneProt, fPostReceive)
+	(pcont, pbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
+__CATCH
+};
+
 RESULT      GNoneApplication::OnClose(
             PCONT pcont, PBUFF &pbuff, UINT size)
   { return 0; };
@@ -141,8 +185,25 @@ RESULT      GEchoApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  D(EchoOnClientRead);
-  *((PUINT)(pbuff->wsaBuf.buf)) = 0x4041424360616263;
-  NoneProFunc(&NoneProt, fPostSend)(pcont, pbuff, 8, OP_CLIENT_WRITE, OPSIDE_CLIENT);
+  __DO(NoneProFunc(&NoneProt, fPostSend)
+       (pcont, pbuff, size, OP_CLIENT_WRITE, OPSIDE_CLIENT));
+__CATCH
+};
+
+RESULT      GForwardApplication::OnClientRead(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+{
+__TRY
+  __DO(NoneProFunc(&NoneProt, fPostSend)
+       (pcont->pPeer, pbuff, size, OP_SERVER_WRITE, OPSIDE_SERVER));
+__CATCH
+};
+
+RESULT      GForwardApplication::OnServerRead(
+            PCONT pcont, PBUFF &pbuff, UINT size)
+{
+__TRY
+  __DO(NoneProFunc(&NoneProt, fPostSend)
+       (pcont->pPeer, pbuff, size, OP_CLIENT_WRITE, OPSIDE_CLIENT));
 __CATCH
 };
