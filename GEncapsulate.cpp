@@ -123,12 +123,12 @@ __TRY
     __DO (GetContext(cliCont));
     cliCont->pApplication = pApp;
     cliCont->pProtocol = cliProt;
-    __DO (ProFunc(cliProt, fCreateNew)
+    __DO (ProFunc(cliCont, fCreateNew)
 	  (cliCont, cliPara, cliSize));
     cliCont->pPeer = cliCont;
     for(i=0; i<ACCEPTNUMBER; i++) {
       __DO (GetBufferSmall(newbuff));
-      __DO (NoneProFunc(cliProt, fPostAccept)
+      __DO (NoneProFunc(&NoneProt, fPostAccept)
 	    (cliCont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
     }
   }
@@ -136,7 +136,7 @@ __TRY
     __DO (GetContext(serCont));
     serCont->pApplication = pApp;
     serCont->pProtocol = serProt;
-    __DO (ProFunc(serProt, fCreateRemote)
+    __DO (ProFunc(serCont, fCreateRemote)
 	  (serCont, serPara, serSize));
     serCont->pPeer = NULL;
   }

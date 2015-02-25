@@ -78,6 +78,8 @@
  */
 #define     ZERO                                ((UINT)0)
 #define     ZEROADDR                            ((ADDR)0)
+
+#define     NEGONE                              (-1)
 /*
  * for STRING use, constant len string
  */
@@ -145,11 +147,14 @@ typedef     class GApplication*                 PAPP;
 
 #endif  //__GLdb_SELF_USE
 
+/*
+ * for DEBUG use
+ */
 #define     D(a)                                printf("%s\n", #a);
-#define     DD                                  printf
 #define     DX(a)                               printf("  %s:%llx\n", #a, a);
 #define     DP(a)                               printf("  %s:%p\n", #a, a);
 #define     DI(a)                               printf("  %s:%d\n", #a, a);
+#define     DD                                  printf
 
 /*
  * typedef for IOCP, compatible for Windows
@@ -160,7 +165,7 @@ typedef     class GApplication*                 PAPP;
 
 #define     WSADESCRIPTION_LEN                  256             // NOT know
 #define     WSASYS_STATUS_LEN                   16              // NOT know
-#define     INFINITE                            (DWORD)(-1)
+#define     INFINITE                            (DWORD)NEGONE
 
 typedef     unsigned short                      WORD;
 typedef     UINT                                HANDLE;
@@ -180,7 +185,7 @@ typedef     struct WSAData {
   char      szSystemStatus[WSASYS_STATUS_LEN+1];
   WORD      iMaxSockets;
   WORD      iMaxUdpDg;
-  char     *lpVendorInfo;
+  PCHAR     lpVendorInfo;
 }WSADATA, *LPWSADATA;
 
 /*
@@ -207,8 +212,8 @@ typedef     struct __WSABUF {
  * doneSize    : NEW member, as its name. I store it in OVERLAPPED, so lpOverlapped
  *               in PostQueuedCompletionStatus() will NOT be NULL. it is different 
  *               from Windows.
- *             : doneSize has it new means, for AcceptEx, store accept SOCKET.
- *               for my AcceptEx, normal doneSize is always 0.
+ * accSocket   : for AcceptEx, store accept SOCKET. OLAP with accSocket is push
+ *               to readBuffer of listening socket.
  */
 typedef     struct _WSAOVERLAPPED {
   PCONT     Internal;
@@ -334,7 +339,10 @@ public:
   void virtual operator = (const PCHAR pchar) {
     return operator = ((PUCHAR)pchar);
   };
-}STRING;
+  UINT      strLen(void) {
+    return strEnd - strStart;
+  };
+}STRING, *PSTRING;
 
 #define     STRING_FUNCTION(classname, size)			\
   typedef   class classname : public STRING			\
@@ -374,6 +382,7 @@ INT         StrCmp(STRING &one, STRING &two);
   BOOL inline operator op (STRING one, STRING two) {		\
     return (StrCmp(one, two) op 0);				\
   };
+
 STR_STR_COMPARE(==)
 STR_STR_COMPARE(!=)
 STR_STR_COMPARE(>)
@@ -468,7 +477,7 @@ typedef     union SOCKADDR
  * Following the same principle in GLdb, I do it myself.
  * It saved in TLS.
  *
- * now set to MAX_NEST_LOOP, but I do not check, 
+ * now set to MAX_NEST_LOOP, but I do not check, sizeof(TINFO) is 32K
  *   for normal program, it is enough
  */
 #define     MAX_NEST_LOOP                       1023
@@ -478,13 +487,13 @@ typedef     struct perTraceInfo {
   PUCHAR    funcInfo;
   UINT      lineInfo;
   UINT      pad;
-}perTraceInfo;
+}OTINFO;
 
 typedef     struct threadTraceInfo {
   UINT      nowLevel;                                           // in asm act as offset
   PUCHAR    threadName;
   UINT      pad[2];
-  perTraceInfo calledInfo[MAX_NEST_LOOP];
+  OTINFO    calledInfo[MAX_NEST_LOOP];
 }TINFO, *PTINFO;
 
 #define     beginCall()						\
@@ -563,16 +572,16 @@ typedef     struct threadTraceInfo {
 #define   __class(name)						\
   class name {							\
   protected:							\
-  virtual const char* getThreadName(void) {			\
-    return #name; };						\
-  PTINFO    threadInfo;						\
+    virtual const char* getThreadName(void) {			\
+      return #name; };						\
+    PTINFO    threadInfo;					\
   private:
 
 #define   __class_(name, base)		                	\
   class name : public base {					\
   protected:							\
-  virtual const char* getThreadName(void) {			\
-    return #name; };                                      	\
+    virtual const char* getThreadName(void) {			\
+      return #name; };                                      	\
   private:
 
 #define     setThreadName()			               	\
@@ -631,15 +640,14 @@ error_stop:							\
 #define     MESSAGE_ERROR                       0x0002
 #define     MESSAGE_HALT                        0x0004
 
-#define     NEGONE                              (-1)
-
 void      __MESSAGE(INT level, const char * _Format, ...);
 
 #define   __INFO(level, _Format,...) {				\
-    __MESSAGE(level,  _Format,##__VA_ARGS__);			\
+    __MESSAGE(level, _Format,##__VA_ARGS__);			\
   };
 #define   __INFOb(level, _Format,...) {				\
-    __MESSAGE(level, _Format,##__VA_ARGS__); __BREAK_OK		\
+    __MESSAGE(level, _Format,##__VA_ARGS__);			\
+    __BREAK_OK							\
   };
 
 #define   __DO1c_(val, func, _Format,...) {			\
@@ -726,8 +734,9 @@ private:
   UINT      freeSize;
 
 public:
-  void      InitArrayStack(ADDR start, UINT number, BOOL singlethread = 0,
-			   PSTACK parent = 0, UINT getsize = 0, UINT freesize = 0)
+  void      InitArrayStack(
+            ADDR start, UINT number, BOOL singlethread = 0,
+	    PSTACK parent = 0, UINT getsize = 0, UINT freesize = 0)
   {
     inProcess = NOT_IN_PROCESS;
     arrayStart = start;
@@ -738,7 +747,8 @@ public:
     getSize = getsize;
     freeSize = freesize;
   };
-  RESULT      FullArrayStack(ADDR begin, UINT size, UINT number)
+  RESULT      FullArrayStack(
+              ADDR begin, UINT size, UINT number)
   {
   __TRY__
     __LOCK(inProcess);
@@ -887,7 +897,6 @@ public:
   RESULT    operator -= (ADDR &addr)
   {
   __TRY
-
     ADDR    freeend;
     if (!singleThread) __LOCK(inProcess);
     freeend = freeEnd + SIZEADDR;
@@ -993,10 +1002,5 @@ public:
     };
   };
 }TIME, *PTIME;
-
-
-
-RESULT      L1(void);
-RESULT      L2(void);
 
 #endif   // GLdb_COMMON_HPP

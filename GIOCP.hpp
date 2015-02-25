@@ -228,10 +228,6 @@ public:
     __DO1(status,
 	  read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
- {
-      PTINFO    info;
-      displayTraceInfo(info);
-    }
   __CATCH
   };
 }EVENT, *PEVENT;

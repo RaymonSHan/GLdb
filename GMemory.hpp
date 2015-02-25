@@ -74,7 +74,7 @@ public:
 public:
   RThreadResource(UINT size) {
     nowOffset = LockAdd(RThreadResource::globalResourceOffset, 
-			PAD_INT(size, 0, 64));
+			PAD_INT(size, 0, SIZE_CACHE));
   };
 };
 
@@ -82,9 +82,10 @@ public:
  * get TLS for RThreadResource
  * for every thread offset start at PAD_THREAD_STACK + SIZE_TRACE_INFO
  *
- * In my program, every memory pool have its nowOffset, different nowOffset
- *   means different memory pool.
- * nowOffset is border by 16M, which is SIZE_THREAD_STACK
+ * In my program, every memory pool have its nowOffset, same memory pool have
+ *   same nowOffset for different thread, different nowOffset means different
+ *   memory pool.
+ * MAX of nowOffset is 16M, which is SIZE_THREAD_STACK
  */
 #define     getThreadInfo(info, off)				\
   asm volatile ("movq %%rsp, %0;"				\
@@ -182,6 +183,7 @@ void        ReflushTimeout(PCONT pcont, UINT timeoutww);
  * this is have not test
  *
  * FUNCCMP for compare two item, return 0 if equal
+ * RListQuery do NOT free one item, it free all items at one time
  */
 typedef     RESULT(*FUNCCMP)(ADDR, ADDR);
 

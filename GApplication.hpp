@@ -33,6 +33,7 @@
  */
 
 #include    "GCommon.hpp"
+#include    "GTools.hpp"
 
 #ifdef    __GLdb_SELF_USE
 
@@ -88,6 +89,31 @@ public:
   RESULT    OnPassby(
             PCONT pcont, PBUFF &pbuff, UINT size);
 }NAPP, *PNAPP;
+
+#define     MAX_PEER_GROUP                      32
+
+typedef     struct GPeerGroup
+{
+  PCONT     peerCont;
+  STR_S     peerKeyword;
+  STR_M     peerHost;
+}PEERGROUP, *PGROUP;
+
+typedef     class GMultiApplication : public GApplication
+{
+private:
+  UINT      PeerNumber;
+  PEERGROUP ServerPeer[MAX_PEER_GROUP];
+public:
+  GMultiApplication() : GApplication() {
+    PeerNumber = 0;
+    TOZERO(ServerPeer);
+  };
+  RESULT    AddPeerGroup(
+            PCONT pcont, PSTRING keyword, PSTRING host);
+  RESULT    PreparePeer(
+            PCONT &pcont, PSTRING keyword);
+}MAPP, *PMAPP;
 
 typedef     class GEchoApplication : public GApplication
 {

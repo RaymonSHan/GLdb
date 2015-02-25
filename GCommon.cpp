@@ -89,9 +89,11 @@ BLOCK       GlobalBufferSmall;
 BLOCK       GlobalBufferMiddle;
 
 /*
- * it is for __GLdb_SELF_USE GEncapsulate
+ * it is for GEncapsulate, for GLdb use.
  *
- * should add
+ * GLdb framework need MEMORY & IOCP for global use.
+ * FPHandle, FAHandle act as virtual function
+ * NoneProt, NoneApp do common thing for all Protocol & Application
  */
 MEMORY      GlobalMemory;
 IOCP        GlobalIOCP;
@@ -125,7 +127,7 @@ INT         StrCmp(STRING &one, STRING &two)
   return (onelen - twolen);
 };
 
-void __MESSAGE(INT level, const char * _Format, ...) 
+void      __MESSAGE(INT level, const char * _Format, ...) 
 {
   va_list   ap;
   PTINFO    info;

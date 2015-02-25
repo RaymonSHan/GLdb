@@ -94,9 +94,11 @@ typedef     RESULT (GApplication::*AHandle)     (PCONT, PBUFF&, UINT);
 #define     NoneAppFunc(p, f)					\
   (p->* (FAHandle[0].fFunction[f]))
 #define     ProFunc(p, f)					\
-  (p->* (&FPHandle[p->ProtocolNumber])->f)
+  (p->pProtocol->*						\
+   (&FPHandle[p->pProtocol->ProtocolNumber])->f)
 #define     AppFunc(p, f)					\
-  (p->* (FAHandle[p->ApplicationNumber].fFunction[f]))
+  (p->pApplication->*						\
+   (FAHandle[p->pApplication->ApplicationNumber].fFunction[f]))
 
 #define     MAX_PROTOCOL                        128
 #define     MAX_APPLICATION                     128

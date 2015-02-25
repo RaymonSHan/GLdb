@@ -65,7 +65,7 @@ typedef     class GProtocol
 public:
   long      ProtocolNumber;
   long      ProtocolFlag;
-  BOOL    (*MyCloseHandle)(SOCKET sock);	
+  BOOL      (*MyCloseHandle)(SOCKET sock);	
 public:
   GProtocol() {};
   RESULT    CreateNew(PCONT, ADDR, UINT)
@@ -84,7 +84,7 @@ public:
   { return 0; };
 
   //  UINT virtual GetContextLength(PCONT pcont, PBUFF pbuff);
-}PROT;
+}PROT, *PPROT;
 
 typedef     class GNoneProtocol : public GProtocol
 {
@@ -125,7 +125,7 @@ public:
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
   RESULT    PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
-}GTCP;
+}GTCP, *PGTCP;
 
 #endif   // GLdb_PROTOCOL_HPP
 

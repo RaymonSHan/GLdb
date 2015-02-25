@@ -42,7 +42,7 @@ RESULT      GNoneProtocol::PostAccept(
   //   FreeBuffer(pbuff);
   //   __BREAK_OK;
   // } else {
-    return ProFunc(pcont->pProtocol, fPostAccept)(pcont, pbuff, size, op);
+    return ProFunc(pcont, fPostAccept)(pcont, pbuff, size, op);
     //  }
 };
 
@@ -50,7 +50,7 @@ RESULT      GNoneProtocol::PostConnect(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
   pbuff->nOper = op;
-  return ProFunc(pcont->pProtocol, fPostConnect)(pcont, pbuff, size, op);
+  return ProFunc(pcont, fPostConnect)(pcont, pbuff, size, op);
 };
 
 RESULT      GNoneProtocol::PostSend(
@@ -58,7 +58,7 @@ RESULT      GNoneProtocol::PostSend(
 {
   pbuff->nOper = op;
   ReflushTimeout(pcont, 0);
-  return ProFunc(pcont->pProtocol, fPostSend)(pcont, pbuff, size, op, opside);
+  return ProFunc(pcont, fPostSend)(pcont, pbuff, size, op, opside);
 };
 
 // this is easy way for test now.
@@ -67,7 +67,7 @@ RESULT      GNoneProtocol::PostReceive(
 {
   pbuff->nOper = op;
   ReflushTimeout(pcont, 0);
-  return ProFunc(pcont->pProtocol, fPostReceive)(pcont, pbuff, size, op, opside);
+  return ProFunc(pcont, fPostReceive)(pcont, pbuff, size, op, opside);
 };
 
 
@@ -76,7 +76,6 @@ RESULT      GIPProtocol::BindLocalSocket(
 {
 __TRY
   int       ptype;
-
 
   __DO (pcont == 0);
   if (pProtocol->ProtocolNumber == PROTOCOL_TCP) {
@@ -99,14 +98,14 @@ RESULT      GTCPProtocol::CreateNew(
             PCONT pcont, ADDR para, UINT size)
 {
   (void)    size;
-__TRY
+__TRY__
   PSOCK     sock = (PSOCK)para.pVoid;
 
   pcont->dwFlags |= WSA_FLAG_ISLISTEN;
   BindLocalSocket(pcont, this, sock);
   ReflushTimeout(pcont, TIMEOUT_INFINITE);
   listen(pcont->bHandle, SOMAXCONN);
-__CATCH
+__CATCH__
 };
 
 RESULT      GTCPProtocol::CreateRemote(

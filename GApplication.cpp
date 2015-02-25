@@ -44,7 +44,7 @@ __TRY
   PBUFF     newbuff;
 
   __DO (GetBufferSmall(newbuff));
-  __DO (NoneProFunc(pcont->pProtocol, fPostAccept)
+  __DO (NoneProFunc(&NoneProt, fPostAccept)
 	(pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
   pbuff->nOper = OP_CLIENT_READ;
   // to make sure, maybe changed when accept
@@ -52,7 +52,7 @@ __TRY
   pbuff->oLapped.accSocket = 0;
   CreateIoCompletionPort(
         newcont, pcont->pApplication->handleIOCP, (ULONG_PTR)newcont, 0);
-  __DO (NoneProFunc(newcont->pProtocol, fPostReceive)
+  __DO (NoneProFunc(&NoneProt, fPostReceive)
 	(newcont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH
 };
@@ -66,7 +66,7 @@ RESULT      GNoneApplication::OnClientRead(
 {
 __TRY
   D(NONEOnClientRead);
-  __DO (AppFunc(pcont->pApplication, fOnClientRead)
+  __DO (AppFunc(pcont, fOnClientRead)
 	(pcont, pbuff, size));
 __CATCH
 };
@@ -77,7 +77,7 @@ RESULT      GNoneApplication::OnClientWrite(
   (void)    size;
 __TRY
   D(NONEOnClientWrite);
-  __DO (NoneProFunc(pcont->pProtocol, fPostReceive)
+  __DO (NoneProFunc(&NoneProt, fPostReceive)
 	(pcont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH
 };
@@ -96,6 +96,46 @@ RESULT      GNoneApplication::OnPassby(
   { return 0; };
 
 
+RESULT      GMultiApplication::AddPeerGroup(
+	    PCONT pcont, PSTRING keyword, PSTRING host)
+{
+__TRY
+  PCONT     sercont = ZERO;
+  UINT      peernumber;
+  PGROUP    nowpeer;
+  ADDR      addr;
+
+  __DO (PeerNumber == MAX_PEER_GROUP);
+  peernumber = LockInc(PeerNumber);
+  nowpeer = &ServerPeer[peernumber];
+  nowpeer->peerKeyword = *keyword;
+  nowpeer->peerHost = *host;
+  addr = host->strStart;
+  __DO (GetDupContext(sercont, pcont));
+  __DO (ProFunc(pcont, fCreateRemote)(sercont, addr, host->strLen()));
+  nowpeer->peerCont = sercont;
+
+__CATCH_BEGIN
+  if (sercont) FreeContext(sercont);
+__CATCH_END
+};
+
+RESULT      GMultiApplication::PreparePeer(
+            PCONT &pcont, PSTRING keyword)
+{
+__TRY
+  UINT      i;
+  for (i=0; i<PeerNumber; i++) {
+    if (ServerPeer[i].peerKeyword == *keyword) {
+      __DO(GetDupContext(pcont, ServerPeer[i].peerCont));
+      __BREAK_OK;
+    }
+  }
+  pcont = 0;
+  __BREAK;
+__CATCH
+};
+
 
 RESULT      GEchoApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
@@ -103,6 +143,6 @@ RESULT      GEchoApplication::OnClientRead(
 __TRY
   D(EchoOnClientRead);
   *((PUINT)(pbuff->wsaBuf.buf)) = 0x4041424360616263;
-  NoneProFunc(pcont->pProtocol, fPostSend)(pcont, pbuff, 8, OP_CLIENT_WRITE, OPSIDE_CLIENT);
+  NoneProFunc(&NoneProt, fPostSend)(pcont, pbuff, 8, OP_CLIENT_WRITE, OPSIDE_CLIENT);
 __CATCH
 };
