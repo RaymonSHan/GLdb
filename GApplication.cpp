@@ -68,7 +68,7 @@ __TRY
   clicont = (PCONT)pbuff->oLapped.accSocket;
   pbuff->oLapped.accSocket = 0;
   CreateIoCompletionPort(
-        clicont, pcont->pApplication->handleIOCP, (ULONG_PTR)clicont, 0);\
+        clicont, pcont->pApplication->handleIOCP, (ULONG_PTR)clicont, 0);
   __DO(pcont->pPeer == NULL);
 
   if (pcont->pPeer->pPeer != NULL) {
@@ -99,7 +99,11 @@ __TRY
   D(InNoneApplication_OnConnect);
   __DO (NoneProFunc(fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
+  DP(pcont);
+  DP(pcont->pPeer);
+
   if (IS_DUPLEX(pcont)) {
+    D(POST_to_server);
     __DO(GetBufferSmall(newbuff));
     __DO (NoneProFunc(fPostReceive)
 	  (pcont, newbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
@@ -121,6 +125,7 @@ RESULT      GNoneApplication::OnClientWrite(
 {
   (void)    size;
 __TRY
+  D(NoneApplication_ClientWrite);
   __DO (NoneProFunc(fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
 __CATCH
@@ -140,6 +145,7 @@ RESULT      GNoneApplication::OnServerWrite(
 { 
   (void)    size;
 __TRY
+  D(NoneApplication_ServerWrite);
   __DO (NoneProFunc(fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH
@@ -200,6 +206,11 @@ RESULT      GEchoApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
+  D(EchoApplication_OnClientRead);
+  PUCHAR    nowp = pbuff->wsaBuf.buf;
+  nowp[size] = 0;
+  DD("size:%lld, %s\n", size, nowp);
+
   __DO(NoneProFunc(fPostSend)
        (pcont, pbuff, size, OP_SERVER_WRITE, OPSIDE_CLIENT));
 __CATCH
@@ -209,6 +220,11 @@ RESULT      GForwardApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
+  D(ForwardApplication_OnClientRead);
+  PUCHAR    nowp = pbuff->wsaBuf.buf;
+  nowp[size] = 0;
+  DD("size:%lld, %s\n", size, nowp);
+
   __DO(NoneProFunc(fPostSend)
        (pcont->pPeer, pbuff, size, OP_SERVER_WRITE, OPSIDE_SERVER));
 __CATCH
@@ -218,6 +234,11 @@ RESULT      GForwardApplication::OnServerRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
+  D(ForwardApplication_OnServerRead);
+  PUCHAR    nowp = pbuff->wsaBuf.buf;
+  nowp[size] = 0;
+  DD("size:%lld, %s\n", size, nowp);
+
   __DO(NoneProFunc(fPostSend)
        (pcont->pPeer, pbuff, size, OP_CLIENT_WRITE, OPSIDE_CLIENT));
 __CATCH

@@ -69,7 +69,7 @@ __TRY__
   PCONT     nullcont = NULL;
   char      local_addr[] = "127.0.0.1";
   int       local_port = 8998;
-  char      remote_addr[] = "180.97.33.107";    // www.baidu.com
+  char      remote_addr[] = "192.168.1.1";
   int       remote_port = 80;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser, nulladdr;
@@ -80,7 +80,7 @@ __TRY__
   RegisterApplication(ECHO, echoApp, APPLICATION_ECHO, 0);
   RegisterApplication(FORWARD, forwardApp, APPLICATION_FORWARD, APPLICATION_FLAG_DUPLEX);
 
-  bzero(&sockcli.saddrin, sizeof(sockaddr_in));   
+  bzero(&sockcli.saddrin, sizeof(sockaddr_in));
   sockcli.saddrin.sin_family = AF_INET; 
   inet_aton(local_addr,&(sockcli.saddrin.sin_addr));
   sockcli.saddrin.sin_port=htons(local_port);
@@ -95,7 +95,7 @@ __TRY__
 #ifdef      DOING_ECHO_APPLICATION
   nulladdr = ZERO;
   CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
-		    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
+		    (PPROT)&tcpProt, addrser, sizeof(SOCK), 
 		    NULL, nulladdr, 0);
   GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
 #endif   //  DOING_ECHO_APPLICATION

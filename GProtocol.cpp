@@ -98,7 +98,7 @@ __TRY
 
   } else __BREAK;
 
-  __DO1(pcont->bHandle, socket(AF_INET, ptype, 0));
+  __DO1(pcont->bHandle, socket(AF_INET, ptype, pProtocol->ProtocolNumber));
 __CATCH
 };
 
@@ -156,8 +156,8 @@ __TRY__
   BindLocalSocket(pcont, this);
   pbuff->oLapped.doneSize = 0;
   wsabuf->len = 0;
-  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
   ConnectEx((SOCKET)pcont, &(pcont->localSocket), sizeof(SOCK), wsabuf, 0, 0, &(pbuff->oLapped));
+  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
 __CATCH__
 };
 
