@@ -155,9 +155,11 @@ BOOL        DisconnectEx(
 #ifdef    __GLdb_SELF_USE
 #define     WSA_FLAG_ISLISTEN                   (1 << 10)
 #define     WSA_FLAG_ISACCEPT                   (1 << 11)
+#define     WSA_FLAG_ISCONNECT                  (1 << 12)
 
 #define     IS_LISTEN(pcont)                    (pcont->dwFlags & WSA_FLAG_ISLISTEN)
 #define     IS_ACCEPT(pcont)                    (pcont->dwFlags & WSA_FLAG_ISACCEPT)
+#define     IS_CONNECT(pcont)                   (pcont->dwFlags & WSA_FLAG_ISCONNECT)
 #endif // __GLdb_SELF_USE
 
 /*
@@ -385,12 +387,14 @@ public:
  * EPOLLTIMEOUT: timeout in RThreadEpoll, trigger RThreadEvent
  * EPOLLREAD   : WSARecv send this in OVERLAPPED to trigger RThreadEvent.
  * EPOLLWRITE  : WSASend send this in OVERLAPPED to trigger RThreadEvent.
- * EPOLLACCEPT : for define accept
+ * EPOLLACCEPT : for define accept, post by AcceptEx()
+ * EPOLLCONNECT: for define connect, post by ConnectEx()
  */
 #define     EPOLLTIMEOUT                        (1 << 8)
 #define     EPOLLREAD                           (1 << 9)
 #define     EPOLLWRITE                          (1 << 10)
 #define     EPOLLACCEPT                         (1 << 11)
+#define     EPOLLCONNECT                        (1 << 12)
 
 /*
  * GLdbIOCP assembled by one epoll handle and one buffered eventfd. And two

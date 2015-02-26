@@ -122,10 +122,13 @@ RESULT      GTCPProtocol::PostAccept(
   (void)    op;
 __TRY
   PCONT     clicont;
+  PWSABUF   wsabuf = &(pbuff->wsaBuf);
 
   __DO (GetDupContext(clicont, pcont));
   pbuff->oLapped.accSocket = clicont;
-  AcceptEx((SOCKET)pcont, clicont, NULL, 0, 0, 0, NULL, &(pbuff->oLapped));
+  pbuff->oLapped.doneSize = 0;
+  wsabuf->len = 0;
+  AcceptEx((SOCKET)pcont, clicont, wsabuf, 0, 0, 0, NULL, &(pbuff->oLapped));
 __CATCH
 };
 
@@ -135,9 +138,14 @@ RESULT      GTCPProtocol::PostConnect(
   (void)    size;
   (void)    op;
 __TRY__
+  PWSABUF   wsabuf = &(pbuff->wsaBuf);
+
+  pcont->dwFlags |= WSA_FLAG_ISCONNECT;
   BindLocalSocket(pcont, this);
+  pbuff->oLapped.doneSize = 0;
+  wsabuf->len = 0;
   CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
-  ConnectEx((SOCKET)pcont, &(pcont->localSocket), sizeof(SOCK), 0, 0, 0, &(pbuff->oLapped));
+  ConnectEx((SOCKET)pcont, &(pcont->localSocket), sizeof(SOCK), wsabuf, 0, 0, &(pbuff->oLapped));
 __CATCH__
 };
 

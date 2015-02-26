@@ -92,7 +92,7 @@ SOCKET      WSASocket(
  * for the different for AcceptEx and accept, do NOT create socket here
  */
 #ifdef    __GLdb_SELF_USE
-  if (dwFlags & WSA_FLAG_ISACCEPT) pcont->bHandle = 0;
+  if (dwFlags & (WSA_FLAG_ISACCEPT | WSA_FLAG_ISCONNECT)) pcont->bHandle = 0;
   else pcont->bHandle = socket(af, type, protocol);
 #else  // __GLdb_SELF_USE
   pcont->bHandle = socket(af, type, protocol);
@@ -128,7 +128,13 @@ HANDLE      CreateIoCompletionPort(
     if (!FileHandle) return 0;
     FileHandle->iocpHandle = (PEVENT)ExistingCompletionPort;
     FileHandle->completionKey = CompletionKey;
-    ev.events = EPOLLET | EPOLLIN;
+    if (IS_CONNECT(FileHandle)) {
+      ev.events = EPOLLET | EPOLLOUT;
+      FileHandle->inEpollOut = 1;
+    } else {
+      ev.events = EPOLLET | EPOLLIN;
+      FileHandle->inEpollOut = 0;
+    }
     ev.data.ptr = CompletionKey;
     state = epoll_ctl(GlobalIOCP.epollHandle,
 		     EPOLL_CTL_ADD, 
@@ -263,7 +269,6 @@ BOOL        AcceptEx(
 	    LPDWORD         lpdwBytesReceived,
 	    LPOVERLAPPED    lpOverlapped)
 {
-  (void)    lpOutputBuffer;
   (void)    dwReceiveDataLength;
   (void)    dwLocalAddressLength;
   (void)    dwRemoteAddressLength;
@@ -271,6 +276,7 @@ BOOL        AcceptEx(
 __TRY__
   ADDR      overlap;
   lpOverlapped->Internal = sListenSocket;
+  lpOverlapped->InternalHigh = (PWSABUF)lpOutputBuffer;
   lpOverlapped->accSocket = sAcceptSocket;
   lpOverlapped->events = EPOLLACCEPT;
   overlap.pVoid = lpOverlapped;
@@ -278,6 +284,10 @@ __TRY__
 __CATCH_1
 };
 
+/*
+ * ConnectEx of GLdbIOCP version will not send any data fromto socket. It behavior
+ *   as dwSendDataLength = 0 in Windows.
+ */
 BOOL        ConnectEx(
             SOCKET          s,
 	    PSOCK           name,
@@ -287,9 +297,20 @@ BOOL        ConnectEx(
 	    LPDWORD         lpdwBytesSent,
 	    LPOVERLAPPED    lpOverlapped)
 {
-  (void)    lpSendBuffer;
   (void)    dwSendDataLength;
   (void)    lpdwBytesSent;
+__TRY__
+  ADDR      overlap;
+  lpOverlapped->Internal = s;
+  lpOverlapped->InternalHigh = (PWSABUF)lpSendBuffer;
+  /*
+   * should change following line in future
+   */
+  memcpy(&(s->localSocket), name, namelen);
+  lpOverlapped->events = EPOLLCONNECT;
+  overlap.pVoid = lpOverlapped;
+  __DO (*(GlobalIOCP.eventHandle) += overlap);
+__CATCH_1
 };
 
 RESULT      RThreadEpoll::ThreadInit(void)
@@ -358,9 +379,15 @@ __TRY
 /*
  * Wait eventfd, then get CContextItem and WSABuffer address
  */
+
+
   __DO (eventHandle -= overlapaddr);
+  D(BEGINEVENT);
   contextaddr = overlap->Internal;
+  DX(contextaddr.aLong);
+  DX(overlap->events);
   if (overlap->events == EPOLLIN) {
+    D(EPOLLIN);
 /*
  * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
@@ -379,6 +406,10 @@ __TRY
       tempevent = EPOLLACCEPT;
       __DO(context->writeBuffer += contextaddr);
     }
+
+    if (IS_CONNECT(context)) {
+      D(EPOLLIN_Connected);
+    }
 #endif // __GLdb_SELF_USE
 
     if (overlapaddr == ZERO) __BREAK_OK;
@@ -387,12 +418,15 @@ __TRY
   }
 
   if (overlap->events == EPOLLOUT) {
+    D(EPOLLOUT!!!!);
+
     *pOverlapStack += overlapaddr;
     overlap->events = EPOLLWRITE;             // maybe not necessary
   }
 
 #ifdef    __GLdb_SELF_USE
   if (overlap->events == EPOLLACCEPT) {
+    D(EPOLLACCEPT);
 /*
  * do half work of AcceptEx, only return accept SOCKET, but not receive first packet
  *
@@ -414,10 +448,24 @@ __TRY
       context->readBuffer += overlapaddr;
     }
   }
-  else
+  else if (overlap->events == EPOLLCONNECT) {
+    D(EPOLLCONNECT);
+    DSOCK(context->localSocket);
+    state = connect(context->bHandle, &(context->localSocket.saddr), sizeof(SOCK));
+    if (!state) {
+      D(ConnectAtOnec);
+    } else if (errno == EINPROGRESS) {
+
+      D(ConnectInProcess);
+      context->writeBuffer += overlapaddr;
+    } else {
+      D(ConnectError);
+    }
+  } else
 #endif // __GLdb_SELF_USE
 
   if (overlap->events == EPOLLREAD) {
+    D(EPOLLREAD);
     bufferaddr = overlap->InternalHigh;
     overlap->events = EPOLLIN;
     readed = read(context->bHandle, buffer->buf, buffer->len);
@@ -434,6 +482,7 @@ __TRY
     } 
   } 
   else if (overlap->events == EPOLLWRITE) {
+    D(EPOLLWRITE);
 /*
  * this loop will be break in three condition.
  * 1: writeBuffer is empty, then remove EPOLLOUT from epoll if necessary
@@ -444,8 +493,16 @@ __TRY
     while (true) {
       writed = 0;
       context->writeBuffer.TryGet(overlapaddr);
+
+    if (IS_CONNECT(context)) {
+      context->dwFlags &= ~WSA_FLAG_ISCONNECT;
+      DI(context->dwFlags);
+      DP(overlap);
+    }
+
       if (overlapaddr == ZERO) break;
       bufferaddr = overlap->InternalHigh;
+      DP(buffer);
       if (buffer->len - overlap->doneSize) {
 	writed = write(context->bHandle,
 		       buffer->buf + overlap->doneSize,
@@ -485,8 +542,12 @@ __TRY
     }
   }
   else if (overlap->events == EPOLLTIMEOUT) {
+    D(EPOLLTIMEOUT);
     // set some
     __BREAK_OK;
+  }
+  else {
+    D(EPOLLUNKONWN);
   }
 __CATCH
 };

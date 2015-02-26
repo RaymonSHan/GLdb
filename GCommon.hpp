@@ -194,10 +194,12 @@ typedef     struct WSAData {
  * I changed its type for less type conversion.
  *   len : original type is u_long
  *   buf : original type is char*
+ *
+ * I change the order of two field, for &(WSABUF) == &(WSABUF.buf)
  */
 typedef     struct __WSABUF {
-  UINT      len;
   PUCHAR    buf;
+  UINT      len;
 }WSABUF, *LPWSABUF, *PWSABUF;
 
 /*
@@ -400,7 +402,10 @@ typedef     union SOCKADDR
   sockaddr  saddr;
 }SOCK, *PSOCK;
 
-
+#define     DSOCK(sock)						\
+  printf("sock addr:%s port:%d\n",				\
+	 inet_ntoa(sock.saddrin.sin_addr),			\
+	 ntohs(sock.saddrin.sin_port));
 /*
  * Synchronous, Atom operation
  * All GLdb lock will be free immediately

@@ -74,6 +74,8 @@ __TRY
 	  (clicont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
   } else {
     __DO (GetDupContext(sercont, pcont->pPeer));
+    DP(clicont);
+    DP(sercont);
     clicont->pPeer = sercont;
     sercont->pPeer = clicont;
     // this should add into GetDupContext()
@@ -89,6 +91,7 @@ RESULT      GNoneApplication::OnConnect(
 {
   (void)    size;
 __TRY
+  D(InNoneApplication_OnConnect);
   __DO (NoneProFunc(&NoneProt, fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH
@@ -134,7 +137,9 @@ __CATCH
 
 RESULT      GNoneApplication::OnClose(
             PCONT pcont, PBUFF &pbuff, UINT size)
-  { return 0; };
+{
+  D(NoneApplication_OnClose);
+return 0; };
 RESULT      GNoneApplication::OnPassby(
             PCONT pcont, PBUFF &pbuff, UINT size)
   { return 0; };

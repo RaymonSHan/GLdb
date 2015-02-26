@@ -65,7 +65,7 @@ RESULT      GEncapsulate::InitEncapsulate(void)
 __TRY__
   PCONT     nullcont = NULL;
   char      local_addr[] = "127.0.0.1";
-  char      remote_addr[] = "192,168,1,1";
+  char      remote_addr[] = "180.97.33.107";    // www.baidu.com
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser, nulladdr;
 
