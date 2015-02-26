@@ -60,12 +60,17 @@ __TRY
 __CATCH
 };
 
+//#define     DOING_ECHO_APPLICATION
+#define     DOING_FORWARD_APPLICATION
+
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
 __TRY__
   PCONT     nullcont = NULL;
   char      local_addr[] = "127.0.0.1";
+  int       local_port = 8998;
   char      remote_addr[] = "180.97.33.107";    // www.baidu.com
+  int       remote_port = 80;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser, nulladdr;
 
@@ -73,32 +78,35 @@ __TRY__
   RegisterProtocol(GTCP, tcpProt, PROTOCOL_TCP, 0);
   RegisterApplication(NAPP, noneApp, APPLICATION_NONE, 0);
   RegisterApplication(ECHO, echoApp, APPLICATION_ECHO, 0);
-  RegisterApplication(FORWARD, forwardApp, APPLICATION_FORWARD, 0);
+  RegisterApplication(FORWARD, forwardApp, APPLICATION_FORWARD, APPLICATION_FLAG_DUPLEX);
 
   bzero(&sockcli.saddrin, sizeof(sockaddr_in));   
   sockcli.saddrin.sin_family = AF_INET; 
   inet_aton(local_addr,&(sockcli.saddrin.sin_addr));
-  sockcli.saddrin.sin_port=htons(8998);
+  sockcli.saddrin.sin_port=htons(local_port);
   addrcli = &sockcli;
 
   bzero(&sockser.saddrin, sizeof(sockaddr_in));   
   sockser.saddrin.sin_family = AF_INET; 
   inet_aton(remote_addr,&(sockser.saddrin.sin_addr));
-  sockser.saddrin.sin_port=htons(80);
+  sockser.saddrin.sin_port=htons(remote_port);
   addrser = &sockser;
 
-/*
-  nulladdr = 0;
+#ifdef      DOING_ECHO_APPLICATION
+  nulladdr = ZERO;
   CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
 		    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
 		    NULL, nulladdr, 0);
   GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
- */
+#endif   //  DOING_ECHO_APPLICATION
 
+#ifdef      DOING_FORWARD_APPLICATION
   CreateApplication(listenCont, nullcont, (PAPP)&forwardApp, 
 		    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
 		    (PPROT)&tcpProt, addrser, sizeof(SOCK));
   GlobalIOCP.StartWork(forwardApp.handleIOCP, 1);
+#endif   // DOING_FORWARD_APPLICATION
+
   // move to here, for lazy, may change control clone laterww
 __CATCH__
 };
@@ -137,12 +145,12 @@ __TRY
     __DO (GetContext(cliCont));
     cliCont->pApplication = pApp;
     cliCont->pProtocol = cliProt;
-    __DO (ProFunc(cliCont, fCreateNew)
+    __DO (NoneProFunc(fCreateNew)
 	  (cliCont, cliPara, cliSize));
     cliCont->pPeer = cliCont;
     for(i=0; i<ACCEPTNUMBER; i++) {
       __DO (GetBufferSmall(newbuff));
-      __DO (NoneProFunc(&NoneProt, fPostAccept)
+      __DO (NoneProFunc(fPostAccept)
 	    (cliCont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
     }
   }
@@ -150,7 +158,7 @@ __TRY
     __DO (GetContext(serCont));
     serCont->pApplication = pApp;
     serCont->pProtocol = serProt;
-    __DO (ProFunc(serCont, fCreateRemote)
+    __DO (NoneProFunc(fCreateRemote)
 	  (serCont, serPara, serSize));
     serCont->pPeer = NULL;
   }

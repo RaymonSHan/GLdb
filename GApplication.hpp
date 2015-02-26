@@ -40,6 +40,8 @@
 #ifndef     GLdb_APPLICATION_HPP
 #define     GLdb_APPLICATION_HPP
 
+#define     APPLICATION_FLAG_DUPLEX             (1 << 0)
+
 #define     APPLICATION_NONE                    0
 #define     APPLICATION_ECHO                    7
 #define     APPLICATION_FORWARD                 8

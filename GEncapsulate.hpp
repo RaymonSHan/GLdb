@@ -89,10 +89,10 @@ typedef     RESULT (GProtocol::*PHandle)        (PCONT, PBUFF&, UINT, UINT);
 typedef     RESULT (GProtocol::*PAction)        (PCONT, PBUFF&, UINT, UINT, UINT);
 typedef     RESULT (GApplication::*AHandle)     (PCONT, PBUFF&, UINT);
 
-#define     NoneProFunc(p, f)					\
-  (p->* (&FPHandle[0])->f)
-#define     NoneAppFunc(p, f)					\
-  (p->* (FAHandle[0].fFunction[f]))
+#define     NoneProFunc(f)					\
+  (NoneProt.* (&FPHandle[0])->f)
+#define     NoneAppFunc(f)					\
+  (NoneApp.* (FAHandle[0].fFunction[f]))
 #define     ProFunc(p, f)					\
   (p->pProtocol->*						\
    (&FPHandle[p->pProtocol->ProtocolNumber])->f)

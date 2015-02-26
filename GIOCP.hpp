@@ -160,6 +160,10 @@ BOOL        DisconnectEx(
 #define     IS_LISTEN(pcont)                    (pcont->dwFlags & WSA_FLAG_ISLISTEN)
 #define     IS_ACCEPT(pcont)                    (pcont->dwFlags & WSA_FLAG_ISACCEPT)
 #define     IS_CONNECT(pcont)                   (pcont->dwFlags & WSA_FLAG_ISCONNECT)
+
+#define     IS_DUPLEX(pcont)					\
+  (pcont->pApplication->ApplicationFlag &			\
+   APPLICATION_FLAG_DUPLEX)
 #endif // __GLdb_SELF_USE
 
 /*

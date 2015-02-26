@@ -34,6 +34,18 @@
 #include    "GProtocol.hpp"
 #include    "GApplication.hpp"
 
+RESULT      GNoneProtocol::CreateNew(
+            PCONT pcont, ADDR addr, UINT size)
+{
+  return ProFunc(pcont, fCreateNew)(pcont, addr, size);
+};
+
+RESULT      GNoneProtocol::CreateRemote(
+            PCONT pcont, ADDR addr, UINT size)
+{
+  return ProFunc(pcont, fCreateRemote)(pcont, addr, size);
+};
+
 RESULT      GNoneProtocol::PostAccept(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
@@ -42,7 +54,7 @@ RESULT      GNoneProtocol::PostAccept(
   //   FreeBuffer(pbuff);
   //   __BREAK_OK;
   // } else {
-    return ProFunc(pcont, fPostAccept)(pcont, pbuff, size, op);
+  return ProFunc(pcont, fPostAccept)(pcont, pbuff, size, op);
     //  }
 };
 

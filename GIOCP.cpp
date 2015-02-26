@@ -579,9 +579,9 @@ __TRY
   noper = pbuff->nOper;
 
   if (size || noper == OP_ACCEPT || noper == OP_CONNECT) 
-    NoneAppFunc(&NoneApp, noper - OP_BASE)(pcont, pbuff, size);
+    NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size);
   else 
-    NoneAppFunc(&NoneApp, fOnClose)(pcont, pbuff, size);
+    NoneAppFunc(fOnClose)(pcont, pbuff, size);
 __CATCH
 };
 

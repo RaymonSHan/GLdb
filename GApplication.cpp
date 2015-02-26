@@ -61,16 +61,19 @@ __TRY
   PBUFF     newbuff;
 
   __DO (GetBufferSmall(newbuff));
-  __DO (NoneProFunc(&NoneProt, fPostAccept)
+  __DO (NoneProFunc(fPostAccept)
 	(pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
   pbuff->nOper = OP_CLIENT_READ;
   // to make sure, maybe changed when accept
   clicont = (PCONT)pbuff->oLapped.accSocket;
   pbuff->oLapped.accSocket = 0;
   CreateIoCompletionPort(
-        clicont, pcont->pApplication->handleIOCP, (ULONG_PTR)clicont, 0);
-  if (pcont->pPeer == NULL) {
-    __DO (NoneProFunc(&NoneProt, fPostReceive)
+        clicont, pcont->pApplication->handleIOCP, (ULONG_PTR)clicont, 0);\
+  __DO(pcont->pPeer == NULL);
+
+  if (pcont->pPeer->pPeer != NULL) {
+    clicont->pPeer = clicont;
+    __DO (NoneProFunc(fPostReceive)
 	  (clicont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
   } else {
     __DO (GetDupContext(sercont, pcont->pPeer));
@@ -80,7 +83,7 @@ __TRY
     sercont->pPeer = clicont;
     // this should add into GetDupContext()
     memcpy(&(sercont->localSocket), &(pcont->pPeer->localSocket), sizeof(SOCK));
-    __DO (NoneProFunc(&NoneProt, fPostConnect)
+    __DO (NoneProFunc(fPostConnect)
 	  (sercont, pbuff, 0, OP_CONNECT));
   }
 __CATCH
@@ -91,9 +94,16 @@ RESULT      GNoneApplication::OnConnect(
 {
   (void)    size;
 __TRY
+  PBUFF     newbuff;
+
   D(InNoneApplication_OnConnect);
-  __DO (NoneProFunc(&NoneProt, fPostReceive)
+  __DO (NoneProFunc(fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
+  if (IS_DUPLEX(pcont)) {
+    __DO(GetBufferSmall(newbuff));
+    __DO (NoneProFunc(fPostReceive)
+	  (pcont, newbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
+  }
 __CATCH
 };
 
@@ -111,8 +121,8 @@ RESULT      GNoneApplication::OnClientWrite(
 {
   (void)    size;
 __TRY
-  __DO (NoneProFunc(&NoneProt, fPostReceive)
-	(pcont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
+  __DO (NoneProFunc(fPostReceive)
+	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
 __CATCH
 };
 
@@ -130,8 +140,8 @@ RESULT      GNoneApplication::OnServerWrite(
 { 
   (void)    size;
 __TRY
-  __DO (NoneProFunc(&NoneProt, fPostReceive)
-	(pcont, pbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
+  __DO (NoneProFunc(fPostReceive)
+	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH
 };
 
@@ -161,7 +171,7 @@ __TRY
   nowpeer->peerHost = *host;
   addr = host->strStart;
   __DO (GetDupContext(sercont, pcont));
-  __DO (ProFunc(pcont, fCreateRemote)(sercont, addr, host->strLen()));
+  __DO (ProFunc(sercont, fCreateRemote)(sercont, addr, host->strLen()));
   nowpeer->peerCont = sercont;
 
 __CATCH_BEGIN
@@ -190,8 +200,8 @@ RESULT      GEchoApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  __DO(NoneProFunc(&NoneProt, fPostSend)
-       (pcont, pbuff, size, OP_CLIENT_WRITE, OPSIDE_CLIENT));
+  __DO(NoneProFunc(fPostSend)
+       (pcont, pbuff, size, OP_SERVER_WRITE, OPSIDE_CLIENT));
 __CATCH
 };
 
@@ -199,7 +209,7 @@ RESULT      GForwardApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  __DO(NoneProFunc(&NoneProt, fPostSend)
+  __DO(NoneProFunc(fPostSend)
        (pcont->pPeer, pbuff, size, OP_SERVER_WRITE, OPSIDE_SERVER));
 __CATCH
 };
@@ -208,7 +218,7 @@ RESULT      GForwardApplication::OnServerRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  __DO(NoneProFunc(&NoneProt, fPostSend)
+  __DO(NoneProFunc(fPostSend)
        (pcont->pPeer, pbuff, size, OP_CLIENT_WRITE, OPSIDE_CLIENT));
 __CATCH
 };

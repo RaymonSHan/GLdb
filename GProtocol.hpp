@@ -90,6 +90,10 @@ typedef     class GNoneProtocol : public GProtocol
 {
 public:
   GNoneProtocol() : GProtocol() {};
+  RESULT    CreateNew(
+            PCONT pcont, ADDR addr, UINT size);
+  RESULT    CreateRemote(
+            PCONT pcont, ADDR addr, UINT size);
   RESULT    PostAccept(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op);
   RESULT    PostConnect(

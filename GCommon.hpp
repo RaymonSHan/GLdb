@@ -152,6 +152,7 @@ typedef     class GApplication*                 PAPP;
  */
 #define     D(a)                                printf("%s\n", #a);
 #define     DX(a)                               printf("  %s:%llx\n", #a, a);
+#define     DL(a)                               printf("  %s:%ld\n", #a, a);
 #define     DP(a)                               printf("  %s:%p\n", #a, a);
 #define     DI(a)                               printf("  %s:%d\n", #a, a);
 #define     DD                                  printf
