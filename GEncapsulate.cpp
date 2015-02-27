@@ -69,8 +69,8 @@ __TRY__
   PCONT     nullcont = NULL;
   char      local_addr[] = "127.0.0.1";
   int       local_port = 8998;
-  char      remote_addr[] = "192.168.1.1";
-  int       remote_port = 80;
+  char      remote_addr[] = "127.0.0.1";
+  int       remote_port = 8999;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser, nulladdr;
 

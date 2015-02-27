@@ -39,7 +39,8 @@
  * totalMemoryStart only be used here, so it is static var only, not for global.
  * I may add MAP_HUGETLB, should use HAGE PAGE if possible, for same so many cache.
  */
-RESULT      GetMemory(ADDR &addr, UINT size, UINT flag) 
+RESULT      GetMemory(
+            ADDR &addr, UINT size, UINT flag) 
 {
   static ADDR totalMemoryStart = {SEG_START_BUFFER};
   UINT      padsize;
@@ -49,7 +50,8 @@ __TRY
   addr = LockAdd(totalMemoryStart.aLong, padsize) + PAD_THREAD_STACK;
   addr = mmap (addr.pVoid, size, PROT_READ | PROT_WRITE,
 	       MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | flag, -1, 0);
-  __DO_(addr == MAP_FAILED, "Get memory error, size:0x%llx\n", size);
+  __DO_(addr == MAP_FAILED, 
+	"Get memory error, size:0x%llx\n", size);
 __CATCH
 };
 
@@ -144,6 +146,10 @@ __TRY
 __CATCH
 };
 
+/*
+ * CountTimeout() counted for one thread
+ * TimeoutAll counted one BLOCK for all thread
+ */
 RESULT      CMemoryBlock::TimeoutAll(void)
 {
 __TRY
@@ -162,7 +168,8 @@ __CATCH
  * Of course, thread MUST modified threadListStart to link threadListNext list.
  *   fortunately, it not in other TLS, it follow my habit.
  */
-RESULT      CMemoryBlock::SetThreadArea(UINT getsize, UINT maxsize, UINT freesize, UINT flag)
+RESULT      CMemoryBlock::SetThreadArea(
+            UINT getsize, UINT maxsize, UINT freesize, UINT flag)
 {
   static LOCK lockList = NOT_IN_PROCESS;
   ADDR      start;
@@ -198,7 +205,8 @@ __CATCH__
  *
  * in one memory block, real data ahead, stack array at last.
  */
-RESULT      CMemoryBlock::InitMemoryBlock(UINT number, UINT size, UINT border, UINT timeout)
+RESULT      CMemoryBlock::InitMemoryBlock(
+            UINT number, UINT size, UINT border, UINT timeout)
 {
 __TRY
   BorderSize = PAD_INT(size, 0, border);
@@ -217,7 +225,6 @@ __CATCH
 RESULT      CMemoryBlock::FreeMemoryBlock(void)
 {
 __TRY__
-  printf("in munmap() \n");
   munmap (RealBlock.pVoid, TotalSize);
 __CATCH__
 };
@@ -258,6 +265,7 @@ void        CMemoryBlock::DisplayFree(void)
 #endif // _TESTCOUNT
 };
 
+
 /*
  * Global Memory Function be called
  *
@@ -265,12 +273,11 @@ void        CMemoryBlock::DisplayFree(void)
  * GetBufferxx & FreeBufferxx to same thing
  */
 
-
 RESULT      InitContextItem(PCONT pcont)
 {
 __TRY__
   pcont->bHandle = 0;
-  pcont->inEpollOut = 0;
+  pcont->waitEpollOut = 0;
   pcont->iocpHandle = 0;
   pcont->completionKey = 0;
   pcont->readBuffer.InitQUERY_S();
@@ -283,7 +290,8 @@ __CATCH__
  * usedList & countDown is initialized in GetMemoryList()
  * allocType & refCount is initialized in GetContext()
  */
-RESULT      GetContext(PCONT &pcont, UINT timeout)
+RESULT      GetContext(
+            PCONT &pcont, UINT timeout)
 {
 __TRY
   ADDR      addr;
@@ -295,12 +303,16 @@ __TRY
 __CATCH
 };
 
-RESULT      GetDupContext(PCONT &newcont, PCONT pcont)
+RESULT      GetDupContext(
+	    PCONT &newcont, PCONT pcont, BOOL copy)
 {
 __TRY
   __DO (GetContext(newcont, 0));
   newcont->pProtocol = pcont->pProtocol;
   newcont->pApplication = pcont->pApplication;
+  if (copy) {
+    memcpy(&newcont->localSocket, &pcont->localSocket, 2*sizeof(SOCK));
+  }
 __CATCH
 };
 
@@ -319,7 +331,8 @@ RESULT      FreeContext(PCONT pcont)
   return addr.DecRefCount();
 };
 
-void        ReflushTimeout(PCONT pcont, UINT timeout)
+void        ReflushTimeout(
+            PCONT pcont, UINT timeout)
 {
   ADDR      addr;
   addr = PCONT_TO_ADDR(pcont);
@@ -401,6 +414,7 @@ void        CMemoryBlock::DisplayArray(void)
 {
   INT   i;
   threadMemoryInfo *list;
+
   printf("Array Start:%p, Free:%p, End%p\n", 
 	 memoryArrayStart.pVoid, memoryArrayFree.pVoid, memoryArrayEnd.pVoid);
   ADDR arr = memoryArrayStart;
@@ -423,15 +437,16 @@ void        CMemoryBlock::DisplayArray(void)
 
 void        CMemoryBlock::DisplayInfo(void)
 {
+  volatile ADDR item;
+
   printf("Get  :%10lld, Succ:%10lld\n", GetCount, GetSuccessCount);
   printf("Free :%10lld, Succ:%10lld\n", FreeCount, FreeSuccessCount);
   printf("MinFree:%8lld,\n", MinFree);
 
-  volatile ADDR item;
-    item.pList = RealBlock.pList;
-    for (int i=0; i<TotalNumber; i++) {
-      printf("%5d:%p, %p,\n", i, item.pList, item.pList->usedList.pVoid);
-       item.aLong += BorderSize;
+  item.pList = RealBlock.pList;
+  for (int i=0; i<TotalNumber; i++) {
+    printf("%5d:%p, %p,\n", i, item.pList, item.pList->usedList.pVoid);
+    item.aLong += BorderSize;
   }
 };
 

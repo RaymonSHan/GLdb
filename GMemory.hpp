@@ -48,7 +48,8 @@
  */
 #define     SEG_START_BUFFER                    (0x52LL << 40)
 
-RESULT      GetMemory(ADDR &addr, UINT size, UINT flag = 0);
+RESULT      GetMemory(
+            ADDR &addr, UINT size, UINT flag = 0);
 RESULT      GetStack(ADDR &addr);
 
 
@@ -177,7 +178,8 @@ public:
 #define     IncRefCount                          pList->incRefCount
 #define     DecRefCount                          pList->decRefCount
 
-void        ReflushTimeout(PCONT pcont, UINT timeoutww);
+void        ReflushTimeout(
+            PCONT pcont, UINT timeoutww);
 
 /*
  * this is have not test
@@ -342,11 +344,11 @@ private:
   RESULT    CountTimeout(ADDR usedStart);
 
 public:
-  RESULT    SetThreadArea(UINT getsize, UINT maxsize,
-			  UINT freesize, UINT flag);
-  RESULT    InitMemoryBlock(UINT number, UINT size, 
-			    UINT border, UINT timeout);
-  RESULT    FreeMemoryBlock();
+  RESULT    SetThreadArea(
+            UINT getsize, UINT maxsize, UINT freesize, UINT flag);
+  RESULT    InitMemoryBlock(
+            UINT number, UINT size, UINT border, UINT timeout);
+  RESULT    FreeMemoryBlock(void);
 
 /*
  * GetMemoryList() is for free able class.
@@ -359,7 +361,8 @@ public:
  *   first node in UsedList, even countdowned.
  * In my habit, TLS only be changed by one thread.
  */
-  RESULT    GetMemoryList(ADDR &addr, UINT timeout = 0)
+  RESULT    GetMemoryList(
+            ADDR &addr, UINT timeout = 0)
   {
     GetThreadMemoryInfo();
   __TRY
@@ -419,11 +422,19 @@ public:                                         // statistics info for debug
  * This struct should in kernal, but i implement it in userspace.
  * there are all information related I/O handle for IOCP
  *
- * 
- * dwFlags   : bit 0-7 same as Windows define. important WSA_FLAG_OVERLAPPED
- *             value is 0x01.
- *           : bit 10, WSA_FLAG_ISLISTEN, for whether is listneing socket.
- *           : bit 11, WSA_FLAG_ISACCEPT, for my AcceptEx use
+ * bHandle      : real handle for this CONT, maybe ZERO when init
+ * iocpHandle   : which IOCP the handle bind. set by CreateIoCompletionPort();
+ * completionKey: value when IOCP back, set by CreateIoCompletionPort(), get by
+ *                GetQueuedCompletionStatus();
+ * readBuffer   : OLAP query wait for this handle, set by PostAccept & PostReceive
+ * writeBuffer  : OLAP query should send, set by PostConnect & PostSend
+ * waitEpollOut : is 1 means the handle returned EAGAIN for write before. EPOLLOUT
+ *                have add to epoll_ctl(). is 0 for handle is ready for write.
+ * dwFlags      : bit 0-7 same as Windows define. important WSA_FLAG_OVERLAPPED
+ *                value is 0x01, which should be always set.
+ *              : bit 10, WSA_FLAG_ISLISTEN, for whether is listneing socket.
+ *              : bit 11, WSA_FLAG_ISACCEPT, for my AcceptEx use
+ *              : bit 12, WSA_FLAG_ISCONNTECT, for ConnectEx use
  *
  * The field in GLdb_SELF_USE is used for GLdbDatabase and other application
  *   used __GLdbIOCP writen by myself. For all items associated to handle can 
@@ -432,11 +443,11 @@ public:                                         // statistics info for debug
 typedef     class CContextItem {
 public:
   int       bHandle;
-  ULONG_PTR completionKey;                          // save user define key
-  PEVENT    iocpHandle;                             // eventfd handle bind for user
+  PEVENT    iocpHandle;
+  ULONG_PTR completionKey;
   QUERY_S   readBuffer;
   QUERY_S   writeBuffer;
-  BOOL      inEpollOut;
+  BOOL      waitEpollOut;
   DWORD     dwFlags;
 
 #ifdef    __GLdb_SELF_USE
@@ -446,7 +457,6 @@ public:
   SOCKADDR  remoteSocket;
   PCONT     pPeer;
   LQUERY    nextPeer;
-  PBUFF     pBuffer;
   LQUERY    nextBuffer;
 #endif // __GLdb_SELF_USE
 }CONT, *PCONT;
@@ -456,8 +466,10 @@ public:
 #define     GlobalBufferMiddle                  CMemoryAlloc::globalBufferMiddle
 
 RESULT      InitContextItem(PCONT pcont);
-RESULT      GetContext(PCONT &pcont, UINT timeout = 0);
-RESULT      GetDupContext(PCONT &newcont, PCONT pcont);
+RESULT      GetContext(
+            PCONT &pcont, UINT timeout = 0);
+RESULT      GetDupContext(
+            PCONT &newcont, PCONT pcont, BOOL copy = false);
 RESULT      ReferenceContext(PCONT pcont);
 RESULT      FreeContext(PCONT addr);
 
@@ -536,9 +548,8 @@ public:
   static    CMemoryBlock globalBufferMiddle;
 
 public:
-  RESULT    InitMemoryBlock(UINT numcontext,
-			    UINT numbuffersmall,
-			    UINT numbermiddle)
+  RESULT    InitMemoryBlock(
+	    UINT numcontext, UINT numbuffersmall, UINT numbermiddle)
   {
   __TRY
     __DO (globalContext.InitMemoryBlock
@@ -549,7 +560,8 @@ public:
 	 (numbermiddle, sizeof(BUFF_M), SIZE_NORMAL_PAGE, ZERO));
   __CATCH
   };
-  RESULT    AppendMemoryBlock(BLOCK &block, UINT msize);
+  RESULT    AppendMemoryBlock(
+	    BLOCK &block, UINT msize);
   RESULT    FrreeMemoryBlock()
   {
   __TRY

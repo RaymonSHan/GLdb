@@ -150,12 +150,27 @@ typedef     class GApplication*                 PAPP;
 /*
  * for DEBUG use
  */
-#define     D(a)                                printf("%s\n", #a);
-#define     DX(a)                               printf("  %s:%llx\n", #a, a);
-#define     DL(a)                               printf("  %s:%ld\n", #a, a);
-#define     DP(a)                               printf("  %s:%p\n", #a, a);
-#define     DI(a)                               printf("  %s:%d\n", #a, a);
+#define     D(a)                                printf("%s  ", #a);
+#define     Dd(a)                               printf("%s:%d  ", #a, a);
+#define     Dx(a)                               printf("%s:%x  ", #a, a);
+#define     Dld(a)                              printf("%s:%ld  ", #a, a);
+#define     Dlx(a)                              printf("%s:%lx  ", #a, a);
+#define     Dlld(a)                             printf("%s:%lld  ", #a, a);
+#define     Dllx(a)                             printf("%s:%llx  ", #a, a);
+#define     Dp(a)                               printf("%s:%p  ", #a, a);
+#define     Ds(a)                               printf("%s:%s  ", #a, a);
+#define     Dn                                  printf("\n");
 #define     DD                                  printf
+
+#define     DOLAP(olap)						\
+  printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld, acc:%p\n",	\
+	 olap, olap->Internal, olap->InternalHigh, olap->events,\
+	 olap->doneSize, olap->accSocket);
+
+#define     DSOCK(sock)						\
+  printf("sock addr:%s port:%d\n",				\
+	 inet_ntoa(sock.saddrin.sin_addr),			\
+	 ntohs(sock.saddrin.sin_port));
 
 /*
  * typedef for IOCP, compatible for Windows
@@ -233,11 +248,6 @@ typedef     struct _WSAOVERLAPPED {
   UINT      doneSize;
   SOCKET    accSocket;
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED, OLAP, *POLAP;
-
-#define     DOLAP(olap)						\
-  printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld, acc:%p\n",	\
-	 olap, olap->Internal, olap->InternalHigh, olap->events,\
-	 olap->doneSize, olap->accSocket);
 
 #endif // __linux
 
@@ -328,7 +338,6 @@ typedef     class STRING
 public:
   PUCHAR    strStart;
   PUCHAR    strEnd;
-
 public:
   void virtual operator = (STRING &one) {
     this->strStart = one.strStart;
@@ -403,10 +412,7 @@ typedef     union SOCKADDR
   sockaddr  saddr;
 }SOCK, *PSOCK;
 
-#define     DSOCK(sock)						\
-  printf("sock addr:%s port:%d\n",				\
-	 inet_ntoa(sock.saddrin.sin_addr),			\
-	 ntohs(sock.saddrin.sin_port));
+
 /*
  * Synchronous, Atom operation
  * All GLdb lock will be free immediately
@@ -496,7 +502,7 @@ typedef     struct perTraceInfo {
 }OTINFO;
 
 typedef     struct threadTraceInfo {
-  UINT      nowLevel;                                           // in asm act as offset
+  UINT      nowLevel;
   PUCHAR    threadName;
   UINT      pad[2];
   OTINFO    calledInfo[MAX_NEST_LOOP];
@@ -738,7 +744,6 @@ private:
   BOOL      singleThread;
   UINT      getSize;
   UINT      freeSize;
-
 public:
   void      InitArrayStack(
             ADDR start, UINT number, BOOL singlethread = 0,

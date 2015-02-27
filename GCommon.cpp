@@ -60,13 +60,17 @@ volatile    UINT GlobalTime                   = time(NULL);
  * ThreadStartEvent : synchronous event, for thread initialized one by one
  *                    because of TLS, per-thread init MUST be runned by thread self.
  *
- * ThreadInitFinish : synchronous event, after all clone of child thread, parrent
+ * ThreadInitFinish : synchronous event, after all clone of child thread, parent
  *                    thread set this, for start ThreadDoing() start.
+ *
+ * ThreadMainFinish : synchronuus event, parent thread wait this after it set
+ *                    ThreadInitFinish.
  */
 volatile    UINT GlobalThreadNumber           = 0;
 volatile    UINT GlobalShouldQuit             = 0;
 EVENT       ThreadStartEvent;
 EVENT       ThreadInitFinish;
+EVENT       ThreadMainFinish;
 
 /*
  * Following in RThreadEpoll
@@ -104,6 +108,10 @@ NAPP        NoneApp;
 
 #endif  //__GLdb_SELF_USE
 
+
+/*
+ * STRING version of strcmp()
+ */
 INT         StrCmp(STRING &one, STRING &two)
 {
   INT       onelen, twolen, shortlen, shortlen8, i;

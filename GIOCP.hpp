@@ -157,9 +157,12 @@ BOOL        DisconnectEx(
 #define     WSA_FLAG_ISACCEPT                   (1 << 11)
 #define     WSA_FLAG_ISCONNECT                  (1 << 12)
 
-#define     IS_LISTEN(pcont)                    (pcont->dwFlags & WSA_FLAG_ISLISTEN)
-#define     IS_ACCEPT(pcont)                    (pcont->dwFlags & WSA_FLAG_ISACCEPT)
-#define     IS_CONNECT(pcont)                   (pcont->dwFlags & WSA_FLAG_ISCONNECT)
+#define     IS_LISTEN(pcont)					\
+  (pcont->dwFlags & WSA_FLAG_ISLISTEN)
+#define     IS_ACCEPT(pcont)					\
+  (pcont->dwFlags & WSA_FLAG_ISACCEPT)
+#define     IS_CONNECT(pcont)					\
+  (pcont->dwFlags & WSA_FLAG_ISCONNECT)
 
 #define     IS_DUPLEX(pcont)					\
   (pcont->pApplication->ApplicationFlag &			\
@@ -186,12 +189,9 @@ BOOL        DisconnectEx(
 typedef     class RMultiEvent
 {
 private:
-  UINT      pad;
   QUERY_S   eventQuery;
-
 public:
   int       eventFd;
-
 public:
   RMultiEvent()
   {
@@ -262,6 +262,7 @@ public:
 #define     GlobalShouldQuit                    RThread::globalShouldQuit
 #define     ThreadStartEvent                    RThread::threadStartEvent
 #define     ThreadInitFinish                    RThread::threadInitFinish
+#define     ThreadMainFinish                    RThread::threadMainFinish
 
 typedef   __class(RThread)
 private:
@@ -277,6 +278,7 @@ public:
   static    volatile UINT globalShouldQuit;
   static    EVENT threadStartEvent;
   static    EVENT threadInitFinish;
+  static    EVENT threadMainFinish;
 
 public:
   RThread()
@@ -305,6 +307,7 @@ public:
       else {
 	ThreadStartEvent.InitArrayEvent();
 	ThreadInitFinish.InitArrayEvent();
+	ThreadMainFinish.InitArrayEvent();
       }
     }
     __DO_(result.aLong, "GlobalEvent Initialize Error\n");
@@ -335,18 +338,19 @@ public:
     for (i = 0; i < GlobalThreadNumber; i++) {
       __DO (ThreadInitFinish += result);
     }
-    ThreadStartEvent.FreeArrayEvent();
-/*
- * When call this ?
- *  ThreadInitFinish.FreeArrayEvent();
- */
-//   
+    for (i=0; i < GlobalThreadNumber; i++) {
+      __DO (ThreadMainFinish -= result);
+    }
+    __DOc(ThreadStartEvent.FreeArrayEvent());
+    __DOc(ThreadInitFinish.FreeArrayEvent());
+    __DOc(ThreadMainFinish.FreeArrayEvent());
   __CATCH
   };
 
 /*
  * First setThreadName() and other system initialize, and customize init by child.
  * After it, set sign for parent thread can clone next child. and wait parent's sign
+ * When get ThreadInitFinish, it send back to parent by ThreadMainFinish
  * Then do main loop till quit sign for this thread or all threads.
  * The final, free resource to quit.
  */
@@ -359,11 +363,13 @@ public:
     result = thread->SystemThreadInit();
     if (!ThreadStartEvent.IsInitArrayEvent()) {
       __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
-      __DO_(result.aLong, "Thread Initialize Error\n");
       __DO (ThreadInitFinish -= result);
+      __DO (ThreadMainFinish += result);
     }
-    while ((!thread->shouldQuit) && (!GlobalShouldQuit))
+    __DO_(result.aLong, "Thread Initialize Error\n");
+    while ((!thread->shouldQuit) && (!GlobalShouldQuit)) {
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
+    }
     __DO_(thread->ThreadFree(), "Thread Free Error\n");
   __CATCH
   };
@@ -375,7 +381,6 @@ public:
   virtual   RESULT ThreadInit(void) = 0;
   virtual   RESULT ThreadDoing(void) = 0;
   virtual   RESULT ThreadFree(void) { return 0; };
-
 }THREAD, *PTHREAD;
 
 
@@ -423,8 +428,7 @@ public:
  * pepollHandle : as its name
  * evHandle     : RThreadEvent's member, set by parent thread after initialize
  * overlapStack : struct for translate to RThreadEvent
- * overlapBuffer: really memory to store message
- * forAcceptOnly: const for translate EPOLLACCEPT to IOCP
+ * overlapBuffer: really memory for OLAP to store message
  */
 typedef   __class_ (RThreadEpoll, RThread)
 public:
@@ -476,7 +480,9 @@ public:
  *
  *                If buffer exist, it trigger IOCP eventfd for read complete when 
  *                finish reading.
- * more for accept in
+ *              : for LISTEN socket, EPOLLIN means accept income, it check readBuffer
+ *                too. If exist, get a buffer and accept it, if not, add the accept 
+ *                to writeBuffer of LISTEN socket.
  * EPOLLOUT     : send by RThreadEpoll, for last send is ok. Internal same as above.
  *                RThreadEvent first check whether the data in this OVERLAPPED have 
  *                sent completely, if not, continous send. Or trigger IOCP eventfd
@@ -495,8 +501,11 @@ public:
  *                into writeBuffer, for last OVERLAPPED may partly send.
  *                RThreadEvent do same thing as receive EPOLLOUT for EPOLLWRITE.
  * EPOLLTIMEOUT : do nothing but exit the loop.
- * EPOLLACCEPT  : AcceptEx post buffer for accept, check acceptQuery. If exist, get
- *                the accept, Or, add the buffer to readBuffer of listen SOCKET.
+ * EPOLLACCEPT  : AcceptEx post buffer for accept, check writeBuffer of LISTEN socket
+ *                If exist, get the accept, Or, add the buffer to readBuffer of listen 
+ *                SOCKET.
+ * EPOLLCONNECT : ConnectEx post buffer for connect, THE handle with WSA_FLAG_CONNECT 
+ *                flag, and waitEpollOut. after connect, it wait EPOLLOUT to do more.
  *
  * epollHandle  : the epollHandle in RThreadEpoll, set by parent thread after initialize.
  * evHandle     : buffered eventfd, entity of pevHandle in RThreadEpoll
@@ -528,6 +537,12 @@ public:
 
 
 #ifdef    __GLdb_SELF_USE
+/*
+ * RThreadWork wait IOCP and process application & protocol
+ *
+ * before clone, the thread MUST set handleIOCP by SetupHandle()
+ * the only member in this class, is the IOCP handle it waited.
+ */
 typedef   __class_ (RThreadWork, RThread)
 private:
   PEVENT    handleIOCP;
@@ -561,6 +576,12 @@ public:
  * iocpHandleUsed: list for used IOCP handle, only used when program exit.
  * threadEpoll   : RThreadEpoll class
  * threaEvent    : RThreadEvent class
+ * threadWork    : RThreadWork class, max number is  NUMBER_MAX_WORK
+ * nowWorkThread : now RThreadWork number
+ * 
+ * epollHandle   : handle of threadEpoll.epollHandle
+ * eventHandle   : pointer to threadEvent.eventHandle
+ * pOverlapStack : pointer to threadEpoll.overlapStack
  */
 typedef     class GLdbIOCP {
 private:

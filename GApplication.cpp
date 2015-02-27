@@ -76,13 +76,11 @@ __TRY
     __DO (NoneProFunc(fPostReceive)
 	  (clicont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
   } else {
-    __DO (GetDupContext(sercont, pcont->pPeer));
-    DP(clicont);
-    DP(sercont);
+    __DO (GetDupContext(sercont, pcont->pPeer, true));
     clicont->pPeer = sercont;
     sercont->pPeer = clicont;
     // this should add into GetDupContext()
-    memcpy(&(sercont->localSocket), &(pcont->pPeer->localSocket), sizeof(SOCK));
+    //    memcpy(&(sercont->localSocket), &(pcont->pPeer->localSocket), sizeof(SOCK));
     __DO (NoneProFunc(fPostConnect)
 	  (sercont, pbuff, 0, OP_CONNECT));
   }
@@ -96,14 +94,10 @@ RESULT      GNoneApplication::OnConnect(
 __TRY
   PBUFF     newbuff;
 
-  D(InNoneApplication_OnConnect);
   __DO (NoneProFunc(fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
-  DP(pcont);
-  DP(pcont->pPeer);
 
   if (IS_DUPLEX(pcont)) {
-    D(POST_to_server);
     __DO(GetBufferSmall(newbuff));
     __DO (NoneProFunc(fPostReceive)
 	  (pcont, newbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
@@ -125,7 +119,6 @@ RESULT      GNoneApplication::OnClientWrite(
 {
   (void)    size;
 __TRY
-  D(NoneApplication_ClientWrite);
   __DO (NoneProFunc(fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
 __CATCH
@@ -145,7 +138,6 @@ RESULT      GNoneApplication::OnServerWrite(
 { 
   (void)    size;
 __TRY
-  D(NoneApplication_ServerWrite);
   __DO (NoneProFunc(fPostReceive)
 	(pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH
@@ -154,8 +146,8 @@ __CATCH
 RESULT      GNoneApplication::OnClose(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
-  D(NoneApplication_OnClose);
 return 0; };
+
 RESULT      GNoneApplication::OnPassby(
             PCONT pcont, PBUFF &pbuff, UINT size)
   { return 0; };
@@ -206,11 +198,6 @@ RESULT      GEchoApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  D(EchoApplication_OnClientRead);
-  PUCHAR    nowp = pbuff->wsaBuf.buf;
-  nowp[size] = 0;
-  DD("size:%lld, %s\n", size, nowp);
-
   __DO(NoneProFunc(fPostSend)
        (pcont, pbuff, size, OP_SERVER_WRITE, OPSIDE_CLIENT));
 __CATCH
@@ -220,11 +207,6 @@ RESULT      GForwardApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  D(ForwardApplication_OnClientRead);
-  PUCHAR    nowp = pbuff->wsaBuf.buf;
-  nowp[size] = 0;
-  DD("size:%lld, %s\n", size, nowp);
-
   __DO(NoneProFunc(fPostSend)
        (pcont->pPeer, pbuff, size, OP_SERVER_WRITE, OPSIDE_SERVER));
 __CATCH
@@ -234,11 +216,6 @@ RESULT      GForwardApplication::OnServerRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-  D(ForwardApplication_OnServerRead);
-  PUCHAR    nowp = pbuff->wsaBuf.buf;
-  nowp[size] = 0;
-  DD("size:%lld, %s\n", size, nowp);
-
   __DO(NoneProFunc(fPostSend)
        (pcont->pPeer, pbuff, size, OP_CLIENT_WRITE, OPSIDE_CLIENT));
 __CATCH

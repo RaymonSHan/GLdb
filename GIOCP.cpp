@@ -44,7 +44,7 @@ IOCP        GlobalIOCP;
 #endif  //__GLdb_SELF_USE
 
 /*
- * return -1 for NOT socket, return >0 is listening, return 0 is not.
+ * return -1 for NOT socket, return > 0 is listening, return 0 is not.
  */
 int         isListeningSocket(HANDLE handle)
 {
@@ -130,10 +130,10 @@ HANDLE      CreateIoCompletionPort(
     FileHandle->completionKey = CompletionKey;
     if (IS_CONNECT(FileHandle)) {
       ev.events = EPOLLET | EPOLLIN | EPOLLOUT;
-      FileHandle->inEpollOut = 1;
+      FileHandle->waitEpollOut = 1;
     } else {
       ev.events = EPOLLET | EPOLLIN;
-      FileHandle->inEpollOut = 0;
+      FileHandle->waitEpollOut = 0;
     }
     ev.data.ptr = CompletionKey;
     state = epoll_ctl(GlobalIOCP.epollHandle,
@@ -382,27 +382,20 @@ __TRY
 
 
   __DO (eventHandle -= overlapaddr);
-  D(BEGINEVENT);
   contextaddr = overlap->Internal;
-  DX(contextaddr.aLong);
-  DX(overlap->events);
 
   if (overlap->events & EPOLLERR) {
-    D(EPOLLERR);
     overlap->events &= ~EPOLLERR;
   }
   if (overlap->events & EPOLLHUP) {
-    D(EPOLLHUP);
     overlap->events &= ~EPOLLHUP;
   }
   if (overlap->events & EPOLLTIMEOUT) {
-    D(EPOLLTIMEOUT);
     // set some
     __BREAK_OK;
   }
 
   if (overlap->events & EPOLLIN) {
-    D(EPOLLIN);
 /*
  * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
@@ -420,10 +413,6 @@ __TRY
       tempevent = EPOLLACCEPT;
       __DO(context->writeBuffer += contextaddr);
     }
-
-    if (IS_CONNECT(context)) {
-      D(EPOLLIN_Connected);
-    }
 #endif // __GLdb_SELF_USE
 
     if (overlapaddr == ZERO) __BREAK_OK;
@@ -432,15 +421,12 @@ __TRY
   }
 
   if (overlap->events & EPOLLOUT) {
-    D(EPOLLOUT!!!!);
-
     *pOverlapStack += overlapaddr;
     overlap->events |= EPOLLWRITE;             // maybe not necessary
   }
 
 #ifdef    __GLdb_SELF_USE
   if (overlap->events & EPOLLACCEPT) {
-    D(EPOLLACCEPT);
 /*
  * do half work of AcceptEx, only return accept SOCKET, but not receive first packet
  *
@@ -463,23 +449,16 @@ __TRY
     }
   }
   if (overlap->events & EPOLLCONNECT) {
-    D(EPOLLCONNECT);
-    DSOCK(context->localSocket);
     state = connect(context->bHandle, &(context->localSocket.saddr), sizeof(SOCK));
     if (!state) {
-      D(ConnectAtOnec);
     } else if (errno == EINPROGRESS) {
-
-      D(ConnectInProcess);
       context->writeBuffer += overlapaddr;
     } else {
-      D(ConnectError);
     }
   }
 #endif // __GLdb_SELF_USE
 
   if (overlap->events & EPOLLREAD) {
-    D(EPOLLREAD);
     bufferaddr = overlap->InternalHigh;
     //    overlap->events = EPOLLIN;       // This is why?
     readed = read(context->bHandle, buffer->buf, buffer->len);
@@ -496,7 +475,6 @@ __TRY
     } 
   } 
   if (overlap->events & EPOLLWRITE) {
-    D(EPOLLWRITE);
 /*
  * this loop will be break in three condition.
  * 1: writeBuffer is empty, then remove EPOLLOUT from epoll if necessary
@@ -510,13 +488,10 @@ __TRY
 
     if (IS_CONNECT(context)) {
       context->dwFlags &= ~WSA_FLAG_ISCONNECT;
-      DI(context->dwFlags);
-      DP(overlap);
     }
 
       if (overlapaddr == ZERO) break;
       bufferaddr = overlap->InternalHigh;
-      DP(buffer);
       if (buffer->len - overlap->doneSize) {
 	writed = write(context->bHandle,
 		       buffer->buf + overlap->doneSize,
@@ -536,32 +511,27 @@ __TRY
       } else break;
     }
     if (overlapaddr == ZERO) {
-      if (!context->inEpollOut) __BREAK_OK;
-      D(DO_EPOLL_CTL_DEL!!!!!!!);
-      ev.events = EPOLLET | EPOLLOUT;
+      if (!context->waitEpollOut) __BREAK_OK;
+      ev.events = EPOLLET | EPOLLIN;
       ev.data.u64 = contextaddr.aLong;
-      /*   
       __DO1 (state,
 	     epoll_ctl(epollHandle, 
-		       EPOLL_CTL_DEL, 
+		       EPOLL_CTL_MOD, 
 		       context->bHandle, 
 		       &ev));
-      */
-      context->inEpollOut = 0;
+      context->waitEpollOut = 0;
     } else {
-      if (context->inEpollOut) __BREAK_OK;
-     D(DO_EPOLL_CTL_ADD!!!!!!!);
+      if (context->waitEpollOut) __BREAK_OK;
       ev.events = EPOLLET | EPOLLOUT;
       ev.data.u64 = contextaddr.aLong;
       __DO1 (state,
 	     epoll_ctl(epollHandle, 
-		       EPOLL_CTL_ADD, 
+		       EPOLL_CTL_MOD, 
 		       context->bHandle, 
 		       &ev));
-      context->inEpollOut = 1;
+      context->waitEpollOut = 1;
     }
   }
-
 __CATCH
 };
 
@@ -606,15 +576,13 @@ __TRY__
   int       i;
   ADDR      addr;
 
-  for (i=0; i<NUMBER_MAX_IOCP; i++) {
+  for (i = 0; i < NUMBER_MAX_IOCP; i++) {
     addr = (PVOID)&(iocpHandle[i]);
     iocpHandleFree += addr;
   }
   nowWorkThread = 0;
   threadEpoll.ThreadClone(true);
-  //  sleep(1);
   threadEvent.ThreadClone(true);
-  //  sleep(1);
   RThread::ThreadStart();
 
 /*
@@ -624,10 +592,6 @@ __TRY__
   epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
   eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
   pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
-DD("Global epoll:%x, event:%p\n", epollHandle, eventHandle);
-  // move this line to encapsulate, for lazy, may change control clone later
-  //  RThread::ThreadStart();
-
 __CATCH__
 };
 
@@ -644,7 +608,7 @@ RESULT      GLdbIOCP::FreeGLdbIOCP()
 /*
  * for all worThread and Epoll & Event
  */
-  for (i=0; i<nowWorkThread + 2; i++)  
+  for (i = 0; i < GlobalThreadNumber; i++)  
     waitpid(-1, &status, __WCLONE);
   return 0;
 };
