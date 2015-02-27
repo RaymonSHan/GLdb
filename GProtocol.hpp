@@ -33,7 +33,7 @@
  */
 
 #include    "GCommon.hpp"
-#include    "GEncapsulate.hpp"
+#include    "GMemory.hpp"
 
 #ifdef    __GLdb_SELF_USE
 

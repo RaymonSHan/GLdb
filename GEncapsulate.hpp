@@ -40,7 +40,6 @@
 #ifndef     GLdb_ENCAPSULATE_HPP
 #define     GLdb_ENCAPSULATE_HPP
 
-#include    "GMemory.hpp"
 #include    "GIOCP.hpp"
 #include    "GProtocol.hpp"
 #include    "GApplication.hpp"
@@ -50,7 +49,7 @@
 
 #define     FPHandle                            GEncapsulate::fPHandle
 #define     FAHandle                            GEncapsulate::fAHandle
-#define     NoneProt                            GEncapsulate::noneProt
+#define     NonePro                             GEncapsulate::nonePro
 #define     NoneApp                             GEncapsulate::noneApp
 
 #define     NUMBER_CONTEXT                      50
@@ -84,13 +83,17 @@
 #define     OPSIDE_PEER_SERVER                  (OPSIDE_SERVER+3)
 	
 
-typedef	    RESULT (GProtocol::*PNew)           (PCONT, ADDR, UINT);
-typedef     RESULT (GProtocol::*PHandle)        (PCONT, PBUFF&, UINT, UINT);
-typedef     RESULT (GProtocol::*PAction)        (PCONT, PBUFF&, UINT, UINT, UINT);
-typedef     RESULT (GApplication::*AHandle)     (PCONT, PBUFF&, UINT);
+typedef	    RESULT (GProtocol::*PNew)
+            (PCONT, ADDR, UINT);
+typedef     RESULT (GProtocol::*PHandle)
+            (PCONT, PBUFF&, UINT, UINT);
+typedef     RESULT (GProtocol::*PAction)
+            (PCONT, PBUFF&, UINT, UINT, UINT);
+typedef     RESULT (GApplication::*AHandle)
+            (PCONT, PBUFF&, UINT);
 
 #define     NoneProFunc(f)					\
-  (NoneProt.* (&FPHandle[0])->f)
+  (NonePro.* (&FPHandle[0])->f)
 #define     NoneAppFunc(f)					\
   (NoneApp.* (FAHandle[0].fFunction[f]))
 #define     ProFunc(p, f)					\
@@ -114,11 +117,6 @@ typedef     struct ProtocolHandles
   PHandle   fPostClose;
 }PHANDLE;
 
-typedef     struct ApplicationHandles
-{
-  AHandle   fFunction[16];
-}AHANDLE;
-
 #define     RegisterProtocol(cname, protocol, num, flag)	\
 {								\
   protocol.ProtocolNumber = num;				\
@@ -138,6 +136,11 @@ typedef     struct ApplicationHandles
   ENCAP::fPHandle[num].fPostClose =				\
     (PHandle)&cname::PostClose;					\
 }
+
+typedef     struct ApplicationHandles
+{
+  AHandle   fFunction[16];
+}AHANDLE;
 
 #define     RegisterApplication(cname, app, num, flag)		\
 {								\
@@ -170,14 +173,12 @@ public:
   static    PHANDLE fPHandle[MAX_PROTOCOL];
   static    AHANDLE fAHandle[MAX_APPLICATION];
 
-  static    NPROT noneProt;
+  static    NPROT nonePro;
   static    NAPP noneApp;
-
 public:
   GTCP      tcpProt;
   ECHO      echoApp;
   FORWARD   forwardApp;
-  PCONT     listenCont;
 public:
   RESULT    InitEncapsulate(void);
   RESULT    FreeEncapsulate(void);

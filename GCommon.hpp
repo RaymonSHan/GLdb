@@ -504,7 +504,8 @@ typedef     struct perTraceInfo {
 typedef     struct threadTraceInfo {
   UINT      nowLevel;
   PUCHAR    threadName;
-  UINT      pad[2];
+  UINT      wsaLastError;
+  UINT      pad;
   OTINFO    calledInfo[MAX_NEST_LOOP];
 }TINFO, *PTINFO;
 
@@ -609,10 +610,15 @@ typedef     struct threadTraceInfo {
 #define    _rm_MarkMax                          0xffffffff
 
 #define	  __TRY                                                 \
-  UINT ret_err = __LINE__;					\
+  RESULT ret_err = __LINE__;					\
   beginCall();
 #define   __MARK(x)                                             \
-  static int _TO_MARK(x) = ret_err = __LINE__;			\
+  static RESULT _TO_MARK(x) = ret_err = __LINE__;		\
+  setLine();
+#define   DEF_MARK(x)						\
+  static RESULT _TO_MARK(x);
+#define   __MARK_(x)						\
+  _TO_MARK(x) = ret_err = __LINE__;				\
   setLine();
 #define   __CATCH_BEGIN                                         \
   endCall();							\
@@ -623,7 +629,6 @@ error_stop:							\
   if (ret_err >= _TO_MARK(x) && ret_err <= _TO_MARK(y))
 #define   __AFTER(x)                                            \
   if (ret_err >= _TO_MARK(x))
-
 #define   __CATCH_END                                           \
   return ret_err;
 #define   __CATCH                                               \
@@ -632,9 +637,9 @@ error_stop:							\
 error_stop:							\
   endCall();							\
   return ret_err;
-#define   __CATCH_1                                             \
+#define   __CATCH_(ret)						\
   endCall();							\
-  return 1;							\
+  return ret;							\
 error_stop:							\
   endCall();							\
   return 0;
@@ -648,9 +653,10 @@ error_stop:							\
 #define   __BREAK_OK                                            \
   { ret_err = 0; goto error_stop; }
 
-#define     MESSAGE_DEBUG                       0x0001
-#define     MESSAGE_ERROR                       0x0002
-#define     MESSAGE_HALT                        0x0004
+#define     MESSAGE_INFO                        (1 << 0)
+#define     MESSAGE_DEBUG                       (1 << 1)
+#define     MESSAGE_ERROR                       (1 << 2)
+#define     MESSAGE_HALT                        (1 << 3)
 
 void      __MESSAGE(INT level, const char * _Format, ...);
 
@@ -666,7 +672,7 @@ void      __MESSAGE(INT level, const char * _Format, ...);
     setLine();							\
     val = func;							\
     if (val == NEGONE) 						\
-      __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
+      __INFO(MESSAGE_INFO, _Format,##__VA_ARGS__);		\
   };
 #define   __DO1c(val, func) {					\
     setLine();							\
@@ -690,7 +696,7 @@ void      __MESSAGE(INT level, const char * _Format, ...);
 #define   __DOc_(func, _Format,...) {				\
     setLine();							\
     if (func)							\
-      __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
+      __INFO(MESSAGE_INFO, _Format,##__VA_ARGS__);		\
   };
 #define   __DOc(func) {						\
     setLine();							\

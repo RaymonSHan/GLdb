@@ -74,8 +74,7 @@
 #include    "GCommon.hpp"
 #include    "GMemory.hpp"
 
-int         isListeningSocket(
-	    HANDLE handle);
+int         isListeningSocket(HANDLE handle);
 
 #ifdef    __linux
 
@@ -148,8 +147,12 @@ BOOL        DisconnectEx(
 	    DWORD           dwFlags,
 	    DWORD           reserved);
 
+UINT        WSAGetLastError(void);
+void        WSASetLastError(UINT err);
+
 #define     WSA_INFINITE                        NEGONE
 #define     WSA_FLAG_OVERLAPPED                 (1 << 0)
+#define     WSA_IO_PENDING                      997
 #endif // __linux
 
 #ifdef    __GLdb_SELF_USE

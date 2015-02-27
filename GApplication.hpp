@@ -53,6 +53,7 @@ public:
   UINT      ApplicationNumber;
   UINT      ApplicationFlag;
   HANDLE    handleIOCP;
+  SOCKET    listenSocket;
 
 public:
   GApplication()

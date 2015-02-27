@@ -103,7 +103,7 @@ MEMORY      GlobalMemory;
 IOCP        GlobalIOCP;
 PHANDLE     FPHandle[MAX_PROTOCOL];
 AHANDLE     FAHandle[MAX_APPLICATION];
-NPROT       NoneProt;
+NPROT       NonePro;
 NAPP        NoneApp;
 
 #endif  //__GLdb_SELF_USE
@@ -146,6 +146,8 @@ void      __MESSAGE(INT level, const char * _Format, ...)
     vprintf(_Format, ap);
     va_end(ap);
     printf("\n");
+  }
+  if (level & MESSAGE_DEBUG) {
     displayTraceInfo(info);
   }
 };

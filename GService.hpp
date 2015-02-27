@@ -34,8 +34,10 @@
 #define     GLdb_SERVICE_HPP
 
 #include    "GCommon.hpp"
-#include    "GEncapsulate.hpp"
 
+/*
+ * setup sign handle
+ */
 typedef     void (*SigHandle)(int, siginfo_t *, void *);
 void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret);
 void        SetupSIG(int num, SigHandle func);

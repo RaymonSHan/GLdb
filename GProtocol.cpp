@@ -31,8 +31,8 @@
  */
 
 #include    "GIOCP.hpp"
+#include    "GEncapsulate.hpp"
 #include    "GProtocol.hpp"
-#include    "GApplication.hpp"
 
 RESULT      GNoneProtocol::CreateNew(
             PCONT pcont, ADDR addr, UINT size)
@@ -50,12 +50,7 @@ RESULT      GNoneProtocol::PostAccept(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
   pbuff->nOper = op;
-  // if (pcont->bHandle == 0) {
-  //   FreeBuffer(pbuff);
-  //   __BREAK_OK;
-  // } else {
   return ProFunc(pcont, fPostAccept)(pcont, pbuff, size, op);
-    //  }
 };
 
 RESULT      GNoneProtocol::PostConnect(
@@ -73,7 +68,6 @@ RESULT      GNoneProtocol::PostSend(
   return ProFunc(pcont, fPostSend)(pcont, pbuff, size, op, opside);
 };
 
-// this is easy way for test now.
 RESULT      GNoneProtocol::PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
@@ -81,7 +75,6 @@ RESULT      GNoneProtocol::PostReceive(
   ReflushTimeout(pcont, 0);
   return ProFunc(pcont, fPostReceive)(pcont, pbuff, size, op, opside);
 };
-
 
 RESULT      GIPProtocol::BindLocalSocket(
 	    PCONT &pcont, PPROT pProtocol)
@@ -92,10 +85,8 @@ __TRY
   __DO (pcont == 0);
   if (pProtocol->ProtocolNumber == PROTOCOL_TCP) {
     ptype = SOCK_STREAM | SOCK_NONBLOCK;
- 
   } else if (pProtocol->ProtocolNumber == PROTOCOL_UDP) {
     ptype = SOCK_DGRAM | SOCK_NONBLOCK;
-
   } else __BREAK;
 
   __DO1(pcont->bHandle, socket(AF_INET, ptype, pProtocol->ProtocolNumber));
@@ -107,24 +98,35 @@ RESULT      GTCPProtocol::CreateNew(
             PCONT pcont, ADDR para, UINT size)
 {
   (void)    size;
-__TRY__
+__TRY
   PSOCK     sock = (PSOCK)para.pVoid;
+  HANDLE    iocphandle;
+  int       result;
 
+  __DO (pcont == 0);
   pcont->dwFlags |= WSA_FLAG_ISLISTEN;
-  BindLocalSocket(pcont, this);
-  bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK));
-  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  __DO (BindLocalSocket(pcont, this));
+  __DO1(result, 
+	    bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK)));
+  iocphandle = CreateIoCompletionPort(
+	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  __DO (iocphandle == 0);
   ReflushTimeout(pcont, TIMEOUT_INFINITE);
-  listen(pcont->bHandle, SOMAXCONN);
-__CATCH__
+  __DO1(result,
+	    listen(pcont->bHandle, SOMAXCONN));
+  __INFO(MESSAGE_INFO, "Add TCP Listening %s:%d", 
+	    inet_ntoa(sock->saddrin.sin_addr), 
+	    ntohs(sock->saddrin.sin_port));
+__CATCH
 };
 
 RESULT      GTCPProtocol::CreateRemote(
             PCONT pcont, ADDR para, UINT size)
 {
-__TRY__
+__TRY
+  __DO (pcont == 0);
   memcpy(&(pcont->localSocket), para.pVoid, size);
-__CATCH__
+__CATCH
 };
 
 RESULT      GTCPProtocol::PostAccept(
@@ -134,14 +136,25 @@ RESULT      GTCPProtocol::PostAccept(
   (void)    op;
 __TRY
   PCONT     clicont;
-  PWSABUF   wsabuf = &(pbuff->wsaBuf);
+  PWSABUF   wsabuf;
+  BOOL      result;
 
+  __DO (pcont == 0);
+  __DO (pcont->bHandle == 0);
+  __DO (pbuff == 0);
+  __DO (&pbuff->wsaBuf == NULL);
+  wsabuf = &(pbuff->wsaBuf);
   __DO (GetDupContext(clicont, pcont));
+             /* MARK */ __MARK(AfterGetContext);
   pbuff->oLapped.accSocket = clicont;
   pbuff->oLapped.doneSize = 0;
   wsabuf->len = 0;
-  AcceptEx((SOCKET)pcont, clicont, wsabuf, 0, 0, 0, NULL, &(pbuff->oLapped));
-__CATCH
+  result = AcceptEx(
+	    (SOCKET)pcont, clicont, wsabuf, 0, 0, 0, NULL, &(pbuff->oLapped));
+  __DO(result == 0);
+__CATCH_BEGIN
+  __AFTER(AfterGetContext) FreeContext(clicont);
+__CATCH_END
 };
 
 RESULT      GTCPProtocol::PostConnect(
@@ -149,34 +162,63 @@ RESULT      GTCPProtocol::PostConnect(
 {
   (void)    size;
   (void)    op;
-__TRY__
-  PWSABUF   wsabuf = &(pbuff->wsaBuf);
+__TRY
+  PWSABUF   wsabuf;
+  HANDLE    iocphandle;
+  BOOL      result;
 
+  __DO (pcont == 0);
+  __DO (pbuff == 0);
+  __DO (&pbuff->wsaBuf == NULL);
+  wsabuf = &(pbuff->wsaBuf);
   pcont->dwFlags |= WSA_FLAG_ISCONNECT;
-  BindLocalSocket(pcont, this);
+  __DO (BindLocalSocket(pcont, this));
   pbuff->oLapped.doneSize = 0;
   wsabuf->len = 0;
-  ConnectEx((SOCKET)pcont, &(pcont->localSocket), sizeof(SOCK), wsabuf, 0, 0, &(pbuff->oLapped));
-  CreateIoCompletionPort(pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
-__CATCH__
+  result = ConnectEx(
+	    (SOCKET)pcont, &(pcont->localSocket), sizeof(SOCK), 
+	    wsabuf, 0, 0, &(pbuff->oLapped));
+  __DO (result == 0);
+  iocphandle = CreateIoCompletionPort(
+	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  __DO (iocphandle == 0);
+__CATCH
 };
 
 RESULT      GTCPProtocol::PostSend(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
-__TRY__
+  (void)    op;
+  (void)    opside;
+__TRY
   DWORD     dwflags = 0;
+  int       result;
+
   pbuff->wsaBuf.len = size;
-  WSASend((SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), dwflags, &(pbuff->oLapped), NULL);
-__CATCH__
+  result = WSASend(
+            (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 
+	    dwflags, &(pbuff->oLapped), NULL);
+  if (!result && WSAGetLastError() != WSA_IO_PENDING) {
+    __BREAK;
+  }
+__CATCH
 };
 
 RESULT      GTCPProtocol::PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
-__TRY__
+  (void)    op;
+  (void)    opside;
+__TRY
   DWORD     dwflags = 0;
+  int       result;
+
   pbuff->wsaBuf.len = size;
-  WSARecv((SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), &dwflags, &(pbuff->oLapped), NULL);
-__CATCH__
+  result = WSARecv(
+            (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 
+	    &dwflags, &(pbuff->oLapped), NULL);
+  if (!result && WSAGetLastError() != WSA_IO_PENDING) {
+    __BREAK;
+  }
+__CATCH
 };

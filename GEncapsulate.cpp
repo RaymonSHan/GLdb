@@ -37,26 +37,32 @@
 #include    "GMemory.hpp"
 #include    "GEncapsulate.hpp"
 
-
 RESULT      GEncapsulate::Doing(void)
 {
 __TRY
-  __DO(GlobalMemory.InitMemoryBlock(NUMBER_CONTEXT,
-				    NUMBER_BUFFER_SMALL,
-				    NUMBER_BUFFER_MIDDLE));
-  GlobalMemory.InitThreadMemory(1);
-  __DO(GlobalIOCP.InitGLdbIOCP());
+  RegisterProtocol(
+            NPROT, nonePro, PROTOCOL_NONE, 0);
+  RegisterProtocol(
+            GTCP, tcpProt, PROTOCOL_TCP, 0);
+  RegisterApplication(
+            NAPP, noneApp, APPLICATION_NONE, 0);
+  RegisterApplication(
+            ECHO, echoApp, APPLICATION_ECHO, 0);
+  RegisterApplication(
+            FORWARD, forwardApp, APPLICATION_FORWARD, APPLICATION_FLAG_DUPLEX);
 
-  //  sleep(1);
-  __DO(InitEncapsulate());
+  __DO (GlobalMemory.InitMemoryBlock(
+            NUMBER_CONTEXT, NUMBER_BUFFER_SMALL, NUMBER_BUFFER_MIDDLE));
+  __DO (GlobalMemory.InitThreadMemory(1));
+  __DO (GlobalIOCP.InitGLdbIOCP());
+  __DO (InitEncapsulate());
 
   while (!GlobalShouldQuit) {
     sleep(1);
   }
-  __DO(FreeEncapsulate());
-  __DO(GlobalIOCP.FreeGLdbIOCP());
-  __DO(GlobalMemory.FrreeMemoryBlock());
-  
+  __DO (FreeEncapsulate());
+  __DO (GlobalIOCP.FreeGLdbIOCP());
+  __DO (GlobalMemory.FrreeMemoryBlock());
 __CATCH
 };
 
@@ -65,21 +71,15 @@ __CATCH
 
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
-__TRY__
+__TRY
   PCONT     nullcont = NULL;
   char      local_addr[] = "127.0.0.1";
   int       local_port = 8998;
   char      remote_addr[] = "127.0.0.1";
   int       remote_port = 8999;
   SOCK      sockcli, sockser;
-  ADDR      addrcli, addrser, nulladdr;
-
-  RegisterProtocol(NPROT, noneProt, PROTOCOL_NONE, 0);
-  RegisterProtocol(GTCP, tcpProt, PROTOCOL_TCP, 0);
-  RegisterApplication(NAPP, noneApp, APPLICATION_NONE, 0);
-  RegisterApplication(ECHO, echoApp, APPLICATION_ECHO, 0);
-  RegisterApplication(FORWARD, forwardApp, APPLICATION_FORWARD, APPLICATION_FLAG_DUPLEX);
-
+  ADDR      addrcli, addrser;
+  
   bzero(&sockcli.saddrin, sizeof(sockaddr_in));
   sockcli.saddrin.sin_family = AF_INET; 
   inet_aton(local_addr,&(sockcli.saddrin.sin_addr));
@@ -93,22 +93,25 @@ __TRY__
   addrser = &sockser;
 
 #ifdef      DOING_ECHO_APPLICATION
-  nulladdr = ZERO;
-  CreateApplication(listenCont, nullcont, (PAPP)&echoApp, 
-		    (PPROT)&tcpProt, addrser, sizeof(SOCK), 
-		    NULL, nulladdr, 0);
-  GlobalIOCP.StartWork(echoApp.handleIOCP, 1);
+  ADDR      nulladdr = ZERO;
+  __DO (CreateApplication(
+            echoApp.listenSocket, nullcont, (PAPP)&echoApp, 
+	    (PPROT)&tcpProt, addrser, sizeof(SOCK), 
+	    NULL, nulladdr, 0));
+  __DO (GlobalIOCP.StartWork(
+            echoApp.handleIOCP, 1));
 #endif   //  DOING_ECHO_APPLICATION
 
 #ifdef      DOING_FORWARD_APPLICATION
-  CreateApplication(listenCont, nullcont, (PAPP)&forwardApp, 
-		    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
-		    (PPROT)&tcpProt, addrser, sizeof(SOCK));
-  GlobalIOCP.StartWork(forwardApp.handleIOCP, 1);
+  __DO (CreateApplication(
+            forwardApp.listenSocket, nullcont, (PAPP)&forwardApp, 
+	    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
+	    (PPROT)&tcpProt, addrser, sizeof(SOCK)));
+  __DO (GlobalIOCP.StartWork(
+            forwardApp.handleIOCP, 1));
 #endif   // DOING_FORWARD_APPLICATION
 
-  // move to here, for lazy, may change control clone laterww
-__CATCH__
+__CATCH
 };
 
 RESULT      GEncapsulate::FreeEncapsulate(void)
@@ -132,12 +135,12 @@ RESULT      GEncapsulate::CreateApplication(
 {
 __TRY
   UINT      i;
-  PBUFF     newbuff;
+  PBUFF     newbuff = 0;
 
-  cliCont = serCont = 0;
   __DO (pApp == 0);
+  cliCont = serCont = 0;
   if (!pApp->handleIOCP) {
-    globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP);
+    __DO (globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP));
   }
 
   __DO (pApp->handleIOCP == 0);
@@ -146,7 +149,7 @@ __TRY
     cliCont->pApplication = pApp;
     cliCont->pProtocol = cliProt;
     __DO (NoneProFunc(fCreateNew)
-	  (cliCont, cliPara, cliSize));
+	    (cliCont, cliPara, cliSize));
     cliCont->pPeer = cliCont;
     for(i=0; i<ACCEPTNUMBER; i++) {
       __DO (GetBufferSmall(newbuff));
@@ -159,7 +162,7 @@ __TRY
     serCont->pApplication = pApp;
     serCont->pProtocol = serProt;
     __DO (NoneProFunc(fCreateRemote)
-	  (serCont, serPara, serSize));
+	    (serCont, serPara, serSize));
     serCont->pPeer = NULL;
   }
   if (cliCont && serCont) {
@@ -170,7 +173,6 @@ __CATCH_BEGIN
   if (serCont) FreeContext(serCont);
 __CATCH_END
 };
-
 
 RESULT      GEncapsulate::StateApplication(PAPP papp, UINT state)
 {

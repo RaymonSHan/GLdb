@@ -173,7 +173,7 @@ __TRY__
     (*lpCompletionKey) = (*lpOverlapped)->Internal->completionKey;
     (*lpNumberOfBytes) = (*lpOverlapped)->doneSize;
   }
-__CATCH_1
+__CATCH_(1)
 };
 
 /*
@@ -194,7 +194,7 @@ __TRY__
   lpOverlapped->Internal->completionKey = dwCompletionKey;
   lpOverlapped->doneSize = dwNumberOfBytesTransferred;
   __DO (*iocpHandle += addr);
-__CATCH_1
+__CATCH_(1)
 };
 
 /*
@@ -226,6 +226,7 @@ __TRY
   *lpNumberOfBytesSent = lpBuffers->len;
   __DO (s->writeBuffer += overlap);
   __DO (*(GlobalIOCP.eventHandle) += overlap);
+  WSASetLastError(WSA_IO_PENDING);
 __CATCH
 };
 
@@ -252,6 +253,7 @@ __TRY
   *lpNumberOfBytesRecvd = lpBuffers->len;
 /*__DO (s->readBuffer += overlap);*/
   __DO (*(GlobalIOCP.eventHandle) += overlap);
+  WSASetLastError(WSA_IO_PENDING);
 __CATCH
 };
 
@@ -281,7 +283,7 @@ __TRY__
   lpOverlapped->events = EPOLLACCEPT;
   overlap.pVoid = lpOverlapped;
   __DO (*(GlobalIOCP.eventHandle) += overlap);
-__CATCH_1
+__CATCH_(1)
 };
 
 /*
@@ -310,7 +312,21 @@ __TRY__
   lpOverlapped->events = EPOLLCONNECT;
   overlap.pVoid = lpOverlapped;
   __DO (*(GlobalIOCP.eventHandle) += overlap);
-__CATCH_1
+__CATCH_(1)
+};
+
+UINT        WSAGetLastError(void)
+{
+  PTINFO    ptinfo;
+  getTraceInfo(ptinfo);
+  return (ptinfo->wsaLastError);
+};
+
+void        WSASetLastError(UINT err)
+{
+  PTINFO    ptinfo;
+  getTraceInfo(ptinfo);
+  ptinfo->wsaLastError = err;
 };
 
 RESULT      RThreadEpoll::ThreadInit(void)

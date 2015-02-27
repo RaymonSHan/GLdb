@@ -30,6 +30,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include    "GEncapsulate.hpp"
 #include    "GService.hpp"
 
 void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
@@ -43,15 +44,23 @@ void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
   erroraddr.pVoid = info->si_addr;
   erroraddr &= NEG_SIZE_THREAD_STACK;
 
+/*
+ * local var is store in stack, if unmap stack segment only means
+ *   main thread need TLS for trace and MemoryResource.
+ * So map it.
+ */
   if (stack == erroraddr) {
-    stack.pVoid = mmap (stack.pChar + PAD_THREAD_STACK, 
-			sizeof(TINFO) + 4 * sizeof(MINFO),
-  			PROT_READ | PROT_WRITE,
-  			MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+    stack.pVoid = mmap (
+            stack.pChar + PAD_THREAD_STACK, 
+	    sizeof(TINFO) + 4 * sizeof(MINFO),
+	    PROT_READ | PROT_WRITE,
+	    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
   } else {
     printf("Got signal %d, faulty address is %p, from %llx\n Calling: \n",
 	   sig, info->si_addr, uc->uc_mcontext.gregs[REG_RIP]);
-    if (sig != SIGTERM) displayTraceInfo(tinfo);
+    if (sig != SIGTERM) {
+      displayTraceInfo(tinfo);
+    }
     //    RpollApp.KillAllChild();
     exit(-1);
   }
@@ -59,7 +68,7 @@ void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
 
 void        SetupSIG(int num, SigHandle func)
 {
-  struct sigaction sa;
+  struct    sigaction sa;
  
   sa.sa_sigaction = func;
   sigemptyset (&sa.sa_mask);
@@ -87,7 +96,7 @@ int         initDaemon(SERVICE service)
                     // second thread could not get console
   else if (pidSecond < 0) exit(1);                // the second never be leader
 
-  for (i = 0; i < NOFILE; ++i) close(i);            // close all handle from parent
+  for (i = 0; i < NOFILE; ++i) close(i);          // close all handle from parent
   
   if (chdir("/tmp")) exit(1);                     // change working dirctory to /tmp  
   umask(0);                                       // remove file mask
