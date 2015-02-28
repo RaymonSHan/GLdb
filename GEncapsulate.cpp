@@ -57,6 +57,8 @@ __TRY
   __DO (GlobalIOCP.InitGLdbIOCP());
   __DO (InitEncapsulate());
 
+  printf("%s\n", GetGLdbError(GL_MEMORY_BASE));
+
   while (!GlobalShouldQuit) {
     sleep(1);
   }
@@ -68,6 +70,7 @@ __CATCH
 
 //#define     DOING_ECHO_APPLICATION
 #define     DOING_FORWARD_APPLICATION
+
 
 RESULT      GEncapsulate::InitEncapsulate(void)
 {

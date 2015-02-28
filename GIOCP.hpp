@@ -99,13 +99,13 @@ BOOL        GetQueuedCompletionStatus(
             HANDLE          CompletionPort,
 	    LPDWORD         lpNumberOfBytes,
 	    PULONG_PTR      lpCompletionKey,
-	    LPOVERLAPPED   *lpOverlapped,
+	    POLAP          *lpOverlapped,
 	    DWORD           dwMilliseconds);
 BOOL        PostQueuedCompletionStatus(
             HANDLE          CompletionPort,
 	    DWORD           dwNumberOfBytesTransferred,
 	    ULONG_PTR       dwCompletionKey,
-	    LPOVERLAPPED    lpOverlapped);
+	    POLAP           lpOverlapped);
 
 int         WSASend(
 	    SOCKET          s, 
@@ -113,16 +113,16 @@ int         WSASend(
 	    DWORD           dwBufferCount, 
 	    PUINT           lpNumberOfBytesSent, 
 	    DWORD           dwFlags, 
-	    LPWSAOVERLAPPED lpOverlapped, 
-	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
+	    POLAP           lpOverlapped, 
+	    POLAPCR         lpCompletionRoutine);
 int         WSARecv(
 	    SOCKET          s,
 	    LPWSABUF        lpBuffers,
 	    DWORD           dwBufferCount,
 	    PUINT           lpNumberOfBytesRecvd,
 	    LPDWORD         lpFlags,
-	    LPWSAOVERLAPPED lpOverlapped,
-	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
+	    POLAP           lpOverlapped,
+	    POLAPCR         lpCompletionRoutine);
 
 BOOL        AcceptEx(
             SOCKET          sListenSocket,
@@ -132,7 +132,7 @@ BOOL        AcceptEx(
 	    DWORD           dwLocalAddressLength,
 	    DWORD           dwRemoteAddressLength,
 	    LPDWORD         lpdwBytesReceived,
-	    LPOVERLAPPED    lpOverlapped);
+	    POLAP           lpOverlapped);
 BOOL        ConnectEx(
             SOCKET          s,
 	    PSOCK           name,
@@ -140,15 +140,20 @@ BOOL        ConnectEx(
 	    PVOID           lpSendBuffer,
 	    DWORD           dwSendDataLength,
 	    LPDWORD         lpdwBytesSent,
-	    LPOVERLAPPED    lpOverlapped);
+	    POLAP           lpOverlapped);
 BOOL        DisconnectEx(
             SOCKET          hSocket,
-	    LPOVERLAPPED    lpOverlapped,
+	    POLAP           lpOverlapped,
 	    DWORD           dwFlags,
 	    DWORD           reserved);
 
 UINT        WSAGetLastError(void);
 void        WSASetLastError(UINT err);
+/*
+ * Should translate every errno to WSALastError
+ */
+inline UINT ToWSAError(UINT err) { return err; };
+
 
 #define     WSA_INFINITE                        NEGONE
 #define     WSA_FLAG_OVERLAPPED                 (1 << 0)

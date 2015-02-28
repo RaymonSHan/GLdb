@@ -7,8 +7,8 @@
    (ede-proj-target-makefile-program "GLdbtest"
     :name "GLdbtest"
     :path ""
-    :source '("GCommon.cpp" "GIOCP.cpp" "GMemory.cpp" "GEncapsulate.cpp" "GService.cpp" "GProtocol.cpp" "GApplication.cpp")
-    :auxsource '("GCommon.hpp" "GIOCP.hpp" "GMemory.hpp" "GEncapsulate.hpp" "GService.hpp" "GProtocol.hpp" "GApplication.hpp" "GTools.hpp")
+    :source '("GCommon.cpp" "GIOCP.cpp" "GMemory.cpp" "GEncapsulate.cpp" "GService.cpp" "GProtocol.cpp" "GApplication.cpp" "GError.cpp")
+    :auxsource '("GCommon.hpp" "GIOCP.hpp" "GMemory.hpp" "GEncapsulate.hpp" "GService.hpp" "GProtocol.hpp" "GApplication.hpp" "GTools.hpp" "GError.hpp")
     )
    )
   :variables '(("CFLAGS" . "-O2 -g"))

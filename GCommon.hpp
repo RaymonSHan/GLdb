@@ -56,6 +56,7 @@
 #include    <sys/types.h>
 #include    <sys/wait.h>
 
+#include    "GError.hpp"
 /*
  * Compiler condition
  * 
@@ -118,24 +119,24 @@ typedef     volatile long long int              LOCK;
 typedef     bool                                BOOL;
 typedef     signed long long int                RESULT;
 
-typedef     signed char*                        PCHAR;
-typedef     unsigned char*                      PUCHAR;
-typedef     signed long long int*               PINT;
-typedef     unsigned long long int*             PUINT;
-typedef     signed long long int*               PMONEY;
-typedef     volatile long long int*             PLOCK;
-typedef     void*                               PVOID;
+typedef     signed char                        *PCHAR;
+typedef     unsigned char                      *PUCHAR;
+typedef     signed long long int               *PINT;
+typedef     unsigned long long int             *PUINT;
+typedef     signed long long int               *PMONEY;
+typedef     volatile long long int             *PLOCK;
+typedef     void                               *PVOID;
 
-typedef     union  ADDR*                        PADDR;
-typedef     struct threadTraceInfo*             PTINFO;
-typedef     struct threadMemoryInfo*            PMINFO;
-typedef     class  CListItem*                   PLIST;
-typedef     class  CContextItem*                PCONT;
-typedef     class  CBufferItem*                 PBUFF;
-typedef     class  CMemoryBlock*                PBLOCK;
-typedef     class  RArrayStack*                 PSTACK;
-typedef     class  RArrayQuery*                 PQUERY;
-typedef     class  RMultiEvent*                 PEVENT;
+typedef     union  ADDR                        *PADDR;
+typedef     struct threadTraceInfo             *PTINFO;
+typedef     struct threadMemoryInfo            *PMINFO;
+typedef     class  CListItem                   *PLIST;
+typedef     class  CContextItem                *PCONT;
+typedef     class  CBufferItem                 *PBUFF;
+typedef     class  CMemoryBlock                *PBLOCK;
+typedef     class  RArrayStack                 *PSTACK;
+typedef     class  RArrayQuery                 *PQUERY;
+typedef     class  RMultiEvent                 *PEVENT;
 
 /*
  * GLdbDatabase interface used 
@@ -185,14 +186,15 @@ typedef     class GApplication*                 PAPP;
 
 typedef     unsigned short                      WORD;
 typedef     UINT                                HANDLE;
-typedef     class CContextItem*                 SOCKET;
-typedef     unsigned int*                       ULONG_PTR;      // 64bit in 64bit
-typedef     unsigned int**                      PULONG_PTR;
+typedef     class CContextItem                 *SOCKET;
+typedef     unsigned int                       *ULONG_PTR;      // 64bit in 64bit
+typedef     unsigned int                      **PULONG_PTR;
 typedef     unsigned int                        DWORD;
-typedef     unsigned int*                       LPDWORD;
-typedef     void*                               LPWSAPROTOCOL_INFO;
-typedef     void*                               GROUP;          // NOT konw
-typedef     void*                               LPWSAOVERLAPPED_COMPLETION_ROUTINE;
+typedef     unsigned int                       *LPDWORD;
+typedef     void                               *LPWSAPROTOCOL_INFO;
+typedef     void                               *GROUP;          // NOT konw
+typedef     void                               *LPWSAOVERLAPPED_COMPLETION_ROUTINE;
+typedef     void                               *POLAPCR;
 
 typedef     struct WSAData {
   WORD      wVersion;
@@ -504,8 +506,8 @@ typedef     struct perTraceInfo {
 typedef     struct threadTraceInfo {
   UINT      nowLevel;
   PUCHAR    threadName;
-  UINT      wsaLastError;
-  UINT      pad;
+  UINT      GLError;
+  PCHAR     GLErrorMessage;
   OTINFO    calledInfo[MAX_NEST_LOOP];
 }TINFO, *PTINFO;
 

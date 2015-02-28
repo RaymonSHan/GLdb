@@ -80,10 +80,10 @@ SOCKET      WSASocket(
 	    GROUP           g, 
 	    DWORD           dwFlags)
 {
-  (void)     lpProtocolInfo;
-  (void)     g;
-  PCONT      pcont;
-  RESULT     result;
+  (void)    lpProtocolInfo;
+  (void)    g;
+  PCONT     pcont;
+  RESULT    result;
 
   result = GetContext(pcont);
   if (result) return 0;
@@ -98,6 +98,9 @@ SOCKET      WSASocket(
   pcont->bHandle = socket(af, type, protocol);
 #endif // __GLdb_SELF_USE
 
+  if (pcont->bHandle == -1) {
+    WSASetLastError(ToWSAError(errno));
+  }
   pcont->dwFlags = dwFlags;
   return pcont;
 };
@@ -158,7 +161,7 @@ BOOL        GetQueuedCompletionStatus(
             HANDLE          CompletionPort,
 	    LPDWORD         lpNumberOfBytes,
 	    PULONG_PTR      lpCompletionKey,
-	    LPOVERLAPPED   *lpOverlapped,
+	    POLAP           *lpOverlapped,
 	    DWORD           dwMilliseconds)
 {
   (void)    dwMilliseconds;
@@ -184,7 +187,7 @@ BOOL        PostQueuedCompletionStatus(
             HANDLE          CompletionPort,
 	    DWORD           dwNumberOfBytesTransferred,
 	    ULONG_PTR       dwCompletionKey,
-	    LPOVERLAPPED    lpOverlapped)
+	    POLAP           lpOverlapped)
 {
 __TRY__
   PEVENT    iocpHandle;
@@ -209,8 +212,8 @@ int         WSASend(
 	    DWORD           dwBufferCount, 
 	    PUINT           lpNumberOfBytesSent, 
 	    DWORD           dwFlags, 
-	    LPWSAOVERLAPPED lpOverlapped, 
-	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+	    POLAP           lpOverlapped, 
+	    POLAPCR         lpCompletionRoutine)
 {
   (void)    dwFlags;
   (void)    lpCompletionRoutine;
@@ -236,8 +239,8 @@ int         WSARecv(
 	    DWORD           dwBufferCount,
 	    PUINT           lpNumberOfBytesRecvd,
 	    LPDWORD         lpFlags,
-	    LPWSAOVERLAPPED lpOverlapped,
-	    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+	    POLAP           lpOverlapped,
+	    POLAPCR         lpCompletionRoutine)
 {
   (void)    lpFlags;
   (void)    lpCompletionRoutine;
@@ -251,7 +254,6 @@ __TRY
   lpOverlapped->events = EPOLLREAD;
   lpOverlapped->doneSize = 0;
   *lpNumberOfBytesRecvd = lpBuffers->len;
-/*__DO (s->readBuffer += overlap);*/
   __DO (*(GlobalIOCP.eventHandle) += overlap);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH
@@ -269,7 +271,7 @@ BOOL        AcceptEx(
 	    DWORD           dwLocalAddressLength,
 	    DWORD           dwRemoteAddressLength,
 	    LPDWORD         lpdwBytesReceived,
-	    LPOVERLAPPED    lpOverlapped)
+	    POLAP           lpOverlapped)
 {
   (void)    dwReceiveDataLength;
   (void)    dwLocalAddressLength;
@@ -297,7 +299,7 @@ BOOL        ConnectEx(
 	    PVOID           lpSendBuffer,
 	    DWORD           dwSendDataLength,
 	    LPDWORD         lpdwBytesSent,
-	    LPOVERLAPPED    lpOverlapped)
+	    POLAP           lpOverlapped)
 {
   (void)    dwSendDataLength;
   (void)    lpdwBytesSent;
@@ -319,14 +321,14 @@ UINT        WSAGetLastError(void)
 {
   PTINFO    ptinfo;
   getTraceInfo(ptinfo);
-  return (ptinfo->wsaLastError);
+  return (ptinfo->GLError);
 };
 
 void        WSASetLastError(UINT err)
 {
   PTINFO    ptinfo;
   getTraceInfo(ptinfo);
-  ptinfo->wsaLastError = err;
+  ptinfo->GLError = err;
 };
 
 RESULT      RThreadEpoll::ThreadInit(void)
