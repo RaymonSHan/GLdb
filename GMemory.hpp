@@ -310,7 +310,7 @@ public:
     LockInc(GetCount);
 #endif // _TESTCOUNT
     __DO_(info->memoryStack -= nlist,
-	  "No more list CMemoryAlloc %p", this);
+	    "No more list CMemoryAlloc %p", this);
 #ifdef _TESTCOUNT
     LockInc(GetSuccessCount);
 #endif // _TESTCOUNT
@@ -332,14 +332,17 @@ private:
     LockInc(FreeCount);
 #endif // _TESTCOUNT
     __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
-          "FreeList Twice %p\n", nlist.pList);
+            "FreeList Twice %p\n", nlist.pList);
+            /* MARK */  __MARK(AfterFreeTest);
     nlist.UsedList = MARK_UNUSED;
     __DO_(info->memoryStack += nlist,
-	  "Free More\n");
+	    "Free More\n");
 #ifdef _TESTCOUNT
     LockInc(FreeSuccessCount);
 #endif // _TESTCOUNT
-  __CATCH
+  __CATCH_BEGIN
+    __BEFORE(AfterFreeTest) ERROR(GL_BLOCK_FREETWICE);
+  __CATCH_END
   };
   RESULT    CountTimeout(ADDR usedStart);
 
@@ -367,7 +370,7 @@ public:
     GetThreadMemoryInfo();
   __TRY
     __DO_(info->memoryStack -= addr,
-         "No more list CMemoryAlloc %p", this);
+            "No more list CMemoryAlloc %p", this);
     if (TimeoutInit) {
       if (!timeout) timeout = TimeoutInit;
       addr.CountDown = GlobalTime + timeout;       // it is timeout time
@@ -388,15 +391,20 @@ public:
   {
     GetThreadMemoryInfo();
   __TRY
-    if (TimeoutInit) addr.CountDown = TIMEOUT_QUIT;
-    else {
-      __DO_((addr < MARK_MAX || addr.UsedList == MARK_UNUSED),
-	    "FreeList Twice %p\n", addr.pList);
-      addr.UsedList = MARK_UNUSED;               // mark for unsed too
-      __DO_(info->memoryStack += addr,
-	    "Free More\n");
+    if (TimeoutInit) {
+      addr.CountDown = TIMEOUT_QUIT;
+      __BREAK_OK;
     }
-  __CATCH
+    __DO_((addr < MARK_MAX || addr.UsedList == MARK_UNUSED),
+	    "FreeList Twice %p\n", addr.pList);
+            /* MARK */  __MARK(AfterFreeTest);
+    addr.UsedList = MARK_UNUSED;
+    __DO_(info->memoryStack += addr,
+	    "Free More\n");
+  __CATCH_BEGIN
+    __BEFORE(AfterFreeTest) ERROR(GL_BLOCK_FREETWICE);
+  __CATCH_END
+
   };
 
   RESULT    TimeoutAll(void);
@@ -553,11 +561,11 @@ public:
   {
   __TRY
     __DO (globalContext.InitMemoryBlock
-	 (numcontext, sizeof(CONT), SIZE_CACHE, ZERO));
+	    (numcontext, sizeof(CONT), SIZE_CACHE, ZERO));
     __DO (globalBufferSmall.InitMemoryBlock
-	 (numbuffersmall, sizeof(BUFF_S), SIZE_NORMAL_PAGE, ZERO));
+	    (numbuffersmall, sizeof(BUFF_S), SIZE_NORMAL_PAGE, ZERO));
     __DO (globalBufferMiddle.InitMemoryBlock
-	 (numbermiddle, sizeof(BUFF_M), SIZE_NORMAL_PAGE, ZERO));
+	    (numbermiddle, sizeof(BUFF_M), SIZE_NORMAL_PAGE, ZERO));
   __CATCH
   };
   RESULT    AppendMemoryBlock(
@@ -578,6 +586,11 @@ public:
     GlobalBufferSmall.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalBufferMiddle.SetThreadArea(getsize, maxsize, freesize, 0);
     return 0;
+  };
+  void      DisplayMemoryInfo(void)
+  {
+    globalContext.DisplayFree();
+    globalBufferSmall.DisplayFree();
   };
 /*
  * should add Timeout, to CountTimeout all memory pool

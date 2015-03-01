@@ -62,6 +62,7 @@ __TRY
   DisplayGLdbError();
 
   while (!GlobalShouldQuit) {
+    GlobalMemory.DisplayMemoryInfo();
     sleep(1);
   }
   __DO (FreeEncapsulate());

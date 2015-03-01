@@ -89,10 +89,17 @@
 
 BEGIN_ENUM(GLdbError, GLdb_ERROR_BASE)
   ENUM(GL_MEMORY_BASE,      "GLdb Memory error base."),
+  ENUM(GL_MEMORY_MMAPFAIL,  "System mmap() fail"),
+  ENUM(GL_MEMORY_NOBORDER,  "GetMemory not in SIZE_THREAD_STACK borden"),
+
   ENUM(GL_STACK_FULL,       "RArrayStack is full, no room for +="),
   ENUM(GL_STACK_EMPTY,      "RArrayStack is empty, no item for -="),
   ENUM(GL_QUERY_FULL,       "RArrayQuery is full, no room for +="),
   ENUM(GL_QUERY_EMPTY,      "RArrayQuery is empty, no item for -="),
+
+  ENUM(GL_BLOCK_FREETWICE,  "CMemoryBlock free same item twice"),
+  ENUM(GL_LIST_NOTYPE,      "CListItem::allocType is NULL when free"),
+
   ENUM(GL_IOCP_BASE,        "GLdb IOCP error base"),
 END_ENUM(GLdbError, GLdb_ERROR_BASE, GERROR)
 

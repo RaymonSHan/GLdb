@@ -633,6 +633,8 @@ error_stop:							\
   endCall();
 #define   __BETWEEN(x,y)                                        \
   if (ret_err >= _TO_MARK(x) && ret_err <= _TO_MARK(y))
+#define   __BEFORE(x)                                            \
+  if (ret_err < _TO_MARK(x))
 #define   __AFTER(x)                                            \
   if (ret_err >= _TO_MARK(x))
 #define   __CATCH_END                                           \

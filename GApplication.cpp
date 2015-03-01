@@ -67,10 +67,10 @@ __TRY
   __DO (pcont->pPeer == NULL);
 
   __DO (GetBufferSmall(newbuff));
-             /* MARK */ __MARK(AfterGetBuffer);
+            /* MARK */  __MARK(AfterGetBuffer);
   __DO (NoneProFunc(fPostAccept)
 	    (pcont, newbuff, SIZE_BUFF_S, OP_ACCEPT));
-             /* MARK */ __MARK(AfterPostAccept);
+            /* MARK */  __MARK(AfterPostAccept);
   pbuff->nOper = OP_CLIENT_READ;
 
   clicont = (PCONT)pbuff->oLapped.accSocket;
@@ -90,13 +90,13 @@ __TRY
 	    (clicont, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
   } else {
     __DO (GetDupContext(sercont, pcont->pPeer, true));
-             /* MARK */ __MARK_(AfterGetContext);
+            /* MARK */  __MARK_(AfterGetContext);
     clicont->pPeer = sercont;
     sercont->pPeer = clicont;
 
     __DO (NoneProFunc(fPostConnect)
 	  (sercont, pbuff, 0, OP_CONNECT));
-             /* MARK */ __MARK_(AfterPostReceive);
+            /* MARK */  __MARK_(AfterPostReceive);
   }
 __CATCH_BEGIN
   __BETWEEN(AfterGetBuffer, AfterPostAccept) FreeBuffer(newbuff);
@@ -118,10 +118,10 @@ __TRY
 
   if (IS_DUPLEX(pcont)) {
     __DO (GetBufferSmall(newbuff));
-             /* MARK */ __MARK_(AfterGetBuffer);
+            /* MARK */  __MARK_(AfterGetBuffer);
     __DO (NoneProFunc(fPostReceive)
 	    (pcont, newbuff, SIZE_BUFF_S, OP_SERVER_READ, OPSIDE_SERVER));
-             /* MARK */ __MARK_(AfterPostReceive);
+            /* MARK */  __MARK_(AfterPostReceive);
   }
 __CATCH_BEGIN
   __BETWEEN(AfterGetBuffer, AfterPostReceive) FreeBuffer(newbuff);

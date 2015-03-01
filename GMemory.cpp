@@ -49,10 +49,12 @@ __TRY
   padsize = PAD_INT(size, PAD_THREAD_STACK, SIZE_THREAD_STACK);
   addr = LockAdd(totalMemoryStart.aLong, padsize) + PAD_THREAD_STACK;
   addr = mmap (addr.pVoid, size, PROT_READ | PROT_WRITE,
-	       MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | flag, -1, 0);
+	    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | flag, -1, 0);
   __DO_(addr == MAP_FAILED, 
-	"Get memory error, size:0x%llx\n", size);
-__CATCH
+	    "Get memory error, size:0x%llx\n", size);
+__CATCH_BEGIN
+  ERROR(GL_MEMORY_MMAPFAIL);
+__CATCH_END
 };
 
 /*
@@ -66,9 +68,12 @@ RESULT      GetStack(ADDR &stack)
 {
 __TRY
   __DO (GetMemory(stack, SIZE_THREAD_STACK - PAD_THREAD_STACK, MAP_GROWSDOWN));
+            /* MARK */  __MARK(AfterGetMemory);
   __DO_((stack.aLong - PAD_THREAD_STACK) & (SIZE_THREAD_STACK - 1), 
-       "Error stack place:%p", stack.pVoid);
-__CATCH
+            "Error stack place:%p", stack.pVoid);
+__CATCH_BEGIN
+  __AFTER(AfterGetMemory) ERROR(GL_MEMORY_NOBORDER);
+__CATCH_END
 };
 
 /*
@@ -87,8 +92,12 @@ RESULT      CListItem::decRefCount(void)
 __TRY
   ADDR      addr;
   addr.pList = this;
-  if (allocType) __DO(allocType->FreeMemoryList(addr));
-__CATCH
+  __DO(allocType == 0);
+            /* MARK */  __MARK(HaveType);
+  __DO(allocType->FreeMemoryList(addr));
+__CATCH_BEGIN
+  __BEFORE(HaveType) ERROR(GL_LIST_NOTYPE);
+__CATCH_END
 };
 
 /*
@@ -189,8 +198,9 @@ RESULT      CMemoryBlock::SetThreadArea(
   GetThreadMemoryInfo();
 __TRY__
   start.pAddr = &(info->localCache[0]);
-  info->memoryStack.InitArrayStack(start, maxsize, SINGLE_THREAD,
-				   &globalStack, getsize, freesize);
+  info->memoryStack.InitArrayStack(
+            start, maxsize, SINGLE_THREAD,
+	    &globalStack, getsize, freesize);
   info->threadFlag = flag;
   info->localUsedList = MARK_USED_END;
   __LOCK(lockList);
@@ -398,7 +408,7 @@ void        CMemoryBlock::DisplayLocal(PMEMINFO info)
   ADDR list;
 
   printf("free:%p, start:%p, end:%p\n", info->localFreeStart.pVoid,
-	 info->localArrayStart.pVoid, info->localArrayEnd.pVoid);
+	    info->localArrayStart.pVoid, info->localArrayEnd.pVoid);
   for (int i=0; i<MAX_LOCAL_CACHE; i++) {
     list.pAddr = &(info->localCache[i]);
     if (list == info->localFreeStart) PRINT_COLOR("36");
@@ -416,7 +426,7 @@ void        CMemoryBlock::DisplayArray(void)
   threadMemoryInfo *list;
 
   printf("Array Start:%p, Free:%p, End%p\n", 
-	 memoryArrayStart.pVoid, memoryArrayFree.pVoid, memoryArrayEnd.pVoid);
+	    memoryArrayStart.pVoid, memoryArrayFree.pVoid, memoryArrayEnd.pVoid);
   ADDR arr = memoryArrayStart;
 
   for (i=0; i<TotalNumber; i++) {
