@@ -327,8 +327,10 @@ UINT        WSAGetLastError(void)
 void        WSASetLastError(UINT err)
 {
   PTINFO    ptinfo;
+  PUINT     pint;
   getTraceInfo(ptinfo);
-  ptinfo->GLError = err;
+  pint = (PUINT)&(ptinfo->GLError);
+  *pint = err;
 };
 
 RESULT      RThreadEpoll::ThreadInit(void)

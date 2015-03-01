@@ -33,48 +33,72 @@
  *   in http://www.codeproject.com/Articles/10500/Converting-C-enums-to-strings
  */
 
-#if         ( !defined(GLdb_ERROR_HPP) || defined(GLdb_ENUM_STRINGS) )
-
-#ifndef     GLdb_ENUM_STRINGS
-#define     GLdb_ERROR_HPP
-#endif   // GLdb_ENUM_STRINGS
+#if         (!defined(GLdb_ERROR_HPP) ||			\
+	      defined(GLdb_ENUM_NAMES) ||			\
+	      defined(GLdb_ENUM_STRINGS))
 
 #undef      ENUM
 #undef      BEGIN_ENUM
 #undef      END_ENUM
 
-#ifndef     GLdb_ENUM_STRINGS
-  #define   BEGIN_ENUM(name, base)              	        \
+#if         (!defined(GLdb_ENUM_NAMES) &&	                \
+            !defined(GLdb_ENUM_STRINGS))
+#define     GLdb_ERROR_HPP
+
+#define     GLdb_ERROR_BASE                     0x6700000000
+
+#define     BEGIN_ENUM(name, base)              	        \
             typedef enum type##name {				\
               name##Base = base - 1,
-  #define   ENUM(val, str)                                      \
+#define     ENUM(val, str)                                      \
             val
-  #define   END_ENUM(name, base)				\
-            }name;						\
-            const char* Get##name(enum type##name index);
-#else
-  #define   BEGIN_ENUM(name, base)                              \
-            const char* str##name[] = {
-  #define   ENUM(val, str)                                      \
-            str
-  #define   END_ENUM(name, base)                                \
+#define     END_ENUM(name, base, def)				\
+            }def;						\
+            const char* GetVal##name(enum type##name index);	\
+            const char* GetStr##name(enum type##name index);
+#endif   // (!defined(GLdb_ENUM_NAMES) &&
+         //  !defined(GLdb_ENUM_STRINGS))
+
+
+#ifdef      GLdb_ENUM_NAMES
+#define     BEGIN_ENUM(name, base)                              \
+            const char* val##name[] = {
+#define     ENUM(val, str)                                      \
+            #val
+#define     END_ENUM(name, base, def)				\
             };							\
-            const char* Get##name(enum type##name index) {	\
+            const char* GetVal##name(enum type##name index) {	\
+	      return val##name[index - base]; }
+#endif   // GLdb_ENUM_NAMES
+
+
+#ifdef      GLdb_ENUM_STRINGS
+#define     BEGIN_ENUM(name, base)                              \
+            const char* str##name[] = {
+#define     ENUM(val, str)                                      \
+            str
+#define     END_ENUM(name, base, def)				\
+            };							\
+            const char* GetStr##name(enum type##name index) {	\
 	      return str##name[index - base]; }
 #endif   // GLdb_ENUM_STRINGS
 
 /*
  * error defined for GLdbIOCP
  */
-#define     GLdb_ERROR_BASE                     0x6700000000
-BEGIN_ENUM(GLdbError, GLdb_ERROR_BASE)
-  ENUM(GL_MEMORY_BASE,    
-            "GLdb Memory error base."),
-  ENUM(GL_IOCP_BASE,    
-	    "GLdb IOCP error base"),
-END_ENUM(GLdbError, GLdb_ERROR_BASE)
 
-#endif   // (!defined(DAYS_H) || defined(GENERATE_ENUM_STRINGS))
+BEGIN_ENUM(GLdbError, GLdb_ERROR_BASE)
+  ENUM(GL_MEMORY_BASE,      "GLdb Memory error base."),
+  ENUM(GL_STACK_FULL,       "RArrayStack is full, no room for +="),
+  ENUM(GL_STACK_EMPTY,      "RArrayStack is empty, no item for -="),
+  ENUM(GL_QUERY_FULL,       "RArrayQuery is full, no room for +="),
+  ENUM(GL_QUERY_EMPTY,      "RArrayQuery is empty, no item for -="),
+  ENUM(GL_IOCP_BASE,        "GLdb IOCP error base"),
+END_ENUM(GLdbError, GLdb_ERROR_BASE, GERROR)
+
+#endif   // (!defined(GLdb_ERROR_HPP) ||
+         //   defined(GLdb_ENUM_NAMES) ||
+         //   defined(GLdb_ENUM_STRINGS))
 
 #ifndef     GLdb_ERROR_HPP_OTHER
 #define     GLdb_ERROR_HPP_OTHER
@@ -82,5 +106,12 @@ END_ENUM(GLdbError, GLdb_ERROR_BASE)
 /*
  * Other declare should be here
  */
+GERROR      GetGLdbError(void);
+const char* GetGLdbErrorVal(GERROR err);
+const char* GetGLdbErrorMessage(GERROR err);
+void        SetGLdbError(GERROR err);
+void        DisplayGLdbError(void);
+
+#define     ERROR                               SetGLdbError
 
 #endif   // GLdb_ERROR_HPP_OTHER

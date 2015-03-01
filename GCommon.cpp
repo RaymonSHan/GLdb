@@ -147,6 +147,7 @@ void      __MESSAGE(INT level, const char * _Format, ...)
     va_end(ap);
     printf("\n");
   }
+  DisplayGLdbError();
   if (level & MESSAGE_DEBUG) {
     displayTraceInfo(info);
   }

@@ -57,7 +57,9 @@ __TRY
   __DO (GlobalIOCP.InitGLdbIOCP());
   __DO (InitEncapsulate());
 
-  printf("%s\n", GetGLdbError(GL_MEMORY_BASE));
+  DisplayGLdbError();
+  SetGLdbError(GL_MEMORY_BASE);
+  DisplayGLdbError();
 
   while (!GlobalShouldQuit) {
     sleep(1);

@@ -1,5 +1,5 @@
 /*
- * GLdb error message implementy file
+ * GLdb tools implement file
  *
  * GLdb is a Multi-thread customed Key-Value No-SQL memory database.
  * GLdb atomic insert voucher & update balance, provide interface for ERP.
@@ -28,55 +28,8 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTH-
  * ERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * I just following 'Converting C++ enums to strings' by Marcos F. Cardoso,
- *   in http://www.codeproject.com/Articles/10500/Converting-C-enums-to-strings
  */
 
-#undef      GLdb_ENUM_NAMES
-#undef      GLdb_ENUM_STRINGS
-#include    "GError.hpp"
+#include    "GTools.hpp"
 
-#define     GLdb_ENUM_NAMES
-#include    "GError.hpp"
-#undef      GLdb_ENUM_NAMES
 
-#define     GLdb_ENUM_STRINGS
-#include    "GError.hpp"             
-#undef      GLdb_ENUM_STRINGS
-
-#include    "GCommon.hpp"
-
-GERROR      GetGLdbError(void)
-{
-  PTINFO    ptinfo;
-  getTraceInfo(ptinfo);
-  return (ptinfo->GLError);
-};
-
-const char* GetGLdbErrorVal(GERROR err)
-{
-  return GetValGLdbError(err);
-};
-
-const char* GetGLdbErrorMessage(GERROR err)
-{
-  return GetStrGLdbError(err);
-};
-
-void        SetGLdbError(GERROR err)
-{
-  PTINFO    ptinfo;
-  getTraceInfo(ptinfo);
-  ptinfo->GLError = err;
-};
-
-void        DisplayGLdbError(void)
-{
-  GERROR    err = GetGLdbError();
-  if (err >= GLdb_ERROR_BASE)
-    printf("GLdb error:0x67-%04ld:%s:\"%s\"\n", err - GLdb_ERROR_BASE, 
-	    GetGLdbErrorVal(err), GetGLdbErrorMessage(err));
-  else
-    printf("System error: %ld\n", err);
-};

@@ -39,4 +39,5 @@
   bzero(desc, sizeof(desc))
 
 
+
 #endif   // GLdb_TOOLS_HPP

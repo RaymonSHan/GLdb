@@ -492,7 +492,10 @@ typedef     union SOCKADDR
  * It saved in TLS.
  *
  * now set to MAX_NEST_LOOP, but I do not check, sizeof(TINFO) is 32K
- *   for normal program, it is enough
+ *   for normal program, it is enough.
+ *
+ * GLError is another TLS, just like errno in linux.
+ *   error define and message store in GError.hpp
  */
 #define     MAX_NEST_LOOP                       1023
 
@@ -506,8 +509,8 @@ typedef     struct perTraceInfo {
 typedef     struct threadTraceInfo {
   UINT      nowLevel;
   PUCHAR    threadName;
-  UINT      GLError;
-  PCHAR     GLErrorMessage;
+  GERROR    GLError;
+  UINT      pad;
   OTINFO    calledInfo[MAX_NEST_LOOP];
 }TINFO, *PTINFO;
 
@@ -573,10 +576,11 @@ typedef     struct threadTraceInfo {
     printf("In %p, thread:Unkonwn\n", info);			\
   for (int i=info->nowLevel/sizeof(perTraceInfo)-1; i>=0; i--)	\
     printf("  %d, in file:%14s, line:%4lld, func: %s\n",	\
-	   i,							\
-	   info->calledInfo[i].fileInfo,			\
-	   info->calledInfo[i].lineInfo,			\
-	   info->calledInfo[i].funcInfo);
+	    i,							\
+	    info->calledInfo[i].fileInfo,			\
+	    info->calledInfo[i].lineInfo,			\
+	    info->calledInfo[i].funcInfo);
+
 
 /*
  * class for working thread use following declare,
@@ -817,13 +821,15 @@ public:
   {
   __TRY
     if (!singleThread) __LOCK(inProcess);
-    if ((arrayFree <= arrayStart) && parentArray)
+    if ((arrayFree <= arrayStart) && parentArray) {
       parentArray->FreeMulti(arrayFree, freeSize);
+    }
     __DO (arrayFree <= arrayStart);
     arrayFree -= SIZEADDR;
     *(arrayFree.pAddr) = addr;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
+    ERROR(GL_STACK_FULL);
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
@@ -831,13 +837,15 @@ public:
   {
   __TRY
     if (!singleThread) __LOCK(inProcess);
-    if ((arrayFree > arrayEnd) && parentArray)
+    if ((arrayFree > arrayEnd) && parentArray) {
       parentArray->GetMulti(arrayFree, getSize);
+    }
     __DO (arrayFree > arrayEnd);
     addr = *(arrayFree.pAddr);
     arrayFree += SIZEADDR;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
+    ERROR(GL_STACK_EMPTY);
     addr = ZERO;
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
@@ -910,6 +918,7 @@ public:
     if (freeStart == arrayEnd) freeStart = arrayStart;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
+    ERROR(GL_QUERY_FULL);
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
@@ -923,9 +932,9 @@ public:
     __DO (freeend == freeStart);
     addr = *(freeend.pAddr);
     freeEnd = freeend;
-
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
+    ERROR(GL_QUERY_EMPTY);
     addr = ZERO;
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
@@ -939,6 +948,7 @@ public:
     __DO (freeend == freeStart);
     addr = *(freeend.pAddr);
   __CATCH_BEGIN
+    ERROR(GL_QUERY_EMPTY);
     addr = ZERO;
   __CATCH_END
   };
