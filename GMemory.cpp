@@ -50,11 +50,9 @@ __TRY
   addr = LockAdd(totalMemoryStart.aLong, padsize) + PAD_THREAD_STACK;
   addr = mmap (addr.pVoid, size, PROT_READ | PROT_WRITE,
 	    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | flag, -1, 0);
-  __DO_(addr == MAP_FAILED, 
-	    "Get memory error, size:0x%llx\n", size);
-__CATCH_BEGIN
-  ERROR(GL_MEMORY_MMAPFAIL);
-__CATCH_END
+  __DOe(addr == MAP_FAILED, 
+	    GL_MEMORY_MMAPFAIL);
+__CATCH
 };
 
 /*
@@ -68,12 +66,9 @@ RESULT      GetStack(ADDR &stack)
 {
 __TRY
   __DO (GetMemory(stack, SIZE_THREAD_STACK - PAD_THREAD_STACK, MAP_GROWSDOWN));
-            /* MARK */  __MARK(AfterGetMemory);
-  __DO_((stack.aLong - PAD_THREAD_STACK) & (SIZE_THREAD_STACK - 1), 
-            "Error stack place:%p", stack.pVoid);
-__CATCH_BEGIN
-  __AFTER(AfterGetMemory) ERROR(GL_MEMORY_NOBORDER);
-__CATCH_END
+  __DOe((stack.aLong - PAD_THREAD_STACK) & (SIZE_THREAD_STACK - 1), 
+            GL_MEMORY_NOBORDER);
+__CATCH
 };
 
 /*
@@ -92,12 +87,10 @@ RESULT      CListItem::decRefCount(void)
 __TRY
   ADDR      addr;
   addr.pList = this;
-  __DO(allocType == 0);
-            /* MARK */  __MARK(HaveType);
+  __DOe(allocType == 0,
+            GL_LIST_NOTYPE);
   __DO(allocType->FreeMemoryList(addr));
-__CATCH_BEGIN
-  __BEFORE(HaveType) ERROR(GL_LIST_NOTYPE);
-__CATCH_END
+__CATCH
 };
 
 /*

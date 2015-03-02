@@ -89,6 +89,7 @@
 
 BEGIN_ENUM(GLdbError, GLdb_ERROR_BASE)
   ENUM(GL_MEMORY_BASE,      "GLdb Memory error base."),
+
   ENUM(GL_MEMORY_MMAPFAIL,  "System mmap() fail"),
   ENUM(GL_MEMORY_NOBORDER,  "GetMemory not in SIZE_THREAD_STACK borden"),
 
@@ -99,6 +100,11 @@ BEGIN_ENUM(GLdbError, GLdb_ERROR_BASE)
 
   ENUM(GL_BLOCK_FREETWICE,  "CMemoryBlock free same item twice"),
   ENUM(GL_LIST_NOTYPE,      "CListItem::allocType is NULL when free"),
+
+  ENUM(GL_IP_BINDZEROSOCKET,"IP BindLocalSocket, input is 0"),
+  ENUM(GL_TCP_INPUT_ZERO,   "PROTOCOL_TCP input parameter is invalid"),
+
+  ENUM(GL_APPLICATION_ZERO, "Application input parameter is invalid"),
 
   ENUM(GL_IOCP_BASE,        "GLdb IOCP error base"),
 END_ENUM(GLdbError, GLdb_ERROR_BASE, GERROR)

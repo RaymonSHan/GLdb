@@ -82,17 +82,20 @@ RESULT      GIPProtocol::BindLocalSocket(
 __TRY
   int       ptype;
 
-  __DO (pcont == 0);
+  __DOe(pcont == 0,
+            GL_IP_BINDZEROSOCKET);
   if (pProtocol->ProtocolNumber == PROTOCOL_TCP) {
     ptype = SOCK_STREAM | SOCK_NONBLOCK;
   } else if (pProtocol->ProtocolNumber == PROTOCOL_UDP) {
     ptype = SOCK_DGRAM | SOCK_NONBLOCK;
-  } else __BREAK;
-
-  __DO1(pcont->bHandle, socket(AF_INET, ptype, pProtocol->ProtocolNumber));
+  } else {
+    ERROR(GL_TCP_INPUT_ZERO);
+    __BREAK;
+  }
+  __DO1(pcont->bHandle, 
+            socket(AF_INET, ptype, pProtocol->ProtocolNumber));
 __CATCH
 };
-
 
 RESULT      GTCPProtocol::CreateNew(
             PCONT pcont, ADDR para, UINT size)
@@ -103,7 +106,8 @@ __TRY
   HANDLE    iocphandle;
   int       result;
 
-  __DO (pcont == 0);
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
   pcont->dwFlags |= WSA_FLAG_ISLISTEN;
   __DO (BindLocalSocket(pcont, this));
   __DO1(result, 
@@ -124,7 +128,10 @@ RESULT      GTCPProtocol::CreateRemote(
             PCONT pcont, ADDR para, UINT size)
 {
 __TRY
-  __DO (pcont == 0);
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(para == ZERO,
+            GL_TCP_INPUT_ZERO);
   memcpy(&(pcont->localSocket), para.pVoid, size);
 __CATCH
 };
@@ -139,10 +146,14 @@ __TRY
   PWSABUF   wsabuf;
   BOOL      result;
 
-  __DO (pcont == 0);
-  __DO (pcont->bHandle == 0);
-  __DO (pbuff == 0);
-  __DO (&pbuff->wsaBuf == NULL);
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pcont->bHandle == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(&pbuff->wsaBuf == NULL,
+            GL_TCP_INPUT_ZERO);
   wsabuf = &(pbuff->wsaBuf);
   __DO (GetDupContext(clicont, pcont));
             /* MARK */  __MARK(AfterGetContext);
@@ -151,7 +162,7 @@ __TRY
   wsabuf->len = 0;
   result = AcceptEx(
 	    (SOCKET)pcont, clicont, wsabuf, 0, 0, 0, NULL, &(pbuff->oLapped));
-  __DO(result == 0);
+  __DO (result == 0);
 __CATCH_BEGIN
   __AFTER(AfterGetContext) FreeContext(clicont);
 __CATCH_END
@@ -167,9 +178,12 @@ __TRY
   HANDLE    iocphandle;
   BOOL      result;
 
-  __DO (pcont == 0);
-  __DO (pbuff == 0);
-  __DO (&pbuff->wsaBuf == NULL);
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(&pbuff->wsaBuf == NULL,
+            GL_TCP_INPUT_ZERO);
   wsabuf = &(pbuff->wsaBuf);
   pcont->dwFlags |= WSA_FLAG_ISCONNECT;
   __DO (BindLocalSocket(pcont, this));
@@ -194,6 +208,10 @@ __TRY
   DWORD     dwflags = 0;
   int       result;
 
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
   pbuff->wsaBuf.len = size;
   result = WSASend(
             (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 
@@ -213,6 +231,10 @@ __TRY
   DWORD     dwflags = 0;
   int       result;
 
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
   pbuff->wsaBuf.len = size;
   result = WSARecv(
             (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 

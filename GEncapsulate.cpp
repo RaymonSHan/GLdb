@@ -57,10 +57,6 @@ __TRY
   __DO (GlobalIOCP.InitGLdbIOCP());
   __DO (InitEncapsulate());
 
-  DisplayGLdbError();
-  SetGLdbError(GL_MEMORY_BASE);
-  DisplayGLdbError();
-
   while (!GlobalShouldQuit) {
     GlobalMemory.DisplayMemoryInfo();
     sleep(1);
@@ -143,7 +139,8 @@ __TRY
   UINT      i;
   PBUFF     newbuff = 0;
 
-  __DO (pApp == 0);
+  __DOe(pApp == 0,
+            GL_APPLICATION_ZERO);
   cliCont = serCont = 0;
   if (!pApp->handleIOCP) {
     __DO (globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP));

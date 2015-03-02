@@ -309,8 +309,7 @@ public:
 #ifdef _TESTCOUNT
     LockInc(GetCount);
 #endif // _TESTCOUNT
-    __DO_(info->memoryStack -= nlist,
-	    "No more list CMemoryAlloc %p", this);
+    __DO (info->memoryStack -= nlist);
 #ifdef _TESTCOUNT
     LockInc(GetSuccessCount);
 #endif // _TESTCOUNT
@@ -331,18 +330,14 @@ private:
 #ifdef _TESTCOUNT
     LockInc(FreeCount);
 #endif // _TESTCOUNT
-    __DO_((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED),
-            "FreeList Twice %p\n", nlist.pList);
-            /* MARK */  __MARK(AfterFreeTest);
+    __DOe((nlist < MARK_MAX || nlist.UsedList == MARK_UNUSED), 
+            GL_BLOCK_FREETWICE);
     nlist.UsedList = MARK_UNUSED;
-    __DO_(info->memoryStack += nlist,
-	    "Free More\n");
+    __DO (info->memoryStack += nlist);
 #ifdef _TESTCOUNT
     LockInc(FreeSuccessCount);
 #endif // _TESTCOUNT
-  __CATCH_BEGIN
-    __BEFORE(AfterFreeTest) ERROR(GL_BLOCK_FREETWICE);
-  __CATCH_END
+  __CATCH
   };
   RESULT    CountTimeout(ADDR usedStart);
 
@@ -369,8 +364,7 @@ public:
   {
     GetThreadMemoryInfo();
   __TRY
-    __DO_(info->memoryStack -= addr,
-            "No more list CMemoryAlloc %p", this);
+    __DO (info->memoryStack -= addr);
     if (TimeoutInit) {
       if (!timeout) timeout = TimeoutInit;
       addr.CountDown = GlobalTime + timeout;       // it is timeout time
@@ -395,16 +389,11 @@ public:
       addr.CountDown = TIMEOUT_QUIT;
       __BREAK_OK;
     }
-    __DO_((addr < MARK_MAX || addr.UsedList == MARK_UNUSED),
-	    "FreeList Twice %p\n", addr.pList);
-            /* MARK */  __MARK(AfterFreeTest);
+    __DOe((addr < MARK_MAX || addr.UsedList == MARK_UNUSED),
+	    GL_BLOCK_FREETWICE);
     addr.UsedList = MARK_UNUSED;
-    __DO_(info->memoryStack += addr,
-	    "Free More\n");
-  __CATCH_BEGIN
-    __BEFORE(AfterFreeTest) ERROR(GL_BLOCK_FREETWICE);
-  __CATCH_END
-
+    __DO (info->memoryStack += addr);
+  __CATCH
   };
 
   RESULT    TimeoutAll(void);

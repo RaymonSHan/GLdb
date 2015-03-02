@@ -62,10 +62,12 @@ __TRY
   DEF_MARK(AfterGetContext);
   DEF_MARK(AfterPostReceive);
 
-  __DO (pcont == 0);
-  __DO (pbuff == 0);
-  __DO (pcont->pPeer == NULL);
-
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pcont->pPeer == NULL,
+            GL_TCP_INPUT_ZERO);
   __DO (GetBufferSmall(newbuff));
             /* MARK */  __MARK(AfterGetBuffer);
   __DO (NoneProFunc(fPostAccept)
@@ -74,7 +76,8 @@ __TRY
   pbuff->nOper = OP_CLIENT_READ;
 
   clicont = (PCONT)pbuff->oLapped.accSocket;
-  __DO (clicont == 0);
+  __DOe(clicont == 0,
+            GL_TCP_INPUT_ZERO);
   pbuff->oLapped.accSocket = 0;
   iocphandle = CreateIoCompletionPort(
             clicont, pcont->pApplication->handleIOCP, (ULONG_PTR)clicont, 0);
@@ -95,7 +98,7 @@ __TRY
     sercont->pPeer = clicont;
 
     __DO (NoneProFunc(fPostConnect)
-	  (sercont, pbuff, 0, OP_CONNECT));
+	    (sercont, pbuff, 0, OP_CONNECT));
             /* MARK */  __MARK_(AfterPostReceive);
   }
 __CATCH_BEGIN

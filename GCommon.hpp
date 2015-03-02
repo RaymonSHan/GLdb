@@ -698,7 +698,10 @@ void      __MESSAGE(INT level, const char * _Format, ...);
 #define   __DO1(val, func) {					\
     setLine();							\
     val = func;							\
-    if (val == NEGONE) __BREAK;					\
+    if (val == NEGONE) {					\
+      WSASetLastError(errno);					\
+      __BREAK;				                        \
+    }								\
   };
 
 #define   __DOc_(func, _Format,...) {				\
@@ -736,7 +739,13 @@ void      __MESSAGE(INT level, const char * _Format, ...);
     __BREAK;							\
   };
 
-
+#define   __DOe(func, err) {					\
+    setLine();							\
+    if (func) {							\
+      ERROR(err);						\
+      __BREAK;							\
+    }								\
+  };
 /*
  * classic data structure
  *
@@ -826,12 +835,12 @@ public:
     if ((arrayFree <= arrayStart) && parentArray) {
       parentArray->FreeMulti(arrayFree, freeSize);
     }
-    __DO (arrayFree <= arrayStart);
+    __DOe(arrayFree <= arrayStart, 
+            GL_STACK_FULL);
     arrayFree -= SIZEADDR;
     *(arrayFree.pAddr) = addr;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
-    ERROR(GL_STACK_FULL);
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
@@ -842,12 +851,12 @@ public:
     if ((arrayFree > arrayEnd) && parentArray) {
       parentArray->GetMulti(arrayFree, getSize);
     }
-    __DO (arrayFree > arrayEnd);
+    __DOe(arrayFree > arrayEnd, 
+            GL_STACK_EMPTY);
     addr = *(arrayFree.pAddr);
     arrayFree += SIZEADDR;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
-    ERROR(GL_STACK_EMPTY);
     addr = ZERO;
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
@@ -914,13 +923,13 @@ public:
   {
   __TRY
     if (!singleThread) __LOCK(inProcess);
-    __DO (freeStart == freeEnd);
+    __DOe(freeStart == freeEnd, 
+            GL_QUERY_FULL);
     *(freeStart.pAddr) = addr;
     freeStart += SIZEADDR;
     if (freeStart == arrayEnd) freeStart = arrayStart;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
-    ERROR(GL_QUERY_FULL);
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
   };
@@ -931,12 +940,12 @@ public:
     if (!singleThread) __LOCK(inProcess);
     freeend = freeEnd + SIZEADDR;
     if (freeend == arrayEnd) freeend = arrayStart;
-    __DO (freeend == freeStart);
+    __DOe(freeend == freeStart, 
+            GL_QUERY_EMPTY);
     addr = *(freeend.pAddr);
     freeEnd = freeend;
     if (!singleThread) __FREE(inProcess);
   __CATCH_BEGIN
-    ERROR(GL_QUERY_EMPTY);
     addr = ZERO;
     if (!singleThread) __FREE(inProcess);
   __CATCH_END
@@ -947,10 +956,10 @@ public:
     ADDR    freeend;
     freeend = freeEnd + SIZEADDR;
     if (freeend == arrayEnd) freeend = arrayStart;
-    __DO (freeend == freeStart);
+    __DOe(freeend == freeStart, 
+            GL_QUERY_EMPTY);
     addr = *(freeend.pAddr);
   __CATCH_BEGIN
-    ERROR(GL_QUERY_EMPTY);
     addr = ZERO;
   __CATCH_END
   };

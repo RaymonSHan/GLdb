@@ -93,15 +93,16 @@ typedef     RESULT (GApplication::*AHandle)
             (PCONT, PBUFF&, UINT);
 
 #define     NoneProFunc(f)					\
-  (NonePro.* (&FPHandle[0])->f)
+            (NonePro.* (&FPHandle[0])->f)
 #define     NoneAppFunc(f)					\
-  (NoneApp.* (FAHandle[0].fFunction[f]))
+            (NoneApp.* (FAHandle[0].fFunction[f]))
 #define     ProFunc(p, f)					\
-  (p->pProtocol->*						\
-   (&FPHandle[p->pProtocol->ProtocolNumber])->f)
+            (p->pProtocol->*					\
+            (&FPHandle[p->pProtocol->ProtocolNumber])->f)
 #define     AppFunc(p, f)					\
-  (p->pApplication->*						\
-   (FAHandle[p->pApplication->ApplicationNumber].fFunction[f]))
+            (p->pApplication->*					\
+	    (FAHandle[p->pApplication->ApplicationNumber].	\
+	    fFunction[f]))
 
 #define     MAX_PROTOCOL                        128
 #define     MAX_APPLICATION                     128
@@ -122,19 +123,19 @@ typedef     struct ProtocolHandles
   protocol.ProtocolNumber = num;				\
   protocol.ProtocolFlag = flag;					\
   ENCAP::fPHandle[num].fCreateNew =				\
-    (PNew)&cname::CreateNew;					\
+            (PNew)&cname::CreateNew;				\
   ENCAP::fPHandle[num].fCreateRemote =				\
-    (PNew)&cname::CreateRemote;					\
+            (PNew)&cname::CreateRemote;				\
   ENCAP::fPHandle[num].fPostAccept =				\
-    (PHandle)&cname::PostAccept;				\
+            (PHandle)&cname::PostAccept;			\
   ENCAP::fPHandle[num].fPostConnect =				\
-    (PHandle)&cname::PostConnect;				\
+            (PHandle)&cname::PostConnect;			\
   ENCAP::fPHandle[num].fPostSend =				\
-    (PAction)&cname::PostSend;					\
+            (PAction)&cname::PostSend;				\
   ENCAP::fPHandle[num].fPostReceive =				\
-    (PAction)&cname::PostReceive;				\
+            (PAction)&cname::PostReceive;			\
   ENCAP::fPHandle[num].fPostClose =				\
-    (PHandle)&cname::PostClose;					\
+            (PHandle)&cname::PostClose;				\
 }
 
 typedef     struct ApplicationHandles
@@ -147,21 +148,21 @@ typedef     struct ApplicationHandles
   app.ApplicationNumber = num;					\
   app.ApplicationFlag = flag;					\
   ENCAP::fAHandle[num].fFunction[fOnAccept] =			\
-    (AHandle)&cname::OnAccept;					\
+            (AHandle)&cname::OnAccept;				\
   ENCAP::fAHandle[num].fFunction[fOnConnect] =			\
-    (AHandle)&cname::OnConnect;					\
+            (AHandle)&cname::OnConnect;				\
   ENCAP::fAHandle[num].fFunction[fOnClientRead] =		\
-    (AHandle)&cname::OnClientRead;				\
+            (AHandle)&cname::OnClientRead;			\
   ENCAP::fAHandle[num].fFunction[fOnClientWrite] =		\
-    (AHandle)&cname::OnClientWrite;				\
+            (AHandle)&cname::OnClientWrite;			\
   ENCAP::fAHandle[num].fFunction[fOnServerRead] =		\
-    (AHandle)&cname::OnServerRead;				\
+            (AHandle)&cname::OnServerRead;			\
   ENCAP::fAHandle[num].fFunction[fOnServerWrite] =		\
-    (AHandle)&cname::OnServerWrite;				\
+            (AHandle)&cname::OnServerWrite;			\
   ENCAP::fAHandle[num].fFunction[fOnClose] =			\
-    (AHandle)&cname::OnClose;					\
+            (AHandle)&cname::OnClose;				\
   ENCAP::fAHandle[num].fFunction[fOnPassby] =			\
-    (AHandle)&cname::OnPassby;					\
+            (AHandle)&cname::OnPassby;				\
 }
 
 typedef     class GEncapsulate
