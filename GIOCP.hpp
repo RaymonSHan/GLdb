@@ -154,6 +154,9 @@ void        WSASetLastError(UINT err);
  */
 inline UINT ToWSAError(UINT err) { return err; };
 
+#define     WSAERROR						\
+            WSASetLastError(ToWSAError(errno));
+
 
 #define     WSA_INFINITE                        NEGONE
 #define     WSA_FLAG_OVERLAPPED                 (1 << 0)
@@ -166,15 +169,15 @@ inline UINT ToWSAError(UINT err) { return err; };
 #define     WSA_FLAG_ISCONNECT                  (1 << 12)
 
 #define     IS_LISTEN(pcont)					\
-  (pcont->dwFlags & WSA_FLAG_ISLISTEN)
+            (pcont->dwFlags & WSA_FLAG_ISLISTEN)
 #define     IS_ACCEPT(pcont)					\
-  (pcont->dwFlags & WSA_FLAG_ISACCEPT)
+            (pcont->dwFlags & WSA_FLAG_ISACCEPT)
 #define     IS_CONNECT(pcont)					\
-  (pcont->dwFlags & WSA_FLAG_ISCONNECT)
+            (pcont->dwFlags & WSA_FLAG_ISCONNECT)
 
 #define     IS_DUPLEX(pcont)					\
-  (pcont->pApplication->ApplicationFlag &			\
-   APPLICATION_FLAG_DUPLEX)
+            (pcont->pApplication->ApplicationFlag &		\
+            APPLICATION_FLAG_DUPLEX)
 #endif // __GLdb_SELF_USE
 
 /*
@@ -209,7 +212,7 @@ public:
   {
   __TRY
     __DO1(eventFd,
-	  eventfd(0, EFD_SEMAPHORE));
+	    eventfd(0, EFD_SEMAPHORE));
   __CATCH
   };
   RESULT    FreeArrayEvent()
@@ -230,7 +233,7 @@ public:
 
     __DO (eventQuery += addr);
     __DO1(status,
-	  write(eventFd, &WRITEADDR, SIZEADDR));
+	    write(eventFd, &WRITEADDR, SIZEADDR));
   __CATCH
   };
   RESULT    operator -= (ADDR &addr)
@@ -240,7 +243,7 @@ public:
     int     status;
 
     __DO1(status,
-	  read(eventFd, &READADDR, SIZEADDR));
+	    read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
   __CATCH
   };
@@ -311,21 +314,25 @@ public:
   __TRY
     ADDR    result = {0};
     if (init) {
-      if (ThreadStartEvent.eventFd) ThreadStartEvent -= result;
+      if (ThreadStartEvent.eventFd) {
+	__DO (ThreadStartEvent -= result);
+      }
       else {
-	ThreadStartEvent.InitArrayEvent();
-	ThreadInitFinish.InitArrayEvent();
-	ThreadMainFinish.InitArrayEvent();
+	__DOe(ThreadStartEvent.InitArrayEvent(),
+	    GL_CLONE_INIT_ERROR);
+	__DOe(ThreadInitFinish.InitArrayEvent(),
+	    GL_CLONE_INIT_ERROR);
+	__DOe(ThreadMainFinish.InitArrayEvent(),
+	    GL_CLONE_INIT_ERROR);
       }
     }
-    __DO_(result.aLong, "GlobalEvent Initialize Error\n");
+
     LockInc(GlobalThreadNumber);
-    __DO_(GetStack(threadStack), "Stack Initialize Error\n");
-    __DO1_(threadId,
-	   clone(&(RThread::RThreadFunc), 
-		 threadStack.pChar + REAL_SIZE_THREAD_STACK,
-		 CLONE_VM | CLONE_FILES, this),
-	   "Thread Clone Error\n");
+    __DO (GetStack(threadStack));
+    __DO1(threadId,
+	    clone(&(RThread::RThreadFunc), 
+	    threadStack.pChar + REAL_SIZE_THREAD_STACK,
+	    CLONE_VM | CLONE_FILES, this));
   __CATCH
   };
 
@@ -370,15 +377,15 @@ public:
 
     result = thread->SystemThreadInit();
     if (!ThreadStartEvent.IsInitArrayEvent()) {
-      __DO_(ThreadStartEvent += result, "Set GlobalEvent Error\n");
+      __DO (ThreadStartEvent += result);
       __DO (ThreadInitFinish -= result);
       __DO (ThreadMainFinish += result);
     }
-    __DO_(result.aLong, "Thread Initialize Error\n");
+    __DO (result.aLong);
     while ((!thread->shouldQuit) && (!GlobalShouldQuit)) {
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
     }
-    __DO_(thread->ThreadFree(), "Thread Free Error\n");
+    __DO (thread->ThreadFree());
   __CATCH
   };
   RESULT    SystemThreadInit(void)
@@ -565,7 +572,9 @@ public:
 
 #endif // __GLdb_SELF_USE
 
-#define     NUMBER_MAX_IOCP                     LIST_MIDDLE
+//#define     NUMBER_MAX_IOCP                     LIST_MIDDLE - 1
+#define     NUMBER_MAX_IOCP                     2
+// In debug it is 2
 #define     NUMBER_MAX_WORK                     32
 
 /*

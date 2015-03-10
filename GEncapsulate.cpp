@@ -58,7 +58,7 @@ __TRY
   __DO (InitEncapsulate());
 
   while (!GlobalShouldQuit) {
-    GlobalMemory.DisplayMemoryInfo();
+    //    GlobalMemory.DisplayMemoryInfo();
     sleep(1);
   }
   __DO (FreeEncapsulate());

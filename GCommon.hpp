@@ -81,6 +81,7 @@
 #define     ZEROADDR                            ((ADDR)0)
 
 #define     NEGONE                              (-1)
+#define     INVALID_SOCKET                      ((SOCKET)-1)
 /*
  * for STRING use, constant len string
  */
@@ -666,35 +667,13 @@ error_stop:							\
 #define     MESSAGE_ERROR                       (1 << 2)
 #define     MESSAGE_HALT                        (1 << 3)
 
-void      __MESSAGE(INT level, const char * _Format, ...);
+void      __MESSAGE_(INT level, const char * _Format, ...);
+void      __MESSAGE (INT level);
 
 #define   __INFO(level, _Format,...) {				\
-    __MESSAGE(level, _Format,##__VA_ARGS__);			\
-  };
-#define   __INFOb(level, _Format,...) {				\
-    __MESSAGE(level, _Format,##__VA_ARGS__);			\
-    __BREAK_OK							\
+    __MESSAGE_(level, _Format,##__VA_ARGS__);			\
   };
 
-#define   __DO1c_(val, func, _Format,...) {			\
-    setLine();							\
-    val = func;							\
-    if (val == NEGONE) 						\
-      __INFO(MESSAGE_INFO, _Format,##__VA_ARGS__);		\
-  };
-#define   __DO1c(val, func) {					\
-    setLine();							\
-    val = func;							\
-  };
-
-#define   __DO1_(val, func, _Format,...) {			\
-    setLine();							\
-    val = func;							\
-    if (val == NEGONE) {					\
-      __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
-      __BREAK							\
-    }								\
-  };
 #define   __DO1(val, func) {					\
     setLine();							\
     val = func;							\
@@ -714,25 +693,15 @@ void      __MESSAGE(INT level, const char * _Format, ...);
     func;							\
   };
 
-#define   __DO_(func, _Format,...) {				\
-    setLine();							\
-    if (func) {							\
-      __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
-      __BREAK							\
-    }								\
-  };
+
 #define   __DO(func) {						\
     setLine();							\
-    if (func) __BREAK;						\
+    if (func) {							\
+      __MESSAGE(MESSAGE_DEBUG);					\
+      __BREAK;							\
+    }								\
   };
 
-#define   __DOb_(func, _Format,...) {				\
-    setLine();							\
-    if (func) {							\
-      __INFO(MESSAGE_DEBUG, _Format,##__VA_ARGS__);		\
-    }								\
-  __BREAK							\
-  };
 #define   __DOb(func) {						\
     setLine();							\
     func;							\
@@ -743,6 +712,7 @@ void      __MESSAGE(INT level, const char * _Format, ...);
     setLine();							\
     if (func) {							\
       ERROR(err);						\
+      __MESSAGE(MESSAGE_DEBUG);					\
       __BREAK;							\
     }								\
   };

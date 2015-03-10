@@ -74,9 +74,10 @@ void        SetGLdbError(GERROR err)
 void        DisplayGLdbError(void)
 {
   GERROR    err = GetGLdbError();
-  if (err >= GLdb_ERROR_BASE)
+  if (err >= GLdb_ERROR_BASE) {
     printf("GLdb error:0x67-%04ld:%s:\"%s\"\n", err - GLdb_ERROR_BASE, 
 	    GetGLdbErrorVal(err), GetGLdbErrorMessage(err));
-  else
+  } else if (err) {
     printf("System error: %ld\n", err);
+  }
 };

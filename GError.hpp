@@ -101,12 +101,16 @@ BEGIN_ENUM(GLdbError, GLdb_ERROR_BASE)
   ENUM(GL_BLOCK_FREETWICE,  "CMemoryBlock free same item twice"),
   ENUM(GL_LIST_NOTYPE,      "CListItem::allocType is NULL when free"),
 
+  ENUM(GL_IOCP_INPUT_ZERO,  "IOCP input parameter is invalid"),
+  ENUM(GL_IOCP_INPUT_NOSUP, "IOCP input parameter is not support yet"),
+
   ENUM(GL_IP_BINDZEROSOCKET,"IP BindLocalSocket, input is 0"),
   ENUM(GL_TCP_INPUT_ZERO,   "PROTOCOL_TCP input parameter is invalid"),
 
   ENUM(GL_APPLICATION_ZERO, "Application input parameter is invalid"),
 
-  ENUM(GL_IOCP_BASE,        "GLdb IOCP error base"),
+  ENUM(GL_CLONE_INIT_ERROR, "ThreadClone error"),
+
 END_ENUM(GLdbError, GLdb_ERROR_BASE, GERROR)
 
 #endif   // (!defined(GLdb_ERROR_HPP) ||

@@ -84,24 +84,36 @@ int         initDaemon(SERVICE service)
   int       pidFirst, pidSecond;  
   int       i;  
 
-  // the first child thread, for relese console
+/*
+ * first fork, for child release console
+ * then the child will be leader by setsid()
+ */
   pidFirst = fork();
-  if (pidFirst > 0) exit(0);                      // is parent thread, exit
-  else if (pidFirst < 0) exit(1);                 // error in fork
-  setsid();                                       // first child be leader  
+  if (pidFirst > 0) exit(0);
+  else if (pidFirst < 0) exit(1);
+  setsid();
 
-  // the second child thread, for could not get console again
+/*
+ * second fork, for child could not get console again.
+ * and not be leader
+ */
   pidSecond = fork();
-  if (pidSecond > 0) exit(0); 
-                    // second thread could not get console
-  else if (pidSecond < 0) exit(1);                // the second never be leader
+  if (pidSecond > 0) exit(0);
+  else if (pidSecond < 0) exit(1);
 
-  for (i = 0; i < NOFILE; ++i) close(i);          // close all handle from parent
-  
-  if (chdir("/tmp")) exit(1);                     // change working dirctory to /tmp  
-  umask(0);                                       // remove file mask
+/*
+ * close all handle from parent
+ * change work dirctory to /tmp
+ * remove file mask
+ */
+  for (i = 0; i < NOFILE; ++i) close(i);
+  if (chdir("/tmp")) exit(1);
+  umask(0);
 
-  return service();                               // Real work
+/*
+ * run real work
+ */
+  return service();
 };
 
 ENCAP       GlobalEncapsulate;

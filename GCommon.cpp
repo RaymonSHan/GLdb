@@ -135,7 +135,7 @@ INT         StrCmp(STRING &one, STRING &two)
   return (onelen - twolen);
 };
 
-void      __MESSAGE(INT level, const char * _Format, ...) 
+void      __MESSAGE_(INT level, const char * _Format, ...) 
 {
   va_list   ap;
   PTINFO    info;
@@ -147,6 +147,17 @@ void      __MESSAGE(INT level, const char * _Format, ...)
     va_end(ap);
     printf("\n");
   }
+  DisplayGLdbError();
+  if (level & MESSAGE_DEBUG) {
+    displayTraceInfo(info);
+  }
+};
+
+void      __MESSAGE(INT level) 
+{
+  PTINFO    info;
+
+  if (!level) return;
   DisplayGLdbError();
   if (level & MESSAGE_DEBUG) {
     displayTraceInfo(info);

@@ -83,24 +83,27 @@ SOCKET      WSASocket(
   (void)    lpProtocolInfo;
   (void)    g;
   PCONT     pcont;
+  int       handle;
   RESULT    result;
-
-  result = GetContext(pcont);
-  if (result) return 0;
 
 /*
  * for the different for AcceptEx and accept, do NOT create socket here
  */
 #ifdef    __GLdb_SELF_USE
   if (dwFlags & (WSA_FLAG_ISACCEPT | WSA_FLAG_ISCONNECT)) pcont->bHandle = 0;
-  else pcont->bHandle = socket(af, type, protocol);
+  else handle = socket(af, type, protocol);
 #else  // __GLdb_SELF_USE
-  pcont->bHandle = socket(af, type, protocol);
+  handle = socket(af, type, protocol);
 #endif // __GLdb_SELF_USE
 
-  if (pcont->bHandle == -1) {
-    WSASetLastError(ToWSAError(errno));
+  if (handle == NEGONE) {
+    WSAERROR;
+    return INVALID_SOCKET;
   }
+  result = GetContext(pcont);
+  if (result) return INVALID_SOCKET;
+
+  pcont->bHandle = handle;
   pcont->dwFlags = dwFlags;
   return pcont;
 };
@@ -111,6 +114,8 @@ SOCKET      WSASocket(
  *
  * CreateIoCompletionPort() use GetIOCPItem() to get handle, 64 at most.
  * All FileHandle add EPOLLIN into same epollHandle. with each IOCP handle.
+ *
+ * for Connect socket, wait for writeable first, then wait EPOLLIN
  */
 HANDLE      CreateIoCompletionPort(
             SOCKET          FileHandle,
@@ -119,33 +124,43 @@ HANDLE      CreateIoCompletionPort(
 	    DWORD           NumberOfConcurrentThreads)
 {
   (void)    NumberOfConcurrentThreads;
+__TRY__
 
   ADDR      addr;
   int       state;
   struct    epoll_event ev;
   if (!FileHandle && !ExistingCompletionPort && !CompletionKey) {
-    if (GlobalIOCP.GetIOCPItem(addr)) return 0;
-    return addr.aLong;
-  } else {
-    if (!ExistingCompletionPort) return 0;
-    if (!FileHandle) return 0;
-    FileHandle->iocpHandle = (PEVENT)ExistingCompletionPort;
-    FileHandle->completionKey = CompletionKey;
-    if (IS_CONNECT(FileHandle)) {
-      ev.events = EPOLLET | EPOLLIN | EPOLLOUT;
-      FileHandle->waitEpollOut = 1;
-    } else {
-      ev.events = EPOLLET | EPOLLIN;
-      FileHandle->waitEpollOut = 0;
+    if (GlobalIOCP.GetIOCPItem(addr)) {
+      return 0;
     }
-    ev.data.ptr = CompletionKey;
-    state = epoll_ctl(GlobalIOCP.epollHandle,
-		     EPOLL_CTL_ADD, 
-		     FileHandle->bHandle, 
-		     &ev);
-    if (state) return 0;
-    return ExistingCompletionPort;
+    return addr.aLong;
   }
+  __DOe(FileHandle == 0,  GL_IOCP_INPUT_ZERO);
+  __DOe(ExistingCompletionPort == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(CompletionKey == 0, GL_IOCP_INPUT_ZERO);
+
+  FileHandle->iocpHandle = (PEVENT)ExistingCompletionPort;
+  FileHandle->completionKey = CompletionKey;
+  if (IS_CONNECT(FileHandle)) {
+/*
+ * NO EPOLLIN at first for PostConnect
+ */
+    ev.events = EPOLLET | EPOLLOUT;
+    FileHandle->waitEpollOut = 1;
+  } else {
+    ev.events = EPOLLET | EPOLLIN;
+    FileHandle->waitEpollOut = 0;
+  }
+  ev.data.ptr = CompletionKey;
+  state = epoll_ctl(GlobalIOCP.epollHandle,
+	    EPOLL_CTL_ADD, 
+	    FileHandle->bHandle, 
+	    &ev);
+  if (state) {
+    WSAERROR;
+    return 0;
+  }
+__CATCH_(ExistingCompletionPort)
 };
 
 /*
@@ -169,13 +184,17 @@ __TRY__
   PEVENT    iocpHandle;
   ADDR      addr;
 
+  __DOe(CompletionPort == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpNumberOfBytes == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpCompletionKey == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+
   iocpHandle = (PEVENT)CompletionPort;
-  __DO(*iocpHandle -= addr);
+  __DO (*iocpHandle -= addr);
   *lpOverlapped = (POLAP)addr.pVoid;
-  if (addr != ZERO) {
-    (*lpCompletionKey) = (*lpOverlapped)->Internal->completionKey;
-    (*lpNumberOfBytes) = (*lpOverlapped)->doneSize;
-  }
+  __DO (addr == ZERO);
+  (*lpCompletionKey) = (*lpOverlapped)->Internal->completionKey;
+  (*lpNumberOfBytes) = (*lpOverlapped)->doneSize;
 __CATCH_(1)
 };
 
@@ -192,6 +211,11 @@ BOOL        PostQueuedCompletionStatus(
 __TRY__
   PEVENT    iocpHandle;
   ADDR      addr;
+
+  __DOe(CompletionPort == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(dwCompletionKey == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+
   iocpHandle = (PEVENT)CompletionPort;
   addr.pVoid = lpOverlapped;
   lpOverlapped->Internal->completionKey = dwCompletionKey;
@@ -217,10 +241,15 @@ int         WSASend(
 {
   (void)    dwFlags;
   (void)    lpCompletionRoutine;
-__TRY
+__TRY__
   ADDR      overlap;
-  __DO_(dwBufferCount != 1, "GLdbIOCP only support one WSABUF now\n");
-  __DO_(lpOverlapped == NULL, "GLdbIOCP not support NULL OVERLAPPED\n");
+
+  __DOe(s == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpBuffers == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpNumberOfBytesSent == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(dwBufferCount != 1, GL_IOCP_INPUT_NOSUP);
+
   overlap.pVoid = lpOverlapped;
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
@@ -230,7 +259,7 @@ __TRY
   __DO (s->writeBuffer += overlap);
   __DO (*(GlobalIOCP.eventHandle) += overlap);
   WSASetLastError(WSA_IO_PENDING);
-__CATCH
+__CATCH_(1)
 };
 
 int         WSARecv(
@@ -244,10 +273,15 @@ int         WSARecv(
 {
   (void)    lpFlags;
   (void)    lpCompletionRoutine;
-__TRY
+__TRY__
   ADDR      overlap;
-  __DO_(dwBufferCount != 1, "GLdbIOCP only support one WSABUF now\n");
-  __DO_(lpOverlapped == NULL, "GLdbIOCP not support NULL OVERLAPPED\n");
+
+  __DOe(s == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpBuffers == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpNumberOfBytesRecvd == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(dwBufferCount != 1, GL_IOCP_INPUT_NOSUP);
+
   overlap.pVoid = lpOverlapped;
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
@@ -256,7 +290,7 @@ __TRY
   *lpNumberOfBytesRecvd = lpBuffers->len;
   __DO (*(GlobalIOCP.eventHandle) += overlap);
   WSASetLastError(WSA_IO_PENDING);
-__CATCH
+__CATCH_(1)
 };
 
 /*
@@ -279,6 +313,11 @@ BOOL        AcceptEx(
   (void)    lpdwBytesReceived;
 __TRY__
   ADDR      overlap;
+  __DOe(sListenSocket == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(sAcceptSocket == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOutputBuffer == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+
   lpOverlapped->Internal = sListenSocket;
   lpOverlapped->InternalHigh = (PWSABUF)lpOutputBuffer;
   lpOverlapped->accSocket = sAcceptSocket;
@@ -305,6 +344,12 @@ BOOL        ConnectEx(
   (void)    lpdwBytesSent;
 __TRY__
   ADDR      overlap;
+  __DOe(s == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(name == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(namelen == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpSendBuffer == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = (PWSABUF)lpSendBuffer;
   /*
@@ -313,7 +358,7 @@ __TRY__
   memcpy(&(s->localSocket), name, namelen);
   lpOverlapped->events = EPOLLCONNECT;
   overlap.pVoid = lpOverlapped;
-  __DO (*(GlobalIOCP.eventHandle) += overlap);
+  __DO (*GlobalIOCP.eventHandle += overlap);
 __CATCH_(1)
 };
 
@@ -340,7 +385,7 @@ __TRY
     
   GlobalMemory.InitThreadMemory(1);
   addr = (PVOID)overlapBuffer;
-  __DO1_(epollHandle, epoll_create(1), "Error in create epoll\n");
+  __DO1 (epollHandle, epoll_create(1));
   overlapStack.FullArrayStack(addr, sizeof(OVERLAPPED), LIST_SMALL);
 __CATCH
 };
@@ -352,8 +397,8 @@ __TRY
   ADDR      overlapaddr;
   POLAP     &overlap = (POLAP &)overlapaddr;
 
-  __DO1 (evNumber,
-	 epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
+  __DO1(evNumber,
+	    epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
   if (waitEv == 0) {
     __DO (overlapStack -= overlapaddr);
     overlap->events = EPOLLTIMEOUT;
@@ -379,7 +424,7 @@ RESULT      RThreadEvent::ThreadInit(void)
 {
 __TRY
   GlobalMemory.InitThreadMemory(1);
-  __DO_(eventHandle.InitArrayEvent(), "Error in create eventEv\n");
+  __DO (eventHandle.InitArrayEvent());
 __CATCH
 };
 
@@ -399,8 +444,6 @@ __TRY
 /*
  * Wait eventfd, then get CContextItem and WSABuffer address
  */
-
-
   __DO (eventHandle -= overlapaddr);
   contextaddr = overlap->Internal;
 
@@ -420,8 +463,8 @@ __TRY
  * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
  */
-    *pOverlapStack += overlapaddr;
-    context->readBuffer -= overlapaddr;
+    __DO (*pOverlapStack += overlapaddr);
+    __DO (context->readBuffer -= overlapaddr);
 
 #ifdef    __GLdb_SELF_USE
 /*
@@ -431,17 +474,16 @@ __TRY
  */
     if (IS_LISTEN(context)) {
       tempevent = EPOLLACCEPT;
-      __DO(context->writeBuffer += contextaddr);
+      __DO (context->writeBuffer += contextaddr);
     }
 #endif // __GLdb_SELF_USE
 
     if (overlapaddr == ZERO) __BREAK_OK;
     overlap->events |= tempevent;
-
   }
 
   if (overlap->events & EPOLLOUT) {
-    *pOverlapStack += overlapaddr;
+    __DO (*pOverlapStack += overlapaddr);
     overlap->events |= EPOLLWRITE;             // maybe not necessary
   }
 
@@ -460,20 +502,26 @@ __TRY
       //    if (listenaddr != ZERO) {
       clicont = (PCONT)overlap->accSocket;
       if (clicont->bHandle) close(clicont->bHandle);
-      clicont->bHandle = accept4(context->bHandle, 
-				 &(context->remoteSocket.saddr), &tempsize, 
-				 SOCK_NONBLOCK);
+      clicont->bHandle = accept4(
+	    context->bHandle, &(context->remoteSocket.saddr), 
+	    &tempsize, SOCK_NONBLOCK);
+      if (clicont->bHandle == NEGONE && errno != EAGAIN) {
+	__BREAK;
+      }
       __DO (*context->iocpHandle += overlapaddr);
     } else {
-      context->readBuffer += overlapaddr;
+      __DO (context->readBuffer += overlapaddr);
     }
   }
   if (overlap->events & EPOLLCONNECT) {
-    state = connect(context->bHandle, &(context->localSocket.saddr), sizeof(SOCK));
-    if (!state) {
-    } else if (errno == EINPROGRESS) {
-      context->writeBuffer += overlapaddr;
+    state = connect(context->bHandle,
+	    &(context->localSocket.saddr), sizeof(SOCK));
+    // for linux asyn connect never return immediately, always for EINPROCESS, 
+    // while FreeBSD maybe for loopback connect.
+    if (state == NEGONE && errno == EINPROGRESS) {
+      __DO (context->writeBuffer += overlapaddr);
     } else {
+       //  error for connect
     }
   }
 #endif // __GLdb_SELF_USE
@@ -484,7 +532,7 @@ __TRY
     readed = read(context->bHandle, buffer->buf, buffer->len);
     if (readed == NEGONE) {
       if (errno == EAGAIN) {
-	context->readBuffer += overlapaddr;
+	__DO (context->readBuffer += overlapaddr);
       } else {
 	// close socket
       }
@@ -506,25 +554,25 @@ __TRY
       writed = 0;
       context->writeBuffer.TryGet(overlapaddr);
 
-    if (IS_CONNECT(context)) {
-      context->dwFlags &= ~WSA_FLAG_ISCONNECT;
-    }
+      if (IS_CONNECT(context)) {
+	context->dwFlags &= ~WSA_FLAG_ISCONNECT;
+      }
 
       if (overlapaddr == ZERO) break;
       bufferaddr = overlap->InternalHigh;
       if (buffer->len - overlap->doneSize) {
 	writed = write(context->bHandle,
-		       buffer->buf + overlap->doneSize,
-		       buffer->len - overlap->doneSize);
+	    buffer->buf + overlap->doneSize,
+	    buffer->len - overlap->doneSize);
 	if (writed == NEGONE) {
 	  if (errno == EAGAIN) break;
 	  else {
 	    // write error close socket
 	  } } }
-      overlap->doneSize += writed;
+      __DO (overlap->doneSize += writed);
       //      overlap->events = EPOLLOUT;        // This is why?
       if (overlap->doneSize == buffer->len) {
-	context->writeBuffer -= overlapaddr;  // must have ??
+	__DO (context->writeBuffer -= overlapaddr);  // must have ??
 	if (*context->iocpHandle += overlapaddr) {
 	  // IOCP error close socket
 	}
@@ -534,21 +582,17 @@ __TRY
       if (!context->waitEpollOut) __BREAK_OK;
       ev.events = EPOLLET | EPOLLIN;
       ev.data.u64 = contextaddr.aLong;
-      __DO1 (state,
-	     epoll_ctl(epollHandle, 
-		       EPOLL_CTL_MOD, 
-		       context->bHandle, 
-		       &ev));
+      __DO1(state,
+	    epoll_ctl(epollHandle, EPOLL_CTL_MOD, 
+	    context->bHandle, &ev));
       context->waitEpollOut = 0;
     } else {
       if (context->waitEpollOut) __BREAK_OK;
       ev.events = EPOLLET | EPOLLOUT;
       ev.data.u64 = contextaddr.aLong;
-      __DO1 (state,
-	     epoll_ctl(epollHandle, 
-		       EPOLL_CTL_MOD, 
-		       context->bHandle, 
-		       &ev));
+      __DO1(state,
+	    epoll_ctl(epollHandle, EPOLL_CTL_MOD, 
+	    context->bHandle, &ev));
       context->waitEpollOut = 1;
     }
   }
@@ -561,7 +605,6 @@ __CATCH
 RESULT      RThreadWork::ThreadInit(void)
 {
   GlobalMemory.InitThreadMemory(1);
-
   return 0;
 };
 
@@ -572,13 +615,13 @@ __TRY
   PCONT     pcont;
   PBUFF     pbuff;
   UINT      noper;
+  BOOL      state;
 
-  GetQueuedCompletionStatus(
+  __DO1(state, GetQueuedCompletionStatus(
             (HANDLE)handleIOCP, (DWORD*)&size, 
             (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
-            WSA_INFINITE);
-
-  if (size == -1) __BREAK_OK;
+            WSA_INFINITE));
+  if (size == NEGONE) __BREAK_OK;
   noper = pbuff->nOper;
 
   if (size || noper == OP_ACCEPT || noper == OP_CONNECT) 
