@@ -129,11 +129,12 @@ __TRY__
   ADDR      addr;
   int       state;
   struct    epoll_event ev;
+
   if (!FileHandle && !ExistingCompletionPort && !CompletionKey) {
     if (GlobalIOCP.GetIOCPItem(addr)) {
-      return 0;
+      __RETURN_(0);
     }
-    return addr.aLong;
+    __RETURN_(addr.aLong);
   }
   __DOe(FileHandle == 0,  GL_IOCP_INPUT_ZERO);
   __DOe(ExistingCompletionPort == 0, GL_IOCP_INPUT_ZERO);
@@ -158,7 +159,7 @@ __TRY__
 	    &ev);
   if (state) {
     WSAERROR;
-    return 0;
+    __RETURN_(0);
   }
 __CATCH_(ExistingCompletionPort)
 };
@@ -425,6 +426,8 @@ RESULT      RThreadEvent::ThreadInit(void)
 __TRY
   GlobalMemory.InitThreadMemory(1);
   __DO (eventHandle.InitArrayEvent());
+ Dp(&eventHandle);
+ Dn;
 __CATCH
 };
 
@@ -444,6 +447,11 @@ __TRY
 /*
  * Wait eventfd, then get CContextItem and WSABuffer address
  */
+
+// RESULT result = (eventHandle -= overlapaddr);
+//  setLine();
+//  Dlld(result);
+
   __DO (eventHandle -= overlapaddr);
   contextaddr = overlap->Internal;
 
@@ -498,16 +506,14 @@ __TRY
  * Here context is listening SOCKET.
  */
 
-    if (!(context->writeBuffer -= listenaddr)) {
+    if (!(context->writeBuffer.TryAndGet(listenaddr))) {
       //    if (listenaddr != ZERO) {
       clicont = (PCONT)overlap->accSocket;
       if (clicont->bHandle) close(clicont->bHandle);
       clicont->bHandle = accept4(
 	    context->bHandle, &(context->remoteSocket.saddr), 
 	    &tempsize, SOCK_NONBLOCK);
-      if (clicont->bHandle == NEGONE && errno != EAGAIN) {
-	__BREAK;
-      }
+      __DO (clicont->bHandle == NEGONE && errno != EAGAIN);
       __DO (*context->iocpHandle += overlapaddr);
     } else {
       __DO (context->readBuffer += overlapaddr);
@@ -569,15 +575,20 @@ __TRY
 	  else {
 	    // write error close socket
 	  } } }
-      __DO (overlap->doneSize += writed);
+      overlap->doneSize += writed;
+      setLine();
       //      overlap->events = EPOLLOUT;        // This is why?
       if (overlap->doneSize == buffer->len) {
+	setLine();
 	__DO (context->writeBuffer -= overlapaddr);  // must have ??
+	setLine();
 	if (*context->iocpHandle += overlapaddr) {
 	  // IOCP error close socket
 	}
+	setLine();
       } else break;
     }
+    setLine();
     if (overlapaddr == ZERO) {
       if (!context->waitEpollOut) __BREAK_OK;
       ev.events = EPOLLET | EPOLLIN;
@@ -621,13 +632,17 @@ __TRY
             (HANDLE)handleIOCP, (DWORD*)&size, 
             (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
             WSA_INFINITE));
+
+  Dp(pcont); Dp(pbuff); Dlld(pbuff->nOper); Dd(size); Dn;
+
   if (size == NEGONE) __BREAK_OK;
   noper = pbuff->nOper;
 
-  if (size || noper == OP_ACCEPT || noper == OP_CONNECT) 
-    NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size);
-  else 
-    NoneAppFunc(fOnClose)(pcont, pbuff, size);
+  if (size || noper == OP_ACCEPT || noper == OP_CONNECT) {
+    __DO (NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size));
+  } else {
+    __DO (NoneAppFunc(fOnClose)(pcont, pbuff, size));
+  }
 __CATCH
 };
 

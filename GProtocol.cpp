@@ -93,7 +93,7 @@ __TRY
     __BREAK;
   }
   __DO1(pcont->bHandle, 
-            socket(AF_INET, ptype, pProtocol->ProtocolNumber));
+            socket(AF_INET, ptype, 0));
 __CATCH
 };
 
@@ -157,6 +157,7 @@ __TRY
   wsabuf = &(pbuff->wsaBuf);
   __DO (GetDupContext(clicont, pcont));
             /* MARK */  __MARK(AfterGetContext);
+
   pbuff->oLapped.accSocket = clicont;
   pbuff->oLapped.doneSize = 0;
   wsabuf->len = 0;

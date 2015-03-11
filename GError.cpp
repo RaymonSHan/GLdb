@@ -78,6 +78,6 @@ void        DisplayGLdbError(void)
     printf("GLdb error:0x67-%04ld:%s:\"%s\"\n", err - GLdb_ERROR_BASE, 
 	    GetGLdbErrorVal(err), GetGLdbErrorMessage(err));
   } else if (err) {
-    printf("System error: %ld\n", err);
+    printf("System error: %ld:\"%s\"\n", err, strerror(err));
   }
 };

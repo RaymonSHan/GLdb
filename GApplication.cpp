@@ -79,6 +79,7 @@ __TRY
   __DOe(clicont == 0,
             GL_TCP_INPUT_ZERO);
   pbuff->oLapped.accSocket = 0;
+
   iocphandle = CreateIoCompletionPort(
             clicont, pcont->pApplication->handleIOCP, (ULONG_PTR)clicont, 0);
   __DO (iocphandle == 0);
@@ -96,7 +97,6 @@ __TRY
             /* MARK */  __MARK_(AfterGetContext);
     clicont->pPeer = sercont;
     sercont->pPeer = clicont;
-
     __DO (NoneProFunc(fPostConnect)
 	    (sercont, pbuff, 0, OP_CONNECT));
             /* MARK */  __MARK_(AfterPostReceive);

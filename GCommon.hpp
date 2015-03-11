@@ -657,6 +657,9 @@ error_stop:							\
 #define   __CATCH__                                             \
   endCall();							\
   return 0;
+#define   __RETURN_(ret)					\
+  endCall();							\
+  return ret;
 #define   __BREAK                                               \
   { goto error_stop; }
 #define   __BREAK_OK                                            \
@@ -669,6 +672,9 @@ error_stop:							\
 
 void      __MESSAGE_(INT level, const char * _Format, ...);
 void      __MESSAGE (INT level);
+void      __TRACE();
+
+#define     TRACE                             __TRACE();
 
 #define   __INFO(level, _Format,...) {				\
     __MESSAGE_(level, _Format,##__VA_ARGS__);			\
@@ -926,13 +932,32 @@ public:
     ADDR    freeend;
     freeend = freeEnd + SIZEADDR;
     if (freeend == arrayEnd) freeend = arrayStart;
-    __DOe(freeend == freeStart, 
-            GL_QUERY_EMPTY);
+/*
+ * for TryGet, empty is ok, not error. do not __DOe()
+ */
+    if (freeend == freeStart) __BREAK;
     addr = *(freeend.pAddr);
   __CATCH_BEGIN
     addr = ZERO;
   __CATCH_END
   };
+  RESULT    TryAndGet(ADDR &addr)
+  {
+  __TRY
+    ADDR    freeend;
+    if (!singleThread) __LOCK(inProcess);
+    freeend = freeEnd + SIZEADDR;
+    if (freeend == arrayEnd) freeend = arrayStart;
+    if (freeend == freeStart) __BREAK;
+    addr = *(freeend.pAddr);
+    freeEnd = freeend;
+    if (!singleThread) __FREE(inProcess);
+  __CATCH_BEGIN
+    addr = ZERO;
+    if (!singleThread) __FREE(inProcess);
+  __CATCH_END
+  };
+
   UINT      GetNumber(void)
   {
     if (freeStart > freeEnd) 

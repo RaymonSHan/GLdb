@@ -241,7 +241,7 @@ public:
   __TRY
     ADDR    READADDR;
     int     status;
-
+ 
     __DO1(status,
 	    read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);

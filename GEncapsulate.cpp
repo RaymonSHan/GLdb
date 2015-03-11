@@ -64,7 +64,12 @@ __TRY
   __DO (FreeEncapsulate());
   __DO (GlobalIOCP.FreeGLdbIOCP());
   __DO (GlobalMemory.FrreeMemoryBlock());
-__CATCH
+__CATCH_BEGIN
+  __DO (FreeEncapsulate());
+  __DO (GlobalIOCP.FreeGLdbIOCP());
+  __DO (GlobalMemory.FrreeMemoryBlock());
+  GlobalShouldQuit = 1;
+__CATCH_END
 };
 
 //#define     DOING_ECHO_APPLICATION
