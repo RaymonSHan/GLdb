@@ -149,7 +149,7 @@ void      __MESSAGE_(INT level, const char * _Format, ...)
   }
   DisplayGLdbError();
   if (level & MESSAGE_DEBUG) {
-    //    displayTraceInfo(info);
+    displayTraceInfo(info);
   }
 };
 

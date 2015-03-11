@@ -239,7 +239,6 @@ void        CMemoryBlock::DisplayFree(void)
   PTINFO    info;
   PSTACK    stack;
   ADDR      addr;
-  INT       i = 0;
 
   // mainEnd point to size+1, while localEnd point to size ??? surley ???
   list = threadListStart;
@@ -250,17 +249,14 @@ void        CMemoryBlock::DisplayFree(void)
     info = (PTINFO)addr.pVoid;
     num = stack->GetNumber();
     if (info->threadName)
-      printf("Id:%2lld:%20s:%3llx;    ", i++, info->threadName, num);
+      printf("%s:%2llx;  ", info->threadName, num);
     else 
-      printf("Id:%2lld:%20s:%3llx;    ", i++, "Unkonwn thread", num);
+      printf("%s:%2llx;  ", "MainThread", num);
     freenumber += num;
     list = list->threadListNext;
-    if (!(i % 3)) printf("\n");
   }
-  if (i % 3) printf("\n");
-
   num = globalStack.GetNumber();
-  printf("Main Free:%4lld, Total Free:%4lld\n", num, freenumber + num);
+  printf("Main:%3lld;  Total:%3lld\n", num, freenumber + num);
 
 #ifdef _TESTCOUNT
   printf("Get  :%10lld, Succ:%10lld\n", GetCount, GetSuccessCount);
@@ -288,6 +284,15 @@ __TRY__
 __CATCH__
 }
 
+#ifdef    __DEBUG_CONTEXT
+#define     DEBUG_CONTEXT_JOIN					\
+  D(GetContext);Dp(pcont);Dn;TRACE;
+#define     DEBUG_CONTEXT_FREE					\
+  D(FreeContext);Dp(pcont);Dn;
+#else  // __DEBUG_CONTEXT
+#define     DEBUG_CONTEXT_JOIN
+#define     DEBUG_CONTEXT_FREE
+#endif // __DEBUG_CONTEXT
 /*
  * There are four field in CListItem, 
  * usedList & countDown is initialized in GetMemoryList()
@@ -302,6 +307,7 @@ __TRY
   addr.AllocType = &GlobalContext;
   addr.RefCount = INIT_REFCOUNT;
   pcont = ADDR_TO_PCONT(addr);
+  DEBUG_CONTEXT_JOIN
   InitContextItem(pcont);
 __CATCH
 };
@@ -330,6 +336,7 @@ RESULT      ReferenceContext(PCONT pcont)
 RESULT      FreeContext(PCONT pcont)
 {
   ADDR      addr;
+  DEBUG_CONTEXT_FREE
   addr = PCONT_TO_ADDR(pcont);
   return addr.DecRefCount();
 };
@@ -342,6 +349,17 @@ void        ReflushTimeout(
   if (timeout) timeout = addr.AllocType->TimeoutInit;
   addr.CountDown = timeout;
 };
+
+
+#ifdef    __DEBUG_BUFFER
+#define     DEBUG_BUFFER_JOIN					\
+  D(GetBuffer);Dp(pbuff);Dn;TRACE
+#define     DEBUG_BUFFER_FREE					\
+  D(FreeBuffer);Dp(pbuff);Dn;
+#else  // __DEBUG_BUFFER
+#define     DEBUG_BUFFER_JOIN
+#define     DEBUG_BUFFER_FREE
+#endif // __DEBUG_BUFFER
 
 #define     BUFFER_FUNCTION(name, tname)			\
   RESULT    JOIN(Init, name)(PBUFF pbuff)			\
@@ -359,12 +377,14 @@ void        ReflushTimeout(
     addr.AllocType = &JOIN(Global, name);		        \
     addr.RefCount = INIT_REFCOUNT;				\
     pbuff = ADDR_TO_PBUFF(addr);				\
+    DEBUG_BUFFER_JOIN						\
     JOIN(Init, name)(pbuff);					\
   __CATCH						        \
   };								\
   RESULT    JOIN(Free,name)(PBUFF pbuff)			\
   {								\
     ADDR    addr;						\
+    DEBUG_BUFFER_FREE						\
     addr = PBUFF_TO_ADDR(pbuff);				\
     return JOIN(Global, name).FreeMemoryList(addr);		\
   };
@@ -383,6 +403,7 @@ RESULT      ReferenceBuffer(PBUFF pbuff)
 RESULT      FreeBuffer(PBUFF pbuff)
 {
   ADDR      addr;
+  DEBUG_BUFFER_FREE
   addr = PBUFF_TO_ADDR(pbuff);
   return addr.DecRefCount();
 };

@@ -57,6 +57,7 @@
 #include    <sys/wait.h>
 
 #include    "GError.hpp"
+
 /*
  * Compiler condition
  * 
@@ -64,6 +65,14 @@
  *   and declare CEncapsulate class, with global IOCP & MEMORY
  */
 #define   __GLdb_SELF_USE
+
+/*
+ * Debug option
+ *
+ * #define   __DEBUG_CONTEXT
+ * #define   __DEBUG_BUFFER
+ */
+
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
@@ -232,7 +241,7 @@ typedef     struct __WSABUF {
  * events      : NEW member, store EPOLLIN or EPOLLOUT or other EPOLLxx I defined.
  * doneSize    : NEW member, as its name. I store it in OVERLAPPED, so lpOverlapped
  *               in PostQueuedCompletionStatus() will NOT be NULL. it is different 
- *               from Windows.
+ *               than Windows.
  * accSocket   : for AcceptEx, store accept SOCKET. OLAP with accSocket is push
  *               to readBuffer of listening socket.
  */
@@ -574,7 +583,7 @@ typedef     struct threadTraceInfo {
   if (info->threadName)						\
     printf("In %p, threa: %s\n", info, info->threadName);	\
   else								\
-    printf("In %p, thread:Unkonwn\n", info);			\
+    printf("In %p, thread:MainThread\n", info);			\
   for (int i=info->nowLevel/sizeof(perTraceInfo)-1; i>=0; i--)	\
     printf("  %d, in file:%14s, line:%4lld, func: %s\n",	\
 	    i,							\

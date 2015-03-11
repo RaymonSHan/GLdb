@@ -59,6 +59,7 @@ inline      BOOL CloseNullHandle(SOCKET sock)
   return 0; 
 };
 
+RESULT      FreeProtocolContext(PCONT pcont, UINT flag = 0);
 
 typedef     class GProtocol
 {
@@ -67,7 +68,12 @@ public:
   long      ProtocolFlag;
   BOOL      (*MyCloseHandle)(SOCKET sock);	
 public:
-  GProtocol() {};
+  GProtocol()
+  {
+    ProtocolNumber = 0;
+    ProtocolFlag = 0;
+    MyCloseHandle = CloseOtherHandle;
+  };
   RESULT    CreateNew(PCONT, ADDR, UINT)
   { return 0; };
   RESULT    CreateRemote(PCONT, ADDR, UINT)

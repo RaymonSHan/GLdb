@@ -214,7 +214,7 @@ __TRY__
   ADDR      addr;
 
   __DOe(CompletionPort == 0, GL_IOCP_INPUT_ZERO);
-  __DOe(dwCompletionKey == 0, GL_IOCP_INPUT_ZERO);
+  //  __DOe(dwCompletionKey == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
 
   iocpHandle = (PEVENT)CompletionPort;
@@ -426,39 +426,34 @@ RESULT      RThreadEvent::ThreadInit(void)
 __TRY
   GlobalMemory.InitThreadMemory(1);
   __DO (eventHandle.InitArrayEvent());
- Dp(&eventHandle);
- Dn;
 __CATCH
 };
 
 RESULT      RThreadEvent::ThreadDoing(void)
 {
 __TRY
-  int     readed, writed, state;
-  ADDR    contextaddr, overlapaddr, bufferaddr, listenaddr;
-  PCONT   &context = (PCONT &)contextaddr;
-  PCONT   clicont;
-  POLAP   &overlap = (POLAP &)overlapaddr;
-  PWSABUF &buffer = (PWSABUF &)bufferaddr; 
-  struct  epoll_event ev;
-  UINT    tempevent = EPOLLREAD;
+  int       readed, writed, state;
+  ADDR      contextaddr, overlapaddr, bufferaddr, listenaddr;
+  PCONT     &context = (PCONT &)contextaddr;
+  PCONT     clicont;
+  POLAP     &overlap = (POLAP &)overlapaddr;
+  PWSABUF   &buffer = (PWSABUF &)bufferaddr; 
+  struct    epoll_event ev;
+  UINT      tempevent = EPOLLREAD;
   socklen_t tempsize = sizeof(SOCKADDR);
 
 /*
  * Wait eventfd, then get CContextItem and WSABuffer address
  */
-
-// RESULT result = (eventHandle -= overlapaddr);
-//  setLine();
-//  Dlld(result);
-
   __DO (eventHandle -= overlapaddr);
   contextaddr = overlap->Internal;
 
   if (overlap->events & EPOLLERR) {
+    D(EPOLLERR);Dn;
     overlap->events &= ~EPOLLERR;
   }
   if (overlap->events & EPOLLHUP) {
+    D(EPOLLHUP);Dn;
     overlap->events &= ~EPOLLHUP;
   }
   if (overlap->events & EPOLLTIMEOUT) {
@@ -472,7 +467,8 @@ __TRY
  *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
  */
     __DO (*pOverlapStack += overlapaddr);
-    __DO (context->readBuffer -= overlapaddr);
+    context->readBuffer.TryAndGet(overlapaddr);
+    //    __DO (context->readBuffer -= overlapaddr);
 
 #ifdef    __GLdb_SELF_USE
 /*
@@ -576,19 +572,14 @@ __TRY
 	    // write error close socket
 	  } } }
       overlap->doneSize += writed;
-      setLine();
       //      overlap->events = EPOLLOUT;        // This is why?
       if (overlap->doneSize == buffer->len) {
-	setLine();
 	__DO (context->writeBuffer -= overlapaddr);  // must have ??
-	setLine();
 	if (*context->iocpHandle += overlapaddr) {
 	  // IOCP error close socket
 	}
-	setLine();
       } else break;
     }
-    setLine();
     if (overlapaddr == ZERO) {
       if (!context->waitEpollOut) __BREAK_OK;
       ev.events = EPOLLET | EPOLLIN;

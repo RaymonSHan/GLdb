@@ -34,6 +34,28 @@
 #include    "GEncapsulate.hpp"
 #include    "GProtocol.hpp"
 
+RESULT      FreeProtocolContext(PCONT pcont, UINT flag)
+{
+  (void)    flag;
+__TRY
+  ADDR      buffaddr;
+  PBUFF     &pbuff = (PBUFF &)buffaddr;
+
+  __DOe(pcont == 0, GL_IOCP_INPUT_ZERO);
+
+  while (!pcont->readBuffer.TryAndGet(buffaddr)) {
+    Dp(pcont);D(free_readBuffer);Dp(pbuff);Dn;
+    FreeBuffer(pbuff);
+  }
+  while (!pcont->writeBuffer.TryAndGet(buffaddr)) {
+    Dp(pcont);D(free_writeBuffer);Dp(pbuff);Dn;
+    FreeBuffer(pbuff);
+  }
+  pcont->pProtocol->MyCloseHandle(pcont);
+  FreeContext(pcont);
+__CATCH
+};
+
 RESULT      GNoneProtocol::CreateNew(
             PCONT pcont, ADDR addr, UINT size)
 {

@@ -129,7 +129,6 @@ __TRY
 __CATCH_BEGIN
   __BETWEEN(AfterGetBuffer, AfterPostReceive) FreeBuffer(newbuff);
 __CATCH_END
-
 };
 
 RESULT      GNoneApplication::OnClientRead(
@@ -173,10 +172,30 @@ __CATCH
 RESULT      GNoneApplication::OnClose(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
-__TRY__
-  D(GNoneApplication::OnClose);
-  Dn;
-__CATCH__
+  (void)    size;
+  (void)    pbuff;
+__TRY
+  static    LOCK inClose = NOT_IN_PROCESS;
+  static    PBUFF isNULL = NULL;
+  PCONT     peer;
+
+  if (pbuff) {
+    FreeBuffer(pbuff);
+  }
+  if (!pcont) __BREAK_OK;
+  __LOCK(inClose);
+  peer = pcont->pPeer;
+  if (peer && peer->pPeer == pcont) {
+    peer->pPeer = NULL;   // change this line, old is peer->pPeer = peer;
+    pcont->pPeer = NULL;
+    __FREE(inClose);
+    D(closepeer);Dp(pcont);Dn;
+    OnClose(peer, isNULL, 0);
+  } else {
+    __FREE(inClose);
+  }
+  FreeProtocolContext(pcont);
+__CATCH
 };
 
 RESULT      GNoneApplication::OnPassby(

@@ -437,7 +437,16 @@ public:                                         // statistics info for debug
  *   used __GLdbIOCP writen by myself. For all items associated to handle can 
  *   be together.
  */
+
 typedef     class CContextItem {
+/*
+ * !!!!! ATTENTION !!!!!
+ *
+ * ATTENTION should add a LOCK for every CONT, 
+ * control for FreeProtocolContext and RThreadEvent::ThreadDoing()
+ * to make sure, do not add readBuffer & writeBuffer while closeing.
+ * and the OnClose() should use this LOCK too.
+ */
 public:
   int       bHandle;
   PEVENT    iocpHandle;

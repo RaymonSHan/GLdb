@@ -58,8 +58,8 @@ __TRY
   __DO (InitEncapsulate());
 
   while (!GlobalShouldQuit) {
-    //    GlobalMemory.DisplayMemoryInfo();
-    sleep(1);
+    GlobalMemory.DisplayMemoryInfo();
+    sleep(5);
   }
   __DO (FreeEncapsulate());
   __DO (GlobalIOCP.FreeGLdbIOCP());
