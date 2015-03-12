@@ -420,6 +420,17 @@ public:
 #define     EPOLLACCEPT                         (1 << 11)
 #define     EPOLLCONNECT                        (1 << 12)
 
+#ifndef   __linux
+#define     EPOLLIN                             (1 << 0)
+#define     EPOLLPRI                            (1 << 1)
+#define     EPOLLOUT                            (1 << 2)
+#define     EPOLLERR                            (1 << 3)
+#define     EPOLLHUP                            (1 << 4)
+#define     EPOLLRDHUP                          (1 << 13)
+#define     EPOLLONESHOT                        (1 << 30)
+#define     EPOLLET                             (1 << 31)
+#endif // __linux
+
 /*
  * GLdbIOCP assembled by one epoll handle and one buffered eventfd. And two
  *   threads wait for each.

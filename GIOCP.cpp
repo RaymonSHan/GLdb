@@ -132,9 +132,9 @@ __TRY__
 
   if (!FileHandle && !ExistingCompletionPort && !CompletionKey) {
     if (GlobalIOCP.GetIOCPItem(addr)) {
-      __RETURN_(0);
+    __RETURN_(0);
     }
-    __RETURN_(addr.aLong);
+  __RETURN_(addr.aLong);
   }
   __DOe(FileHandle == 0,  GL_IOCP_INPUT_ZERO);
   __DOe(ExistingCompletionPort == 0, GL_IOCP_INPUT_ZERO);
@@ -146,10 +146,10 @@ __TRY__
 /*
  * NO EPOLLIN at first for PostConnect
  */
-    ev.events = EPOLLET | EPOLLOUT;
+    ev.events = EPOLLET | EPOLLOUT | EPOLLRDHUP;
     FileHandle->waitEpollOut = 1;
   } else {
-    ev.events = EPOLLET | EPOLLIN;
+    ev.events = EPOLLET | EPOLLIN | EPOLLRDHUP;
     FileHandle->waitEpollOut = 0;
   }
   ev.data.ptr = CompletionKey;
@@ -159,7 +159,7 @@ __TRY__
 	    &ev);
   if (state) {
     WSAERROR;
-    __RETURN_(0);
+  __RETURN_(0);
   }
 __CATCH_(ExistingCompletionPort)
 };
@@ -214,7 +214,7 @@ __TRY__
   ADDR      addr;
 
   __DOe(CompletionPort == 0, GL_IOCP_INPUT_ZERO);
-  //  __DOe(dwCompletionKey == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(dwCompletionKey == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
 
   iocpHandle = (PEVENT)CompletionPort;
@@ -456,6 +456,11 @@ __TRY
     D(EPOLLHUP);Dn;
     overlap->events &= ~EPOLLHUP;
   }
+  if (overlap->events & EPOLLRDHUP) {
+    D(EPOLLRDHUP);Dn;
+    overlap->events &= ~EPOLLRDHUP;
+  }
+
   if (overlap->events & EPOLLTIMEOUT) {
     // set some
     __BREAK_OK;
@@ -641,7 +646,7 @@ __CATCH
 
 RESULT      GLdbIOCP::InitGLdbIOCP()
 {
-__TRY__
+__TRY
   int       i;
   ADDR      addr;
 
@@ -650,9 +655,9 @@ __TRY__
     iocpHandleFree += addr;
   }
   nowWorkThread = 0;
-  threadEpoll.ThreadClone(true);
-  threadEvent.ThreadClone(true);
-  RThread::ThreadStart();
+  __DO (threadEpoll.ThreadClone(true));
+  __DO (threadEvent.ThreadClone(true));
+  __DO (RThread::ThreadStart());
 
 /*
  * YES, this code may be execute before threadEvent initialized.
@@ -661,7 +666,7 @@ __TRY__
   epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
   eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
   pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
-__CATCH__
+__CATCH
 };
 
 RESULT      GLdbIOCP::FreeGLdbIOCP()
