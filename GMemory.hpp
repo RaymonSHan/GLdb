@@ -413,6 +413,7 @@ public:                                         // statistics info for debug
 #endif  // _TESTCOUNT
 }BLOCK, *PBLOCK;
 
+
 /*
  * IOCP struct, for CompleteKey
  *
@@ -467,6 +468,7 @@ public:
 #endif // __GLdb_SELF_USE
 }CONT, *PCONT;
 
+#define     GlobalSign                          CMemoryAlloc::globalSign
 #define     GlobalContext                       CMemoryAlloc::globalContext
 #define     GlobalBufferSmall                   CMemoryAlloc::globalBufferSmall
 #define     GlobalBufferMiddle                  CMemoryAlloc::globalBufferMiddle
@@ -477,7 +479,7 @@ RESULT      GetContext(
 RESULT      GetDupContext(
             PCONT &newcont, PCONT pcont, BOOL copy = false);
 RESULT      ReferenceContext(PCONT pcont);
-RESULT      FreeContext(PCONT addr);
+RESULT      FreeContext(PCONT pcont);
 
 /*
  * IOCP struct, for Overlapped
@@ -527,6 +529,27 @@ RESULT      ReferenceBuffer(PBUFF pbuff);
 RESULT      FreeBuffer(PBUFF pbuff);
 
 
+/*
+ * used for translate sign for IOCP use
+ */
+typedef     class RSign {
+public:
+  PCONT     sContext;
+  POLAP     sOverlap;
+  UINT      sEvent;
+  UINT      sSize;
+}SIGN, *PSIGN;
+
+RESULT      GetSign(PSIGN &psign);
+RESULT      FreeSign(PSIGN psign);
+
+
+#define     ADDR_TO_PSIGN(addr)                                 \
+  ((PSIGN)(addr.pChar + sizeof(LIST)))
+
+#define     PSIGN_TO_ADDR(psign)                                \
+  ((PCHAR)(psign) - sizeof(LIST))
+
 #define     ADDR_TO_PCONT(addr)                                 \
   ((PCONT)(addr.pChar + sizeof(LIST)))
 
@@ -549,15 +572,18 @@ RESULT      FreeBuffer(PBUFF pbuff);
  */
 typedef     class CMemoryAlloc  {
 public:
+  static    CMemoryBlock globalSign;
   static    CMemoryBlock globalContext;
   static    CMemoryBlock globalBufferSmall;
   static    CMemoryBlock globalBufferMiddle;
 
 public:
-  RESULT    InitMemoryBlock(
-	    UINT numcontext, UINT numbuffersmall, UINT numbermiddle)
+  RESULT    InitMemoryAlloc(
+	    UINT numsign, UINT numcontext, UINT numbuffersmall, UINT numbermiddle)
   {
   __TRY
+    __DO (globalSign.InitMemoryBlock
+	    (numsign, sizeof(SIGN), SIZE_CACHE, ZERO));
     __DO (globalContext.InitMemoryBlock
 	    (numcontext, sizeof(CONT), SIZE_CACHE, ZERO));
     __DO (globalBufferSmall.InitMemoryBlock
@@ -571,6 +597,7 @@ public:
   RESULT    FrreeMemoryBlock()
   {
   __TRY
+    __DO(globalSign.FreeMemoryBlock());
     __DO(globalContext.FreeMemoryBlock());
     __DO(globalBufferSmall.FreeMemoryBlock());
     __DO(globalBufferMiddle.FreeMemoryBlock());
@@ -580,6 +607,7 @@ public:
   {
     UINT    getsize = 0, maxsize = 8, freesize = 4;
     if (need) getsize = 4;
+    GlobalSign.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalContext.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalBufferSmall.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalBufferMiddle.SetThreadArea(getsize, maxsize, freesize, 0);
@@ -587,6 +615,7 @@ public:
   };
   void      DisplayMemoryInfo(void)
   {
+    globalSign.DisplayFree();
     globalContext.DisplayFree();
     globalBufferSmall.DisplayFree();
   };

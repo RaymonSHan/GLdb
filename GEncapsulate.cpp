@@ -51,8 +51,8 @@ __TRY
   RegisterApplication(
             FORWARD, forwardApp, APPLICATION_FORWARD, APPLICATION_FLAG_DUPLEX);
 
-  __DO (GlobalMemory.InitMemoryBlock(
-            NUMBER_CONTEXT, NUMBER_BUFFER_SMALL, NUMBER_BUFFER_MIDDLE));
+  __DO (GlobalMemory.InitMemoryAlloc(
+	    NUMBER_SIGN, NUMBER_CONTEXT, NUMBER_BUFFER_SMALL, NUMBER_BUFFER_MIDDLE));
   __DO (GlobalMemory.InitThreadMemory(1));
   __DO (GlobalIOCP.InitGLdbIOCP());
   __DO (InitEncapsulate());

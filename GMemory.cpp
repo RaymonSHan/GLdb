@@ -409,6 +409,25 @@ RESULT      FreeBuffer(PBUFF pbuff)
 };
 
 
+RESULT      GetSign(PSIGN &psign)
+{
+__TRY
+  ADDR      addr;
+  __DO (GlobalContext.GetMemoryList(addr));
+  addr.AllocType = &GlobalSign;
+  addr.RefCount = INIT_REFCOUNT;
+  psign = ADDR_TO_PSIGN(addr);
+__CATCH
+};
+
+RESULT      FreeSign(PSIGN psign)
+{
+  ADDR      addr;
+  DEBUG_CONTEXT_FREE
+  addr = PSIGN_TO_ADDR(psign);
+  return addr.DecRefCount();
+};
+
 /*
  * Following is for debug memory pool program
  */
@@ -436,12 +455,12 @@ void        CMemoryBlock::DisplayLocal(PMEMINFO info)
 
 void        CMemoryBlock::DisplayArray(void)
 {
-  INT   i;
+  INT       i;
   threadMemoryInfo *list;
 
   printf("Array Start:%p, Free:%p, End%p\n", 
 	    memoryArrayStart.pVoid, memoryArrayFree.pVoid, memoryArrayEnd.pVoid);
-  ADDR arr = memoryArrayStart;
+  ADDR      arr = memoryArrayStart;
 
   for (i=0; i<TotalNumber; i++) {
     if (arr == memoryArrayFree) PRINT_COLOR("36");
@@ -461,7 +480,7 @@ void        CMemoryBlock::DisplayArray(void)
 
 void        CMemoryBlock::DisplayInfo(void)
 {
-  volatile ADDR item;
+  volatile  ADDR item;
 
   printf("Get  :%10lld, Succ:%10lld\n", GetCount, GetSuccessCount);
   printf("Free :%10lld, Succ:%10lld\n", FreeCount, FreeSuccessCount);

@@ -52,6 +52,7 @@
 #define     NonePro                             GEncapsulate::nonePro
 #define     NoneApp                             GEncapsulate::noneApp
 
+#define     NUMBER_SIGN                         50
 #define     NUMBER_CONTEXT                      50
 #define     NUMBER_BUFFER_SMALL                 100
 #define     NUMBER_BUFFER_MIDDLE                20

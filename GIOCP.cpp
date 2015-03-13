@@ -139,12 +139,17 @@ __TRY__
   __DOe(FileHandle == 0,  GL_IOCP_INPUT_ZERO);
   __DOe(ExistingCompletionPort == 0, GL_IOCP_INPUT_ZERO);
   __DOe(CompletionKey == 0, GL_IOCP_INPUT_ZERO);
-
+/*
+ * the first thing CreateIoCompletionPort do is associte FileHandle with 
+ *   CompletionPort & CompetionKey.
+ * the second thing is get event when it happen
+ */
   FileHandle->iocpHandle = (PEVENT)ExistingCompletionPort;
   FileHandle->completionKey = CompletionKey;
   if (IS_CONNECT(FileHandle)) {
 /*
  * NO EPOLLIN at first for PostConnect
+ * epoll return Context value, which store CompletionKey.
  */
     ev.events = EPOLLET | EPOLLOUT | EPOLLRDHUP;
     FileHandle->waitEpollOut = 1;
@@ -152,7 +157,7 @@ __TRY__
     ev.events = EPOLLET | EPOLLIN | EPOLLRDHUP;
     FileHandle->waitEpollOut = 0;
   }
-  ev.data.ptr = CompletionKey;
+  ev.data.ptr = FileHandle;
   state = epoll_ctl(GlobalIOCP.epollHandle,
 	    EPOLL_CTL_ADD, 
 	    FileHandle->bHandle, 
@@ -184,6 +189,7 @@ BOOL        GetQueuedCompletionStatus(
 __TRY__
   PEVENT    iocpHandle;
   ADDR      addr;
+  PSIGN     psign;
 
   __DOe(CompletionPort == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpNumberOfBytes == 0, GL_IOCP_INPUT_ZERO);
@@ -192,16 +198,27 @@ __TRY__
 
   iocpHandle = (PEVENT)CompletionPort;
   __DO (*iocpHandle -= addr);
-  *lpOverlapped = (POLAP)addr.pVoid;
-  __DO (addr == ZERO);
-  (*lpCompletionKey) = (*lpOverlapped)->Internal->completionKey;
-  (*lpNumberOfBytes) = (*lpOverlapped)->doneSize;
+
+  psign = (PSIGN)addr.pVoid;
+  addr.pVoid = psign->sContext;
+  if (addr.aLong & MAX_64BIT) {
+    addr &= ~MAX_64BIT;
+    psign->sContext = 0;
+    *lpCompletionKey = addr.pLong;
+  } else {
+    if (psign->sContext) *lpCompletionKey = psign->sContext->completionKey;
+    else *lpCompletionKey = 0;
+  }
+  *lpOverlapped = psign->sOverlap;
+  *lpNumberOfBytes = psign->sSize;
+  __DO (FreeSign(psign));
 __CATCH_(1)
 };
 
 /*
- * in normal IOCP, lpOverlapped can be NULL.
- * but in GLdbIOCP, must use valid OVERLAPPED struct for lpOverlapped
+ * NULL lpOverlapped is valid,
+ * lpOverlapped with valid Internal is valid.
+ * lpOverlapped with 0 Internal is valid.
  */
 BOOL        PostQueuedCompletionStatus(
             HANDLE          CompletionPort,
@@ -212,15 +229,33 @@ BOOL        PostQueuedCompletionStatus(
 __TRY__
   PEVENT    iocpHandle;
   ADDR      addr;
+  PSIGN     psign;
 
   __DOe(CompletionPort == 0, GL_IOCP_INPUT_ZERO);
   __DOe(dwCompletionKey == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
 
   iocpHandle = (PEVENT)CompletionPort;
-  addr.pVoid = lpOverlapped;
-  lpOverlapped->Internal->completionKey = dwCompletionKey;
-  lpOverlapped->doneSize = dwNumberOfBytesTransferred;
+  __DO (GetSign(psign));
+  psign->sOverlap = lpOverlapped;
+  psign->sSize = dwNumberOfBytesTransferred;
+  if (lpOverlapped) {
+    psign->sContext = lpOverlapped->Internal;
+  } else {
+    psign->sContext = 0;
+  }
+  if (psign->sContext) {
+    psign->sContext->completionKey = dwCompletionKey;
+  } else {
+/*
+ * translate CompletionKey without Context, set Highest bit to 1
+ */
+    addr.pVoid = dwCompletionKey;
+    addr |= MAX_64BIT;
+    psign->sContext = addr.pCont;
+  }
+
+  addr.pVoid = psign;
   __DO (*iocpHandle += addr);
 __CATCH_(1)
 };
@@ -243,7 +278,8 @@ int         WSASend(
   (void)    dwFlags;
   (void)    lpCompletionRoutine;
 __TRY__
-  ADDR      overlap;
+  ADDR      addr, overlap;
+  PSIGN     psign;
 
   __DOe(s == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpBuffers == 0, GL_IOCP_INPUT_ZERO);
@@ -251,14 +287,24 @@ __TRY__
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
   __DOe(dwBufferCount != 1, GL_IOCP_INPUT_NOSUP);
 
+  __DO (GetSign(psign));
+  addr.pVoid = psign;
+  psign->sContext = s;
+  psign->sOverlap = lpOverlapped;
+  psign->sEvent = EPOLLWRITE;
+  psign->sSize = 0;
+
   overlap.pVoid = lpOverlapped;
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
-  lpOverlapped->events = EPOLLWRITE;
-  lpOverlapped->doneSize = 0;
+  //  lpOverlapped->events = EPOLLWRITE;
+  //  lpOverlapped->doneSize = 0;
+/*
+ * now i set lpNumberOfBytesSent now, maybe should set after send
+ */
   *lpNumberOfBytesSent = lpBuffers->len;
   __DO (s->writeBuffer += overlap);
-  __DO (*(GlobalIOCP.eventHandle) += overlap);
+  __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH_(1)
 };
@@ -275,7 +321,8 @@ int         WSARecv(
   (void)    lpFlags;
   (void)    lpCompletionRoutine;
 __TRY__
-  ADDR      overlap;
+  ADDR      addr;
+  PSIGN     psign;
 
   __DOe(s == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpBuffers == 0, GL_IOCP_INPUT_ZERO);
@@ -283,13 +330,19 @@ __TRY__
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
   __DOe(dwBufferCount != 1, GL_IOCP_INPUT_NOSUP);
 
-  overlap.pVoid = lpOverlapped;
+  __DO (GetSign(psign));
+  addr.pVoid = psign;
+  psign->sContext = s;
+  psign->sOverlap = lpOverlapped;
+  psign->sEvent = EPOLLREAD;
+  psign->sSize = 0;
+
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
-  lpOverlapped->events = EPOLLREAD;
-  lpOverlapped->doneSize = 0;
+  //  lpOverlapped->events = EPOLLREAD;
+  //  lpOverlapped->doneSize = 0;
   *lpNumberOfBytesRecvd = lpBuffers->len;
-  __DO (*(GlobalIOCP.eventHandle) += overlap);
+  __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH_(1)
 };
@@ -587,7 +640,7 @@ __TRY
     }
     if (overlapaddr == ZERO) {
       if (!context->waitEpollOut) __BREAK_OK;
-      ev.events = EPOLLET | EPOLLIN;
+      ev.events = EPOLLET | EPOLLIN | EPOLLRDHUP;
       ev.data.u64 = contextaddr.aLong;
       __DO1(state,
 	    epoll_ctl(epollHandle, EPOLL_CTL_MOD, 
@@ -595,7 +648,7 @@ __TRY
       context->waitEpollOut = 0;
     } else {
       if (context->waitEpollOut) __BREAK_OK;
-      ev.events = EPOLLET | EPOLLOUT;
+      ev.events = EPOLLET | EPOLLOUT | EPOLLRDHUP;
       ev.data.u64 = contextaddr.aLong;
       __DO1(state,
 	    epoll_ctl(epollHandle, EPOLL_CTL_MOD, 

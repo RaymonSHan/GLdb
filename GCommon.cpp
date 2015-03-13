@@ -88,6 +88,7 @@ int         TimeoutEpollWait                  = NEGONE;
  * 
  * all static alloc memory pool
  */
+BLOCK       GlobalSign;
 BLOCK       GlobalContext;
 BLOCK       GlobalBufferSmall;
 BLOCK       GlobalBufferMiddle;

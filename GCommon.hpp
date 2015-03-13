@@ -79,6 +79,7 @@
  * range is about +/- 9 thousand billion, enough for enterprise use.
  */
 #define     ONE_DOLLAR_VALUE                    (1000*1000)
+#define     MAX_64BIT                           0x8000000000000000
 /*
  * only for short
  */
@@ -173,11 +174,12 @@ typedef     class GApplication*                 PAPP;
 #define     Dn                                  printf("\n");
 #define     DD                                  printf
 
+/*
 #define     DOLAP(olap)						\
   printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld, acc:%p\n",	\
 	 olap, olap->Internal, olap->InternalHigh, olap->events,\
 	 olap->doneSize, olap->accSocket);
-
+*/
 #define     DSOCK(sock)						\
   printf("sock addr:%s port:%d\n",				\
 	 inet_ntoa(sock.saddrin.sin_addr),			\
@@ -197,8 +199,8 @@ typedef     class GApplication*                 PAPP;
 typedef     unsigned short                      WORD;
 typedef     UINT                                HANDLE;
 typedef     class CContextItem                 *SOCKET;
-typedef     unsigned int                       *ULONG_PTR;      // 64bit in 64bit
-typedef     unsigned int                      **PULONG_PTR;
+typedef     unsigned long long int             *ULONG_PTR;      // 64bit in 64bit
+typedef     unsigned long long int            **PULONG_PTR;
 typedef     unsigned int                        DWORD;
 typedef     unsigned int                       *LPDWORD;
 typedef     void                               *LPWSAPROTOCOL_INFO;
@@ -254,11 +256,11 @@ typedef     struct _WSAOVERLAPPED {
       DWORD OffsetHigh;
     };
     PVOID   Pointer;
+        UINT    doneSize;
   };
   HANDLE    hEvent;
-  UINT      events;
-  UINT      doneSize;
-  SOCKET    accSocket;
+    UINT      events;
+    SOCKET    accSocket;
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED, OLAP, *POLAP;
 
 #endif // __linux
