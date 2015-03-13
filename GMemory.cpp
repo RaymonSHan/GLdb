@@ -320,7 +320,11 @@ __TRY
   newcont->pProtocol = pcont->pProtocol;
   newcont->pApplication = pcont->pApplication;
   if (copy) {
-    memcpy(&newcont->localSocket, &pcont->localSocket, 2*sizeof(SOCK));
+/*
+ * copy  both localSocket and remoteSocket, 
+ */
+    memcpy(&newcont->remoteSocket, &pcont->remoteSocket, sizeof(SOCK));
+    memcpy(&newcont->localSocket, &pcont->localSocket, sizeof(SOCK));
   }
 __CATCH
 };

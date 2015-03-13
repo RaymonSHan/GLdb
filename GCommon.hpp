@@ -148,6 +148,7 @@ typedef     class  CMemoryBlock                *PBLOCK;
 typedef     class  RArrayStack                 *PSTACK;
 typedef     class  RArrayQuery                 *PQUERY;
 typedef     class  RMultiEvent                 *PEVENT;
+typedef     class  RSign                       *PSIGN;
 
 /*
  * GLdbDatabase interface used 
@@ -174,12 +175,12 @@ typedef     class GApplication*                 PAPP;
 #define     Dn                                  printf("\n");
 #define     DD                                  printf
 
-/*
-#define     DOLAP(olap)						\
-  printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld, acc:%p\n",	\
-	 olap, olap->Internal, olap->InternalHigh, olap->events,\
-	 olap->doneSize, olap->accSocket);
-*/
+
+#define     DSIGN(sign)						\
+  printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld\n",		\
+	 sign, sign->sContext, sign->sOverlap,			\
+	 sign->sEvent, sign->sSize);
+
 #define     DSOCK(sock)						\
   printf("sock addr:%s port:%d\n",				\
 	 inet_ntoa(sock.saddrin.sin_addr),			\
@@ -256,11 +257,11 @@ typedef     struct _WSAOVERLAPPED {
       DWORD OffsetHigh;
     };
     PVOID   Pointer;
-        UINT    doneSize;
+    //        UINT    doneSize;
   };
   HANDLE    hEvent;
-    UINT      events;
-    SOCKET    accSocket;
+  //    UINT      events;
+  SOCKET    accSocket;
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED, OLAP, *POLAP;
 
 #endif // __linux
@@ -291,6 +292,7 @@ typedef     union ADDR{
   PLIST     pList;
   PCONT     pCont;
   PBUFF     pBuff;
+  PSIGN     pSign;
 
   ADDR_SELF_OPERATION(=)
   ADDR_SELF_OPERATION(+=)
@@ -320,7 +322,9 @@ typedef     union ADDR{
   BOOL inline operator op (ADDR &one, const PCONT &two) {	\
     return (one.pCont op two); };				\
   BOOL inline operator op (ADDR &one, const PBUFF &two) {	\
-    return (one.pBuff op two); };
+    return (one.pBuff op two); };				\
+  BOOL inline operator op (ADDR &one, const PSIGN &two) {	\
+    return (one.pSign op two); };
 
 ADDR_COMPARE(==)
 ADDR_COMPARE(!=)

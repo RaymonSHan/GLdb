@@ -466,8 +466,6 @@ protected:
 public:
   int       epollHandle;
   PEVENT    peventHandle;
-  STACK_S   overlapStack;
-  OLAP      overlapBuffer[LIST_SMALL + 1];
 public:
   RThreadEpoll()
   {
@@ -546,7 +544,7 @@ typedef   __class_ (RThreadEvent, RThread)
 public:
   int       epollHandle;
   EVENT     eventHandle;
-  PSTACK_S  pOverlapStack;
+//  PSTACK_S  pOverlapStack;
 public:
   RThreadEvent()
   {

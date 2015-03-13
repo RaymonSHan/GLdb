@@ -154,7 +154,7 @@ __TRY
             GL_TCP_INPUT_ZERO);
   __DOe(para == ZERO,
             GL_TCP_INPUT_ZERO);
-  memcpy(&(pcont->localSocket), para.pVoid, size);
+  memcpy(&(pcont->remoteSocket), para.pVoid, size);
 __CATCH
 };
 
@@ -181,7 +181,7 @@ __TRY
             /* MARK */  __MARK(AfterGetContext);
 
   pbuff->oLapped.accSocket = clicont;
-  pbuff->oLapped.doneSize = 0;
+  //  pbuff->oLapped.doneSize = 0;
   wsabuf->len = 0;
   result = AcceptEx(
 	    (SOCKET)pcont, clicont, wsabuf, 0, 0, 0, NULL, &(pbuff->oLapped));
@@ -210,10 +210,10 @@ __TRY
   wsabuf = &(pbuff->wsaBuf);
   pcont->dwFlags |= WSA_FLAG_ISCONNECT;
   __DO (BindLocalSocket(pcont, this));
-  pbuff->oLapped.doneSize = 0;
+  //  pbuff->oLapped.doneSize = 0;
   wsabuf->len = 0;
   result = ConnectEx(
-	    (SOCKET)pcont, &(pcont->localSocket), sizeof(SOCK), 
+	    (SOCKET)pcont, &(pcont->remoteSocket), sizeof(SOCK), 
 	    wsabuf, 0, 0, &(pbuff->oLapped));
   __DO (result == 0);
   iocphandle = CreateIoCompletionPort(
