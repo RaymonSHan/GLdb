@@ -453,8 +453,8 @@ void        WSASetLastError(UINT err)
 RESULT      RThreadEpoll::ThreadInit(void)
 {
 __TRY
-  GlobalMemory.InitThreadMemory(1);
-  __DO1 (epollHandle, epoll_create(1));
+  __DO (GlobalMemory.InitThreadMemory(1));
+  __DO1(epollHandle, epoll_create(1));
 __CATCH
 };
 
@@ -489,6 +489,9 @@ __TRY
       psign->sSize = 0;
       addr = psign;
       __DO (*peventHandle += addr);
+#ifdef    __DEBUG_EPOLL
+      D(InEpoll);DSIGN(psign);
+#endif // __DEBUG_EPOLL
     }
   }
 __CATCH
@@ -497,7 +500,7 @@ __CATCH
 RESULT      RThreadEvent::ThreadInit(void)
 {
 __TRY
-  GlobalMemory.InitThreadMemory(1);
+  __DO (GlobalMemory.InitThreadMemory(1));
   __DO (eventHandle.InitArrayEvent());
 __CATCH
 };
@@ -527,7 +530,7 @@ __TRY
   __DO (eventHandle -= signaddr);
   pcont = psign->sContext;
   polap = psign->sOverlap;
-
+  D(InEvent); DSIGN(psign);
   // __DO (eventHandle -= overlapaddr);
   // contextaddr = overlap->Internal;
   if (psign->sEvent & EPOLLTIMEOUT) {
@@ -569,7 +572,7 @@ __TRY
     }
 
     if (olapaddr == ZERO) {
-      FreeSign(psign);
+      __DO (FreeSign(psign));
       __BREAK_OK;
     }
     psign->sOverlap = polap;
@@ -605,20 +608,27 @@ __TRY
     } else {
       psign->sSize = 0;
       __DO (pcont->readBuffer += olapaddr);
-      FreeSign(psign);
+      __DO (FreeSign(psign));
       __BREAK_OK;                               //(2)
     }
   }
 
   if (psign->sEvent & EPOLLREAD) {
+
+    if (psign->sOverlap == 0) {
+       DSIGN(psign);
+       //   __BREAK;
+     }
     __DOe(psign->sOverlap == 0, GL_IOCP_INPUT_ZERO);
+
+
     buffaddr = polap->InternalHigh;
     //    overlap->events = EPOLLIN;       // This is why?
     readed = read(pcont->bHandle, pbuff->buf, pbuff->len);
     if (readed == NEGONE) {
       if (errno == EAGAIN) {
 	__DO (pcont->readBuffer += olapaddr);
-	FreeSign(psign);
+	__DO (FreeSign(psign));
 	__BREAK_OK;                             //(3)
       } else {
 	__BREAK;
@@ -638,23 +648,42 @@ __TRY
  * 2: errno == EAGAIN, then add EPOLLOUT to epoll if necessary.
  */
     while (true) {
+      // writed = 0;
+      // pcont->writeBuffer.TryAndGet(olapaddr);
+      // if (IS_CONNECT(pcont)) {
+      // 	pcont->dwFlags &= ~WSA_FLAG_ISCONNECT;
+      // }
+      // if (olapaddr == ZERO) break;
+      // psign->sOverlap = polap;
+      // buffaddr = polap->InternalHigh;
+      // writed = write(pcont->bHandle, pbuff->buf, pbuff->len);
+      // if (writed == NEGONE) {
+      // 	if (errno == EAGAIN) break;
+      // 	else {
+      // 	  D(WriteError);Dn;
+      // 	  __BREAK;
+      // 	    // write error close socket         //(6)
+      // 	}
+      // }
+      // psign->sSize = writed;
+
       writed = 0;
       pcont->writeBuffer.TryGet(olapaddr);
       psign->sOverlap = polap;
 
       if (IS_CONNECT(pcont)) {
-	pcont->dwFlags &= ~WSA_FLAG_ISCONNECT;
+      	pcont->dwFlags &= ~WSA_FLAG_ISCONNECT;
       }
 
       if (polap == ZERO) break;
       buffaddr = polap->InternalHigh;
       writed = write(pcont->bHandle, pbuff->buf, pbuff->len);
       if (writed == NEGONE) {
-	if (errno == EAGAIN) break;
-	else {
-	  __BREAK;
-	    // write error close socket         //(6)
-	}
+      	if (errno == EAGAIN) break;
+      	else {
+      	  __BREAK;
+      	    // write error close socket         //(6)
+      	}
       }
       psign->sSize = writed;
       __DO (pcont->writeBuffer -= olapaddr);
@@ -664,12 +693,12 @@ __TRY
       newsign->sContext = pcont;
       newsign->sEvent = psign->sEvent;
       if (*pcont->iocpHandle += signaddr) {
-	FreeSign(newsign);
+	__DO (FreeSign(psign));
 	__BREAK;                                //(6) few happen
       }
       psign = newsign;
     }
-    FreeSign(newsign);
+    __DO (FreeSign(psign));
 
     if (polap == ZERO) {
       if (!pcont->waitEpollOut) __BREAK_OK;
@@ -697,7 +726,7 @@ __TRY
     // while FreeBSD maybe for loopback connect.
     if (state == NEGONE && errno == EINPROGRESS) {
       __DO (pcont->writeBuffer += olapaddr);
-      FreeSign(psign);                          //()
+      __DO (FreeSign(psign));                   //()
     } else {
        //  error for connect                    //()
     }
@@ -713,8 +742,9 @@ __CATCH_END
 
 RESULT      RThreadWork::ThreadInit(void)
 {
-  GlobalMemory.InitThreadMemory(1);
-  return 0;
+__TRY
+  __DO (GlobalMemory.InitThreadMemory(1));
+__CATCH
 };
 
 RESULT      RThreadWork::ThreadDoing(void)
@@ -767,6 +797,7 @@ __TRY
  */
   epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
   eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
+  Dp(eventHandle);
   //  pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
 __CATCH
 };

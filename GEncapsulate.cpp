@@ -81,8 +81,9 @@ RESULT      GEncapsulate::InitEncapsulate(void)
 __TRY
   PCONT     nullcont = NULL;
   char      local_addr[] = "0.0.0.0";
-  int       local_port = 8080;
-  char      remote_addr[] = "180.97.33.108";
+  int       local_port = 8998;
+  char      remote_addr[] = "192.168.1.1";
+  //  char      remote_addr[] = "127.0.0.1";
   int       remote_port = 80;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser;

@@ -231,9 +231,19 @@ public:
     ADDR    WRITEADDR = {1};
     int     status;
 
+    PSIGN   psign;
     __DO (eventQuery += addr);
     __DO1(status,
 	    write(eventFd, &WRITEADDR, SIZEADDR));
+    //    if (this == (PVOID)0x61f318) {
+      psign = addr.pSign;
+      if (!psign) {
+	D(ISZERO);TRACE;
+      }
+      if (psign && psign->sOverlap == 0 && psign->sEvent > 0x8000) {
+	Dllx(addr.aLong);TRACE;
+      }
+      //   }
   __CATCH
   };
   RESULT    operator -= (ADDR &addr)
@@ -414,19 +424,25 @@ public:
  * EPOLLACCEPT : for define accept, post by AcceptEx()
  * EPOLLCONNECT: for define connect, post by ConnectEx()
  */
-#define     EPOLLTIMEOUT                        (1 << 8)
-#define     EPOLLREAD                           (1 << 9)
-#define     EPOLLWRITE                          (1 << 10)
-#define     EPOLLACCEPT                         (1 << 11)
-#define     EPOLLCONNECT                        (1 << 12)
+#define     EPOLLTIMEOUT                        (1 << 18)
+#define     EPOLLREAD                           (1 << 19)
+#define     EPOLLWRITE                          (1 << 20)
+#define     EPOLLACCEPT                         (1 << 21)
+#define     EPOLLCONNECT                        (1 << 22)
 
 #ifndef   __linux
-#define     EPOLLIN                             (1 << 0)
-#define     EPOLLPRI                            (1 << 1)
-#define     EPOLLOUT                            (1 << 2)
-#define     EPOLLERR                            (1 << 3)
-#define     EPOLLHUP                            (1 << 4)
-#define     EPOLLRDHUP                          (1 << 13)
+#define     EPOLLIN                             (1 << 0)        // 0x0001
+#define     EPOLLPRI                            (1 << 1)        // 0x0002
+#define     EPOLLOUT                            (1 << 2)        // 0x0004
+#define     EPOLLERR                            (1 << 3)        // 0x0008
+#define     EPOLLHUP                            (1 << 4)        // 0x0010
+#define     EPOLLRDNORM                         (1 << 6)        // 0x0040
+#define     EPOLLRDBAND                         (1 << 7)        // 0x0080
+#define     EPOLLWRNORM                         (1 << 8)        // 0x0100
+#define     EPOLLWRBAND                         (1 << 9)        // 0x0200
+#define     EPOLLMSG                            (1 << 10)       // 0x0400
+#define     EPOLLRDHUP                          (1 << 13)       // 0x2000
+#define     EPOLLWAKEUP                         (1 << 29)
 #define     EPOLLONESHOT                        (1 << 30)
 #define     EPOLLET                             (1 << 31)
 #endif // __linux

@@ -543,13 +543,6 @@ public:
 RESULT      GetSign(PSIGN &psign);
 RESULT      FreeSign(PSIGN psign);
 
-
-#define     ADDR_TO_PSIGN(addr)                                 \
-  ((PSIGN)(addr.pChar + sizeof(LIST)))
-
-#define     PSIGN_TO_ADDR(psign)                                \
-  ((PCHAR)(psign) - sizeof(LIST))
-
 #define     ADDR_TO_PCONT(addr)                                 \
   ((PCONT)(addr.pChar + sizeof(LIST)))
 
@@ -561,6 +554,12 @@ RESULT      FreeSign(PSIGN psign);
 
 #define     PBUFF_TO_ADDR(pbuff)                                \
   ((PCHAR)(pbuff) - sizeof(LIST))
+
+#define     ADDR_TO_PSIGN(addr)                                 \
+  ((PSIGN)(addr.pChar + sizeof(LIST)))
+
+#define     PSIGN_TO_ADDR(psign)                                \
+  ((PCHAR)(psign) - sizeof(LIST))
 
 /*
  * Global memory manager

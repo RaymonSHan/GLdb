@@ -285,12 +285,12 @@ __CATCH__
 }
 
 #ifdef    __DEBUG_CONTEXT
-#define     DEBUG_CONTEXT_JOIN					\
-  D(GetContext);Dp(pcont);Dn;TRACE;
+#define     DEBUG_CONTEXT_GET					\
+  D(GetContext);Dp(pcont);Dn;
 #define     DEBUG_CONTEXT_FREE					\
   D(FreeContext);Dp(pcont);Dn;
 #else  // __DEBUG_CONTEXT
-#define     DEBUG_CONTEXT_JOIN
+#define     DEBUG_CONTEXT_GET
 #define     DEBUG_CONTEXT_FREE
 #endif // __DEBUG_CONTEXT
 /*
@@ -307,7 +307,7 @@ __TRY
   addr.AllocType = &GlobalContext;
   addr.RefCount = INIT_REFCOUNT;
   pcont = ADDR_TO_PCONT(addr);
-  DEBUG_CONTEXT_JOIN
+  DEBUG_CONTEXT_GET
   InitContextItem(pcont);
 __CATCH
 };
@@ -356,12 +356,12 @@ void        ReflushTimeout(
 
 
 #ifdef    __DEBUG_BUFFER
-#define     DEBUG_BUFFER_JOIN					\
+#define     DEBUG_BUFFER_GET					\
   D(GetBuffer);Dp(pbuff);Dn;TRACE
 #define     DEBUG_BUFFER_FREE					\
   D(FreeBuffer);Dp(pbuff);Dn;
 #else  // __DEBUG_BUFFER
-#define     DEBUG_BUFFER_JOIN
+#define     DEBUG_BUFFER_GET
 #define     DEBUG_BUFFER_FREE
 #endif // __DEBUG_BUFFER
 
@@ -381,7 +381,7 @@ void        ReflushTimeout(
     addr.AllocType = &JOIN(Global, name);		        \
     addr.RefCount = INIT_REFCOUNT;				\
     pbuff = ADDR_TO_PBUFF(addr);				\
-    DEBUG_BUFFER_JOIN						\
+    DEBUG_BUFFER_GET						\
     JOIN(Init, name)(pbuff);					\
   __CATCH						        \
   };								\
@@ -412,22 +412,32 @@ RESULT      FreeBuffer(PBUFF pbuff)
   return addr.DecRefCount();
 };
 
+#ifdef    __DEBUG_SIGN
+#define     DEBUG_SIGN_GET					\
+  D(GetSign);Dp(psign);Dn;TRACE;
+#define     DEBUG_SIGN_FREE					\
+  D(FreeSign);Dp(psign);Dn;TRACE;
+#else  // __DEBUG_SIGN
+#define     DEBUG_SIGN_GET
+#define     DEBUG_SIGN_FREE
+#endif // __DEBUG_SIGN
 
 RESULT      GetSign(PSIGN &psign)
 {
 __TRY
   ADDR      addr;
-  __DO (GlobalContext.GetMemoryList(addr));
+  __DO (GlobalSign.GetMemoryList(addr));
   addr.AllocType = &GlobalSign;
   addr.RefCount = INIT_REFCOUNT;
   psign = ADDR_TO_PSIGN(addr);
+  DEBUG_SIGN_GET
 __CATCH
 };
 
 RESULT      FreeSign(PSIGN psign)
 {
   ADDR      addr;
-  DEBUG_CONTEXT_FREE
+  DEBUG_SIGN_FREE
   addr = PSIGN_TO_ADDR(psign);
   return addr.DecRefCount();
 };
