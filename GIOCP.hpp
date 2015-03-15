@@ -230,20 +230,19 @@ public:
   __TRY
     ADDR    WRITEADDR = {1};
     int     status;
-
     PSIGN   psign;
+
     __DO (eventQuery += addr);
     __DO1(status,
 	    write(eventFd, &WRITEADDR, SIZEADDR));
-    //    if (this == (PVOID)0x61f318) {
+
+#ifdef    __DEBUG_EVENT
+    D(EVENT_ADD);
+    if (addr != ZERO) {
       psign = addr.pSign;
-      if (!psign) {
-	D(ISZERO);TRACE;
-      }
-      if (psign && psign->sOverlap == 0 && psign->sEvent > 0x8000) {
-	Dllx(addr.aLong);TRACE;
-      }
-      //   }
+      DSIGN(psign);
+    }
+#endif // __DEBUG_EVENT
   __CATCH
   };
   RESULT    operator -= (ADDR &addr)
@@ -251,10 +250,18 @@ public:
   __TRY
     ADDR    READADDR;
     int     status;
- 
+    PSIGN   psign;
+
     __DO1(status,
 	    read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
+#ifdef    __DEBUG_EVENT
+    D(EVENT_DEL);
+    if (addr != ZERO) {
+      psign = addr.pSign;
+      DSIGN(psign);
+    }
+#endif // __DEBUG_EVENT
   __CATCH
   };
 }EVENT, *PEVENT;
@@ -446,6 +453,11 @@ public:
 #define     EPOLLONESHOT                        (1 << 30)
 #define     EPOLLET                             (1 << 31)
 #endif // __linux
+
+/*
+ * size = 0 is valid for ACCEPT & CONNECT, so need a value for close
+ */
+#define     MARK_ERROR_CLOSE                    (-100)
 
 /*
  * GLdbIOCP assembled by one epoll handle and one buffered eventfd. And two

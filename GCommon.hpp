@@ -73,10 +73,12 @@
  * #define   __DEBUG_BUFFER
  * #define   __DEBUG_SIGN
  * #define   __DEBUG_EPOLL
+ * #define   __DEBUG_EVENT
  * #define   __DEBUG_IOCP
  */
 #define   __DEBUG_CONTEXT
 #define   __DEBUG_EPOLL
+#define   __DEBUG_EVENT
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
@@ -181,9 +183,13 @@ typedef     class GApplication*                 PAPP;
 
 
 #define     DSIGN(sign)						\
-  printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld\n",		\
+  printf("%p Cont:%p, Buf:%p, event:%x, size:%lld\n",		\
 	 sign, sign->sContext, sign->sOverlap,			\
 	 sign->sEvent, sign->sSize);
+
+#define     DCONT(cont)						\
+  printf("%p handle:%d, Peer:%p\n",				\
+	 cont, cont->bHandle, cont->pPeer);
 
 #define     DSOCK(sock)						\
   printf("sock addr:%s port:%d\n",				\

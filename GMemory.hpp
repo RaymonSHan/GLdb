@@ -536,7 +536,7 @@ typedef     class RSign {
 public:
   PCONT     sContext;
   POLAP     sOverlap;
-  UINT      sEvent;
+  uint32_t  sEvent;
   UINT      sSize;
 }SIGN, *PSIGN;
 

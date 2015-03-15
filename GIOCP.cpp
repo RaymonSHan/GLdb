@@ -304,6 +304,9 @@ __TRY__
  */
   *lpNumberOfBytesSent = lpBuffers->len;
   __DO (s->writeBuffer += overlap);
+#ifdef    __DEBUG_EVENT
+  D(WSASend);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
   __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH_(1)
@@ -342,6 +345,9 @@ __TRY__
   //  lpOverlapped->events = EPOLLREAD;
   //  lpOverlapped->doneSize = 0;
   *lpNumberOfBytesRecvd = lpBuffers->len;
+#ifdef    __DEBUG_EVENT
+  D(WSARecv);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
   __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH_(1)
@@ -464,10 +470,11 @@ __TRY
   int       evNumber, i;
   ADDR      addr;;
   PSIGN     psign;
+  //  struct    epoll_event waitEv[NUMBER_MAX_EV];
 
   __DO1(evNumber,
 	    epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
-  if (waitEv == 0) {
+  if (evNumber == 0) {
     __DO (GetSign(psign));
     psign->sContext = 0;
     psign->sOverlap = 0;
@@ -490,7 +497,7 @@ __TRY
       addr = psign;
       __DO (*peventHandle += addr);
 #ifdef    __DEBUG_EPOLL
-      D(InEpoll);DSIGN(psign);
+      D(RThreadEpoll);DSIGN(psign);
 #endif // __DEBUG_EPOLL
     }
   }
@@ -509,9 +516,9 @@ RESULT      RThreadEvent::ThreadDoing(void)
 {
 __TRY
   int       readed, writed, state;
-  ADDR      tryaddr, signaddr, olapaddr, contaddr, buffaddr;
+  ADDR      tryaddr, signaddr, newaddr, olapaddr, contaddr, buffaddr;
   PSIGN     &psign = (PSIGN &)signaddr;
-  PSIGN     newsign;
+  PSIGN     newsign = (PSIGN &)newaddr;
   PCONT     &pcont = (PCONT &)contaddr;
   POLAP     &polap = (POLAP &)olapaddr;
   PWSABUF   &pbuff = (PWSABUF &)buffaddr;
@@ -521,8 +528,9 @@ __TRY
   // POLAP     &overlap = (POLAP &)overlapaddr;
   // PWSABUF   &buffer = (PWSABUF &)bufferaddr; 
   struct    epoll_event ev;
-  UINT      tempevent = EPOLLREAD;
+  UINT      tempevent;
   socklen_t tempsize = sizeof(SOCKADDR);
+  RESULT    result;
 
 /*
  * Wait eventfd, then get CContextItem and WSABuffer address
@@ -535,53 +543,52 @@ __TRY
   // contextaddr = overlap->Internal;
   if (psign->sEvent & EPOLLTIMEOUT) {
     // set some
+    D(EPOLLTIMEOUT);Dn;
+    __DO (FreeSign(psign));
     __BREAK_OK;
   }
 
   __DO (pcont == 0);
 
   if (psign->sEvent & EPOLLERR) {
-    D(EPOLLERR);DSIGN(psign);
+    D(EPOLLERR);DSIGN(psign);DCONT(pcont);
     psign->sEvent &= ~EPOLLERR;
   }
   if (psign->sEvent & EPOLLHUP) {
-    D(EPOLLHUP);DSIGN(psign);
+    D(EPOLLHUP);DSIGN(psign);DCONT(pcont);
     psign->sEvent &= ~EPOLLHUP;
   }
   if (psign->sEvent & EPOLLRDHUP) {
-    D(EPOLLRDHUP);DSIGN(psign);
-    psign->sEvent &= ~EPOLLRDHUP;
+    D(EPOLLRDHUP);DSIGN(psign);DCONT(pcont);
+    psign->sEvent = 0;
+    psign->sSize = MARK_ERROR_CLOSE;
+    __DO (*pcont->iocpHandle += signaddr);
+    __BREAK_OK;
   }
 
   if (psign->sEvent & EPOLLIN) {
 /*
- * Free the sign OVERLAPPED from RThreadEpoll and get really OVERLAPPED with 
- *   buffer from readBuffer. If no OVERLAPPED in readBuffer, finished.
+ * Get OVERLAPPED from readBuffer. If no OVERLAPPED in readBuffer, finished.
  */
-//    __DO (*pOverlapStack += overlapaddr);
-    pcont->readBuffer.TryAndGet(olapaddr);
-
-/*
- * For listening SOCKET will NOT use writeBuffer, it is different than other
- *   ReadBuffer for EPOLLACCEPT is accSocket query wait for accept.
- *   WriteBuffer for EPOLLACCEPT is incoming accept query
- */
-    if (IS_LISTEN(pcont)) {
-      tempevent = EPOLLACCEPT;
-      __DO (pcont->writeBuffer += contaddr);
-    }
-
-    if (olapaddr == ZERO) {
+    result = pcont->readBuffer.TryAndGet(olapaddr);
+    if (result) {
       __DO (FreeSign(psign));
       __BREAK_OK;
     }
+
+    if (IS_LISTEN(pcont)) {
+      tempevent = EPOLLACCEPT;
+      //      __DO (pcont->writeBuffer += contaddr);
+    } else {
+      tempevent = EPOLLREAD;
+    }
+
     psign->sOverlap = polap;
     psign->sEvent |= tempevent;
   }
 
   if (psign->sEvent & EPOLLOUT) {
-    //    __DO (*pOverlapStack += overlapaddr);
-    psign->sEvent |= EPOLLWRITE;                // maybe not necessary
+    psign->sEvent |= EPOLLWRITE;
   }
 
   if (psign->sEvent & EPOLLACCEPT) {
@@ -594,51 +601,55 @@ __TRY
  * Here context is listening SOCKET.
  */
     __DOe(psign->sOverlap == 0, GL_IOCP_INPUT_ZERO);
-/*
- * following line only test whether there are accept wait, the value is pcont
- */
-    if (!(pcont->writeBuffer.TryAndGet(tryaddr))) {
-      clicont = (PCONT)polap->accSocket;
-      if (clicont->bHandle) close(clicont->bHandle);
-      clicont->bHandle = accept4(
+    psign->sSize = 0;
+    clicont = (PCONT)polap->accSocket;
+    if (clicont->bHandle && clicont->bHandle != NEGONE) {
+      D(HavebHandle);Dn;
+      close(clicont->bHandle);
+    }
+    clicont->bHandle = accept4(
 	    pcont->bHandle, &(pcont->localSocket.saddr), 
 	    &tempsize, SOCK_NONBLOCK);
-      __DO (clicont->bHandle == NEGONE && errno != EAGAIN);
-      __DO (*pcont->iocpHandle += signaddr);    //(1)
-    } else {
-      psign->sSize = 0;
+    if (clicont->bHandle && clicont->bHandle != NEGONE) {       // accept OK
+      __DO (*pcont->iocpHandle += signaddr);
+      __BREAK_OK;                                               //(1)
+    } else if (clicont->bHandle == NEGONE && errno == EAGAIN) { // no accept OK
       __DO (pcont->readBuffer += olapaddr);
       __DO (FreeSign(psign));
-      __BREAK_OK;                               //(2)
+      __BREAK_OK;                                               //(2)
+    } else {                                                    // error
+      psign->sSize = MARK_ERROR_CLOSE;
+      __DO (*pcont->iocpHandle += signaddr);
+      __BREAK_OK;                                               //(3)
     }
   }
 
   if (psign->sEvent & EPOLLREAD) {
 
     if (psign->sOverlap == 0) {
-       DSIGN(psign);
+      D(READERR);DSIGN(psign);
        //   __BREAK;
      }
     __DOe(psign->sOverlap == 0, GL_IOCP_INPUT_ZERO);
 
-
     buffaddr = polap->InternalHigh;
+    __DOe(buffaddr == ZERO, GL_IOCP_INPUT_ZERO);
+
     //    overlap->events = EPOLLIN;       // This is why?
     readed = read(pcont->bHandle, pbuff->buf, pbuff->len);
-    if (readed == NEGONE) {
-      if (errno == EAGAIN) {
-	__DO (pcont->readBuffer += olapaddr);
-	__DO (FreeSign(psign));
-	__BREAK_OK;                             //(3)
-      } else {
-	__BREAK;
-	// close socket                         //(4)
-      }
-    }
-    else {
+    if (readed != NEGONE) {                                     // read ok
       psign->sSize = readed;
-      __DO (*pcont->iocpHandle += signaddr);    //(5)
-    } 
+      __DO (*pcont->iocpHandle += signaddr);
+      __BREAK_OK;                                               //(4)
+    } else if (errno == EAGAIN) {                               // no read ok
+      __DO (pcont->readBuffer += olapaddr);
+      __DO (FreeSign(psign));
+      __BREAK_OK;                                               //(5)
+    } else {                                                    // error
+      psign->sSize = MARK_ERROR_CLOSE;
+      __DO (*pcont->iocpHandle += signaddr);
+      __BREAK_OK;                                               //(6)
+    }
   }
 
   if (psign->sEvent & EPOLLWRITE) {
@@ -648,25 +659,6 @@ __TRY
  * 2: errno == EAGAIN, then add EPOLLOUT to epoll if necessary.
  */
     while (true) {
-      // writed = 0;
-      // pcont->writeBuffer.TryAndGet(olapaddr);
-      // if (IS_CONNECT(pcont)) {
-      // 	pcont->dwFlags &= ~WSA_FLAG_ISCONNECT;
-      // }
-      // if (olapaddr == ZERO) break;
-      // psign->sOverlap = polap;
-      // buffaddr = polap->InternalHigh;
-      // writed = write(pcont->bHandle, pbuff->buf, pbuff->len);
-      // if (writed == NEGONE) {
-      // 	if (errno == EAGAIN) break;
-      // 	else {
-      // 	  D(WriteError);Dn;
-      // 	  __BREAK;
-      // 	    // write error close socket         //(6)
-      // 	}
-      // }
-      // psign->sSize = writed;
-
       writed = 0;
       pcont->writeBuffer.TryGet(olapaddr);
       psign->sOverlap = polap;
@@ -675,47 +667,46 @@ __TRY
       	pcont->dwFlags &= ~WSA_FLAG_ISCONNECT;
       }
 
-      if (polap == ZERO) break;
-      buffaddr = polap->InternalHigh;
-      writed = write(pcont->bHandle, pbuff->buf, pbuff->len);
-      if (writed == NEGONE) {
-      	if (errno == EAGAIN) break;
-      	else {
-      	  __BREAK;
-      	    // write error close socket         //(6)
-      	}
-      }
-      psign->sSize = writed;
-      __DO (pcont->writeBuffer -= olapaddr);
-      psign->sOverlap = polap;
-      
-      __DO (GetSign(newsign));
-      newsign->sContext = pcont;
-      newsign->sEvent = psign->sEvent;
-      if (*pcont->iocpHandle += signaddr) {
+      if (polap == ZERO) {
+	if (!pcont->waitEpollOut) __BREAK_OK;
+	ev.events = EPOLLET | EPOLLIN | EPOLLRDHUP;
+	ev.data.u64 = contaddr.aLong;
+	__DO1(state,
+	    epoll_ctl(epollHandle, EPOLL_CTL_MOD, 
+	    pcont->bHandle, &ev));
+	pcont->waitEpollOut = 0;
 	__DO (FreeSign(psign));
-	__BREAK;                                //(6) few happen
+	__BREAK_OK;                                             //(7)zero ok
       }
-      psign = newsign;
-    }
-    __DO (FreeSign(psign));
-
-    if (polap == ZERO) {
-      if (!pcont->waitEpollOut) __BREAK_OK;
-      ev.events = EPOLLET | EPOLLIN | EPOLLRDHUP;
-      ev.data.u64 = contaddr.aLong;
-      __DO1(state,
+      buffaddr = polap->InternalHigh;
+      __DOe(pbuff == 0, GL_IOCP_INPUT_ZERO);
+      writed = write(pcont->bHandle, pbuff->buf, pbuff->len);
+      if (writed != NEGONE) {                                   // write OK
+	__DO (pcont->writeBuffer -= olapaddr);
+	__DO (GetSign(newsign));
+	newsign->sContext = pcont;
+	newsign->sEvent = psign->sEvent;
+	newsign->sSize = writed;
+	if (*pcont->iocpHandle += newaddr) {
+	  __DO (FreeSign(newsign));
+	  __BREAK;
+	}
+      } else if (errno == EAGAIN) {                             // write EAGAIN
+	if (pcont->waitEpollOut) __BREAK_OK;
+	ev.events = EPOLLET | EPOLLOUT | EPOLLRDHUP;
+	ev.data.u64 = contaddr.aLong;
+	__DO1(state,
 	    epoll_ctl(epollHandle, EPOLL_CTL_MOD, 
 	    pcont->bHandle, &ev));
-      pcont->waitEpollOut = 0;
-    } else {
-      if (pcont->waitEpollOut) __BREAK_OK;
-      ev.events = EPOLLET | EPOLLOUT | EPOLLRDHUP;
-      ev.data.u64 = contaddr.aLong;
-      __DO1(state,
-	    epoll_ctl(epollHandle, EPOLL_CTL_MOD, 
-	    pcont->bHandle, &ev));
-      pcont->waitEpollOut = 1;
+	pcont->waitEpollOut = 1;
+	__DO (FreeSign(psign));
+	__BREAK;
+	break;                                                  //(8)EAGAIN ok
+      } else {                                                  // error
+	psign->sSize = MARK_ERROR_CLOSE;
+	__DO (*pcont->iocpHandle += signaddr);
+	__BREAK_OK;                                             //(9)write error
+      } 
     }
   }
 
@@ -727,8 +718,11 @@ __TRY
     if (state == NEGONE && errno == EINPROGRESS) {
       __DO (pcont->writeBuffer += olapaddr);
       __DO (FreeSign(psign));                   //()
+      __BREAK_OK;
     } else {
-       //  error for connect                    //()
+      psign->sSize = MARK_ERROR_CLOSE;
+      __DO (*pcont->iocpHandle += signaddr);
+      __BREAK_OK;                                               //(3)
     }
   }
 
@@ -766,10 +760,11 @@ __TRY
   if (size == NEGONE) __BREAK_OK;
   noper = pbuff->nOper;
 
-  if (size || noper == OP_ACCEPT || noper == OP_CONNECT) {
-    __DO (NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size));
-  } else {
+  if (((!size) && (noper != OP_ACCEPT) && (noper != OP_CONNECT)) 
+            || (size == MARK_ERROR_CLOSE)) {
     __DO (NoneAppFunc(fOnClose)(pcont, pbuff, size));
+  } else {
+    __DO (NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size));
   }
 __CATCH
 };
