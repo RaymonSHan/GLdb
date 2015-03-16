@@ -76,9 +76,9 @@
  * #define   __DEBUG_EVENT
  * #define   __DEBUG_IOCP
  */
-#define   __DEBUG_CONTEXT
-#define   __DEBUG_EPOLL
-#define   __DEBUG_EVENT
+// #define   __DEBUG_CONTEXT
+// #define   __DEBUG_EPOLL
+// #define   __DEBUG_EVENT
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
@@ -656,10 +656,11 @@ typedef     struct threadTraceInfo {
   endCall();							\
   return 0;							\
 error_stop:							\
-  endCall();
+  endCall();							\
+  if (ret_err == 0) return 0;
 #define   __BETWEEN(x,y)                                        \
   if (ret_err >= _TO_MARK(x) && ret_err <= _TO_MARK(y))
-#define   __BEFORE(x)                                            \
+#define   __BEFORE(x)                                           \
   if (ret_err < _TO_MARK(x))
 #define   __AFTER(x)                                            \
   if (ret_err >= _TO_MARK(x))
@@ -688,7 +689,7 @@ error_stop:							\
 #define   __BREAK                                               \
   { goto error_stop; }
 #define   __BREAK_OK                                            \
-  { ret_err = 0; goto error_stop; }
+  { TRACE; ret_err = 0; goto error_stop; }
 
 #define     MESSAGE_INFO                        (1 << 0)
 #define     MESSAGE_DEBUG                       (1 << 1)
@@ -723,7 +724,6 @@ void      __TRACE();
     setLine();							\
     func;							\
   };
-
 
 #define   __DO(func) {						\
     setLine();							\

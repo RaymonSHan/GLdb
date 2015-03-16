@@ -512,21 +512,20 @@ __TRY
 __CATCH
 };
 
+#define  __OK  {ret_err =0; goto error_ok;}
+
 RESULT      RThreadEvent::ThreadDoing(void)
 {
 __TRY
   int       readed, writed, state;
-  ADDR      tryaddr, signaddr, newaddr, olapaddr, contaddr, buffaddr;
+  ADDR      signaddr, newaddr, olapaddr, contaddr, buffaddr;
   PSIGN     &psign = (PSIGN &)signaddr;
-  PSIGN     newsign = (PSIGN &)newaddr;
-  PCONT     &pcont = (PCONT &)contaddr;
+  PSIGN     &newsign = (PSIGN &)newaddr;
   POLAP     &polap = (POLAP &)olapaddr;
+  PCONT     &pcont = (PCONT &)contaddr;
   PWSABUF   &pbuff = (PWSABUF &)buffaddr;
-  // ADDR      contextaddr, overlapaddr, bufferaddr, listenaddr;
-  // PCONT     &context = (PCONT &)contextaddr;
   PCONT     clicont;
-  // POLAP     &overlap = (POLAP &)overlapaddr;
-  // PWSABUF   &buffer = (PWSABUF &)bufferaddr; 
+
   struct    epoll_event ev;
   UINT      tempevent;
   socklen_t tempsize = sizeof(SOCKADDR);
@@ -545,7 +544,8 @@ __TRY
     // set some
     D(EPOLLTIMEOUT);Dn;
     __DO (FreeSign(psign));
-    __BREAK_OK;
+    __OK;
+    //    __BREAK_OK;
   }
 
   __DO (pcont == 0);
@@ -560,10 +560,11 @@ __TRY
   }
   if (psign->sEvent & EPOLLRDHUP) {
     D(EPOLLRDHUP);DSIGN(psign);DCONT(pcont);
-    psign->sEvent = 0;
-    psign->sSize = MARK_ERROR_CLOSE;
-    __DO (*pcont->iocpHandle += signaddr);
-    __BREAK_OK;
+    psign->sEvent &= ~EPOLLRDHUP;
+    // psign->sEvent = 0;
+    // psign->sSize = MARK_ERROR_CLOSE;
+    // __DO (*pcont->iocpHandle += signaddr);
+    // __BREAK_OK;
   }
 
   if (psign->sEvent & EPOLLIN) {
@@ -573,7 +574,8 @@ __TRY
     result = pcont->readBuffer.TryAndGet(olapaddr);
     if (result) {
       __DO (FreeSign(psign));
-      __BREAK_OK;
+      __OK;
+      //      __BREAK_OK;
     }
 
     if (IS_LISTEN(pcont)) {
@@ -612,11 +614,13 @@ __TRY
 	    &tempsize, SOCK_NONBLOCK);
     if (clicont->bHandle && clicont->bHandle != NEGONE) {       // accept OK
       __DO (*pcont->iocpHandle += signaddr);
-      __BREAK_OK;                                               //(1)
+      __OK;
+      //      __BREAK_OK;                                               //(1)
     } else if (clicont->bHandle == NEGONE && errno == EAGAIN) { // no accept OK
       __DO (pcont->readBuffer += olapaddr);
       __DO (FreeSign(psign));
-      __BREAK_OK;                                               //(2)
+      __OK;
+      //      __BREAK_OK;                                               //(2)
     } else {                                                    // error
       psign->sSize = MARK_ERROR_CLOSE;
       __DO (*pcont->iocpHandle += signaddr);
@@ -639,12 +643,28 @@ __TRY
     readed = read(pcont->bHandle, pbuff->buf, pbuff->len);
     if (readed != NEGONE) {                                     // read ok
       psign->sSize = readed;
-      __DO (*pcont->iocpHandle += signaddr);
-      __BREAK_OK;                                               //(4)
+
+
+      __DO (GetSign(newsign));
+      newsign->sContext = psign->sContext;
+      newsign->sOverlap = psign->sOverlap;
+      newsign->sSize = readed;
+      __DO (*pcont->iocpHandle += newaddr);
+
+      //      __DO (*pcont->iocpHandle += signaddr);
+      // MAIN test ONE
+      D(MAIN_ONE);Dn;
+
+
+
+      FreeSign(psign);
+      __OK;
+      //      __BREAK_OK;                                               //(4)
     } else if (errno == EAGAIN) {                               // no read ok
       __DO (pcont->readBuffer += olapaddr);
       __DO (FreeSign(psign));
-      __BREAK_OK;                                               //(5)
+      __OK;
+      //      __BREAK_OK;                                               //(5)
     } else {                                                    // error
       psign->sSize = MARK_ERROR_CLOSE;
       __DO (*pcont->iocpHandle += signaddr);
@@ -659,16 +679,25 @@ __TRY
  * 2: errno == EAGAIN, then add EPOLLOUT to epoll if necessary.
  */
     while (true) {
+      setLine();
       writed = 0;
       pcont->writeBuffer.TryGet(olapaddr);
       psign->sOverlap = polap;
 
+      setLine();
       if (IS_CONNECT(pcont)) {
       	pcont->dwFlags &= ~WSA_FLAG_ISCONNECT;
       }
 
+      setLine();
       if (polap == ZERO) {
-	if (!pcont->waitEpollOut) __BREAK_OK;
+	if (!pcont->waitEpollOut) {
+	  D(MAINTWO);Dn;
+	  //MAINtest two
+	  FreeSign(psign);
+	  __OK;
+	  //	  __BREAK;
+	}
 	ev.events = EPOLLET | EPOLLIN | EPOLLRDHUP;
 	ev.data.u64 = contaddr.aLong;
 	__DO1(state,
@@ -676,7 +705,8 @@ __TRY
 	    pcont->bHandle, &ev));
 	pcont->waitEpollOut = 0;
 	__DO (FreeSign(psign));
-	__BREAK_OK;                                             //(7)zero ok
+	__OK;
+	//	__BREAK_OK;                                             //(7)zero ok
       }
       buffaddr = polap->InternalHigh;
       __DOe(pbuff == 0, GL_IOCP_INPUT_ZERO);
@@ -685,14 +715,25 @@ __TRY
 	__DO (pcont->writeBuffer -= olapaddr);
 	__DO (GetSign(newsign));
 	newsign->sContext = pcont;
+	setLine();
 	newsign->sEvent = psign->sEvent;
 	newsign->sSize = writed;
+	setLine();
 	if (*pcont->iocpHandle += newaddr) {
+	  setLine();
+	  D(NO_HAPPEN_TWO);Dn;
 	  __DO (FreeSign(newsign));
 	  __BREAK;
 	}
+	else {
+	  setLine();
+	  D(DO_AGAIN_WRITE);Dn;
+	}
       } else if (errno == EAGAIN) {                             // write EAGAIN
-	if (pcont->waitEpollOut) __BREAK_OK;
+	D(NO_HAPPEN_THREE);Dn;
+	if (pcont->waitEpollOut) {
+	  __BREAK_OK;
+	}
 	ev.events = EPOLLET | EPOLLOUT | EPOLLRDHUP;
 	ev.data.u64 = contaddr.aLong;
 	__DO1(state,
@@ -703,6 +744,7 @@ __TRY
 	__BREAK;
 	break;                                                  //(8)EAGAIN ok
       } else {                                                  // error
+	D(NO_HAPPEN_FOUR);Dn;
 	psign->sSize = MARK_ERROR_CLOSE;
 	__DO (*pcont->iocpHandle += signaddr);
 	__BREAK_OK;                                             //(9)write error
@@ -718,7 +760,8 @@ __TRY
     if (state == NEGONE && errno == EINPROGRESS) {
       __DO (pcont->writeBuffer += olapaddr);
       __DO (FreeSign(psign));                   //()
-      __BREAK_OK;
+      __OK;
+      //      __BREAK_OK;
     } else {
       psign->sSize = MARK_ERROR_CLOSE;
       __DO (*pcont->iocpHandle += signaddr);
@@ -726,9 +769,22 @@ __TRY
     }
   }
 
-__CATCH_BEGIN
-  FreeSign(psign);
-__CATCH_END
+  endCall();
+  return 0;
+error_stop:
+
+
+error_ok:
+  //  FreeSign(psign);
+  //  D(EVENT_END_ERROR);Dn;
+  endCall();
+
+  //__CATCH_BEGIN
+
+
+
+  return ret_err;
+  //__CATCH_END
 };
 
 
@@ -755,13 +811,14 @@ __TRY
             (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
             WSA_INFINITE));
 
-  Dp(pcont); Dp(pbuff); Dlld(pbuff->nOper); Dd(size); Dn;
+  Dp(pcont); Dp(pbuff); if (pbuff) Dlld(pbuff->nOper); Dd(size); Dn;
 
   if (size == NEGONE) __BREAK_OK;
-  noper = pbuff->nOper;
+  if (pbuff == 0) noper = 0;
+  else noper = pbuff->nOper;
 
-  if (((!size) && (noper != OP_ACCEPT) && (noper != OP_CONNECT)) 
-            || (size == MARK_ERROR_CLOSE)) {
+  if ((size == MARK_ERROR_CLOSE) || (noper == 0) ||
+            ((!size) && (noper != OP_ACCEPT) && (noper != OP_CONNECT))) {
     __DO (NoneAppFunc(fOnClose)(pcont, pbuff, size));
   } else {
     __DO (NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size));

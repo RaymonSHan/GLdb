@@ -52,7 +52,6 @@ RESULT      GetMemory(
             ADDR &addr, UINT size, UINT flag = 0);
 RESULT      GetStack(ADDR &addr);
 
-
 /*
  * any TLS except TraceInfo MUST be inherit from RThreadResource
  * volatile UINT RThreadResource::globalResourceOffset =
@@ -78,6 +77,7 @@ public:
 			PAD_INT(size, 0, SIZE_CACHE));
   };
 };
+
 
 /*
  * get TLS for RThreadResource

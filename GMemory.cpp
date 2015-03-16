@@ -439,7 +439,8 @@ RESULT      FreeSign(PSIGN psign)
   ADDR      addr;
   DEBUG_SIGN_FREE
   addr = PSIGN_TO_ADDR(psign);
-  return addr.DecRefCount();
+  return GlobalSign.FreeMemoryList(addr);
+  //return addr.DecRefCount();
 };
 
 /*
