@@ -189,7 +189,6 @@ __TRY
     peer->pPeer = NULL;   // change this line, old is peer->pPeer = peer;
     pcont->pPeer = NULL;
     __FREE(inClose);
-    D(closepeer);Dp(pcont);Dn;
     OnClose(peer, isNULL, 0);
   } else {
     __FREE(inClose);

@@ -76,9 +76,6 @@
  * #define   __DEBUG_EVENT
  * #define   __DEBUG_IOCP
  */
-// #define   __DEBUG_CONTEXT
-// #define   __DEBUG_EPOLL
-// #define   __DEBUG_EVENT
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
@@ -689,7 +686,7 @@ error_stop:							\
 #define   __BREAK                                               \
   { goto error_stop; }
 #define   __BREAK_OK                                            \
-  { TRACE; ret_err = 0; goto error_stop; }
+  { ret_err = 0; goto error_stop; }
 
 #define     MESSAGE_INFO                        (1 << 0)
 #define     MESSAGE_DEBUG                       (1 << 1)

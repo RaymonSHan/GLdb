@@ -44,11 +44,11 @@ __TRY
   __DOe(pcont == 0, GL_IOCP_INPUT_ZERO);
 
   while (!pcont->readBuffer.TryAndGet(buffaddr)) {
-    Dp(pcont);D(free_readBuffer);Dp(pbuff);Dn;
+    D(free_readBuffer);Dn;
     FreeBuffer(pbuff);
   }
   while (!pcont->writeBuffer.TryAndGet(buffaddr)) {
-    Dp(pcont);D(free_writeBuffer);Dp(pbuff);Dn;
+    D(free_writeBuffer);Dn;
     FreeBuffer(pbuff);
   }
   pcont->pProtocol->MyCloseHandle(pcont);
