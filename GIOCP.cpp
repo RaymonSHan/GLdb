@@ -342,8 +342,6 @@ __TRY__
 
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
-  //  lpOverlapped->events = EPOLLREAD;
-  //  lpOverlapped->doneSize = 0;
   *lpNumberOfBytesRecvd = lpBuffers->len;
 #ifdef    __DEBUG_EVENT
   D(WSARecv);DSIGN(psign);Dn;
@@ -390,9 +388,11 @@ __TRY__
   lpOverlapped->Internal = sListenSocket;
   lpOverlapped->InternalHigh = (PWSABUF)lpOutputBuffer;
   lpOverlapped->accSocket = sAcceptSocket;
-  //  lpOverlapped->events = EPOLLACCEPT;
-  //  overlap.pVoid = lpOverlapped;
+#ifdef    __DEBUG_EVENT
+  D(AcceptEx);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
   __DO (*(GlobalIOCP.eventHandle) += addr);
+  WSASetLastError(WSA_IO_PENDING);
 __CATCH_(1)
 };
 
@@ -434,9 +434,12 @@ __TRY__
    * should change following line in future
    */
   memcpy(&(s->remoteSocket), name, namelen);
-  //  lpOverlapped->events = EPOLLCONNECT;
-  //  overlap.pVoid = lpOverlapped;
+
+#ifdef    __DEBUG_EVENT
+  D(ConnectEx);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
   __DO (*GlobalIOCP.eventHandle += addr);
+  WSASetLastError(WSA_IO_PENDING);
 __CATCH_(1)
 };
 
@@ -470,7 +473,6 @@ __TRY
   int       evNumber, i;
   ADDR      addr;;
   PSIGN     psign;
-  //  struct    epoll_event waitEv[NUMBER_MAX_EV];
 
   __DO1(evNumber,
 	    epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
@@ -535,9 +537,6 @@ __TRY
   __DO (eventHandle -= signaddr);
   pcont = psign->sContext;
   polap = psign->sOverlap;
-  D(InEvent); DSIGN(psign);
-  // __DO (eventHandle -= overlapaddr);
-  // contextaddr = overlap->Internal;
   if (psign->sEvent & EPOLLTIMEOUT) {
     // set some
     __DO (FreeSign(psign));
@@ -545,21 +544,13 @@ __TRY
   }
 
   __DO (pcont == 0);
-
-  // if (psign->sEvent & EPOLLERR) {
-  //   D(EPOLLERR);DSIGN(psign);DCONT(pcont);
-  //   psign->sEvent &= ~EPOLLERR;
-  // }
-  // if (psign->sEvent & EPOLLHUP) {
-  //   D(EPOLLHUP);DSIGN(psign);DCONT(pcont);
-  //   psign->sEvent &= ~EPOLLHUP;
-  // }
   if (psign->sEvent & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
-    D(EPOLLERROR);DSIGN(psign);DCONT(pcont);
-    psign->sEvent = 0;
-    psign->sSize = MARK_ERROR_CLOSE;
-    __DO (*pcont->iocpHandle += signaddr);
-    __BREAK_OK;
+    psign->sEvent &= ((~EPOLLERR) & (~EPOLLHUP) & (~EPOLLRDHUP));
+    if (psign->sEvent == 0) {
+      psign->sSize = MARK_ERROR_CLOSE;
+      __DO (*pcont->iocpHandle += signaddr);
+      __BREAK_OK;
+    }
   }
 
   if (psign->sEvent & EPOLLIN) {

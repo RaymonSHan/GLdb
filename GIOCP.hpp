@@ -234,16 +234,6 @@ public:
     __DO (eventQuery += addr);
     __DO1(status,
 	    write(eventFd, &WRITEADDR, SIZEADDR));
-
-#ifdef    __DEBUG_EVENT
-    PSIGN   psign;
-
-    D(EVENT_ADD);
-    if (addr != ZERO) {
-      psign = addr.pSign;
-      DSIGN(psign);
-    }
-#endif // __DEBUG_EVENT
   __CATCH
   };
   RESULT    operator -= (ADDR &addr)
@@ -255,15 +245,6 @@ public:
     __DO1(status,
 	    read(eventFd, &READADDR, SIZEADDR));
     __DO (eventQuery -= addr);
-#ifdef    __DEBUG_EVENT
-    PSIGN   psign;
-
-    D(EVENT_DEL);
-    if (addr != ZERO) {
-      psign = addr.pSign;
-      DSIGN(psign);
-    }
-#endif // __DEBUG_EVENT
   __CATCH
   };
 }EVENT, *PEVENT;

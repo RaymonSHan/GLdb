@@ -76,6 +76,7 @@
  * #define   __DEBUG_EVENT
  * #define   __DEBUG_IOCP
  */
+#define   __DEBUG_EPOLL
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
