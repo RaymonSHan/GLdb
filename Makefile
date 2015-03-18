@@ -10,8 +10,8 @@ CFLAGS=-O2 -g
 top="$(CURDIR)"/
 ede_FILES=Project.ede Makefile
 
-GLdbtest_SOURCES=GCommon.cpp GIOCP.cpp GMemory.cpp GEncapsulate.cpp GService.cpp GProtocol.cpp GApplication.cpp GError.cpp GTools.cpp
-GLdbtest_OBJ= GCommon.o GIOCP.o GMemory.o GEncapsulate.o GService.o GProtocol.o GApplication.o GError.o GTools.o
+GLdbtest_SOURCES=GCommon.cpp GIOCP.cpp GMemory.cpp GEncapsulate.cpp GService.cpp GProtocol.cpp GApplication.cpp GError.cpp GTools.cpp GSession.cpp
+GLdbtest_OBJ= GCommon.o GIOCP.o GMemory.o GEncapsulate.o GService.o GProtocol.o GApplication.o GError.o GTools.o GSession.o
 CXX= g++
 CXX_COMPILE=$(CXX) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
 CXX_DEPENDENCIES=-Wp,-MD,.deps/$(*F).P
@@ -20,7 +20,7 @@ VERSION=1.0
 DISTDIR=$(top)GLdb-$(VERSION)
 top_builddir = 
 
-DEP_FILES=.deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P .deps/GError.P .deps/GTools.P .deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P .deps/GTools.P .deps/GError.P
+DEP_FILES=.deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P .deps/GError.P .deps/GTools.P .deps/GSession.P .deps/GCommon.P .deps/GIOCP.P .deps/GMemory.P .deps/GEncapsulate.P .deps/GService.P .deps/GProtocol.P .deps/GApplication.P .deps/GTools.P .deps/GError.P .deps/GSession.P
 
 all: GLdbtest
 
