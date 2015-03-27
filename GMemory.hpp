@@ -439,6 +439,9 @@ public:                                         // statistics info for debug
  *   be together.
  */
 
+#define     localSocket                         addInfo.lSocket
+#define     remoteSocket                        addInfo.rSocket
+
 typedef     class CContextItem {
 /*
  * !!!!! ATTENTION !!!!!
@@ -460,13 +463,17 @@ public:
 #ifdef    __GLdb_SELF_USE
   PPROT     pProtocol;
   PAPP      pApplication;
-  SOCKADDR  localSocket;
-  SOCKADDR  remoteSocket;
   PCONT     pPeer;
   LQUERY    nextPeer;
   LQUERY    nextBuffer;
+  STR_M     localFilename;
+  union {
+    struct  { SOCKADDR lSocket; SOCKADDR rSocket; };
+  }addInfo;
+
 #endif // __GLdb_SELF_USE
 }CONT, *PCONT;
+
 
 #define     GlobalSign                          CMemoryAlloc::globalSign
 #define     GlobalContext                       CMemoryAlloc::globalContext
@@ -538,6 +545,8 @@ public:
   POLAP     sOverlap;
   UINT      sEvent;
   UINT      sSize;
+  DWORD     dwAccess;
+  DWORD     dwCreation;
 }SIGN, *PSIGN;
 
 RESULT      GetSign(PSIGN &psign);

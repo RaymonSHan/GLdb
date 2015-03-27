@@ -82,8 +82,8 @@ __TRY
   PCONT     nullcont = NULL;
   char      local_addr[] = "0.0.0.0";
   int       local_port = 8998;
-  char      remote_addr[] = "192.168.1.1";
-  int       remote_port = 80;
+  char      remote_addr[] = "127.0.0.1";
+  int       remote_port = 8999;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser;
   
@@ -119,6 +119,7 @@ __TRY
 	    (PEVENT)forwardApp.handleIOCP, 1));
 #endif   // DOING_FORWARD_APPLICATION
 
+  __DO (GlobalIOCP.StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
 __CATCH
 };
 

@@ -316,15 +316,15 @@ RESULT      GetDupContext(
 	    PCONT &newcont, PCONT pcont, BOOL copy)
 {
 __TRY
+
   __DO (GetContext(newcont, 0));
   newcont->pProtocol = pcont->pProtocol;
   newcont->pApplication = pcont->pApplication;
   if (copy) {
 /*
- * copy  both localSocket and remoteSocket, 
+ * copy  both localSocket & remoteSocket, and localFilename, 
  */
-    memcpy(&newcont->remoteSocket, &pcont->remoteSocket, sizeof(SOCK));
-    memcpy(&newcont->localSocket, &pcont->localSocket, sizeof(SOCK));
+    memcpy(&newcont->addInfo, &pcont->addInfo, sizeof(pcont->addInfo));
   }
 __CATCH
 };

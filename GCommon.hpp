@@ -76,7 +76,7 @@
  * #define   __DEBUG_EVENT
  * #define   __DEBUG_IOCP
  */
-#define   __DEBUG_EPOLL
+
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
@@ -96,12 +96,14 @@
 
 #define     NEGONE                              (-1)
 #define     INVALID_SOCKET                      ((SOCKET)-1)
+#define     FILE_ERROR                          ((FILEHANDLE)-1)
+
 /*
  * for STRING use, constant len string
  */
 #define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR-1)
-#define     CHAR_MIDDLE                         ((1<<8)-2*SIZEADDR-1)
-#define     CHAR_LARGE                          ((1<<11)-2*SIZEADDR-1)
+#define     CHAR_MIDDLE                         ((1<<9)-2*SIZEADDR-1)
+#define     CHAR_LARGE                          ((1<<12)-2*SIZEADDR-1)
 /*
  * for STACK & QUERY use, constant len stack & query
  */
@@ -113,6 +115,7 @@
  */
 #define     SINGLE_THREAD                       1
 
+#define     MAX_PATH                            512
 /*
  * used for macro
  */
@@ -205,9 +208,32 @@ typedef     class GApplication*                 PAPP;
 #define     WSASYS_STATUS_LEN                   16              // NOT know
 #define     INFINITE                            (DWORD)NEGONE
 
+/*
+ * find value in http://fossies.org/linux/rdesktop/disk.h
+ */
+#define     FILE_FLAG_OVERLAPPED                0x40000000
+
+#define     FILE_SHARE_READ                     0x01
+#define     FILE_SHARE_WRITE                    0x02
+#define     FILE_SHARE_DELETE                   0x04
+
+#define     OPEN_EXISTING                       1
+#define     CREATE_NEW                          2
+#define     OPEN_ALWAYS                         3
+#define     TRUNCATE_EXISTING                   4
+#define     CREATE_ALWAYS                       5
+
+#define     GENERIC_READ                        0x80000000
+#define     GENERIC_WRITE                       0x40000000
+#define     GENERIC_EXECUTE                     0x20000000
+#define     GENERIC_ALL                         0x10000000
+
+#define     SOCKET_ERROR                        NEGONE
+
 typedef     unsigned short                      WORD;
 typedef     UINT                                HANDLE;
 typedef     class CContextItem                 *SOCKET;
+typedef     class CContextItem                 *FILEHANDLE;
 typedef     unsigned long long int             *ULONG_PTR;      // 64bit in 64bit
 typedef     unsigned long long int            **PULONG_PTR;
 typedef     unsigned int                        DWORD;
@@ -380,6 +406,9 @@ public:
   };
   void virtual operator = (const PCHAR pchar) {
     return operator = ((PUCHAR)pchar);
+  };
+  STRING() {
+    strStart = strEnd = NULL;
   };
   UINT      strLen(void) {
     return strEnd - strStart;

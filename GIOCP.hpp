@@ -147,7 +147,11 @@ BOOL        DisconnectEx(
 	    DWORD           dwFlags,
 	    DWORD           reserved);
 
-HANDLE      CreateFile(
+/*
+ * for async open & close file, should use POLAP, with default is NULL 
+ *   to compatible with Windows
+ */
+FILEHANDLE  CreateFile(
             LPCTSTR         lpFileName,
             DWORD           dwDesiredAccess,
             DWORD           dwShareMode,
@@ -156,15 +160,15 @@ HANDLE      CreateFile(
             DWORD           dwFlagsAndAttributes,
             HANDLE          hTemplateFile);
 BOOL        CloseHandle(
-            HANDLE          hObject);
+	    FILEHANDLE      hObject);
 BOOL        ReadFile(
-            HANDLE          hFile,
+            FILEHANDLE      hFile,
             LPVOID          lpBuffer,
             DWORD           nNumberOfBytesToRead,
             LPDWORD         lpNumberOfBytesRead,
             POLAP           lpOverlapped);
 BOOL        WriteFile(
-            HANDLE          hFile,
+            FILEHANDLE      hFile,
             LPVOID          lpBuffer,
             DWORD           nNumberOfBytesToWrite,
             LPDWORD         lpNumberOfBytesWritten,

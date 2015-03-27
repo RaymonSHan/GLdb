@@ -297,8 +297,6 @@ __TRY__
   overlap.pVoid = lpOverlapped;
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
-  //  lpOverlapped->events = EPOLLWRITE;
-  //  lpOverlapped->doneSize = 0;
 /*
  * now i set lpNumberOfBytesSent now, maybe should set after send
  */
@@ -309,7 +307,7 @@ __TRY__
 #endif // __DEBUG_EVENT
   __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
-__CATCH_(1)
+__CATCH_(SOCKET_ERROR)
 };
 
 int         WSARecv(
@@ -348,7 +346,7 @@ __TRY__
 #endif // __DEBUG_EVENT
   __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
-__CATCH_(1)
+__CATCH_(SOCKET_ERROR)
 };
 
 /*
@@ -443,7 +441,7 @@ __TRY__
 __CATCH_(1)
 };
 
-HANDLE      CreateFile(
+FILEHANDLE  CreateFile(
             LPCTSTR         lpFileName,
             DWORD           dwDesiredAccess,
             DWORD           dwShareMode,
@@ -452,28 +450,116 @@ HANDLE      CreateFile(
             DWORD           dwFlagsAndAttributes,
             HANDLE          hTemplateFile)
 {
+  (void)    dwShareMode;                        // always FILE_SHARE_READ
+  (void)    lpSecurityAttributes;
+  (void)    hTemplateFile;
+__TRY__
+  ADDR      addr;
+  PSIGN     psign = 0;
+  PCONT     pcont = 0;
+  PBUFF     pbuff = 0;
+  POLAP     polap = 0;
+
+  __DOe(lpFileName == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(dwFlagsAndAttributes != FILE_FLAG_OVERLAPPED, GL_IOCP_INPUT_NOSUP);
+
+  __DO (GetContext(pcont));
+  __DO (GetBufferSmall(pbuff));
+  __DO (GetSign(psign));
+  addr = psign;
+  polap = &(pbuff->oLapped);
+
+  psign->sContext = pcont;
+  polap->Internal = pcont;
+  psign->sOverlap = polap;
+  psign->sEvent = EPOLLFILEOPEN;
+  psign->sSize = 0;
+  psign->dwAccess = dwDesiredAccess;
+  psign->dwCreation = dwCreationDisposition;
+  pcont->localFilename = lpFileName;
+
+#ifdef    __DEBUG_EVENT
+  D(CreateFile);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
+  __DO (EventFile += addr);
+  WSASetLastError(WSA_IO_PENDING);
+__CATCH_(FILE_ERROR)
 };
 
 BOOL        CloseHandle(
-            HANDLE          hObject)
+            FILEHANDLE      hObject)
 {
+__TRY__
+  ADDR      addr;
+  PSIGN     psign = 0;
+
+  __DOe(hObject == 0, GL_IOCP_INPUT_ZERO);
+
+  __DO (GetSign(psign));
+  addr = psign;
+  psign->sContext = hObject;
+  psign->sEvent = EPOLLFILECLOSE;
+  psign->sSize = 0;
+
+#ifdef    __DEBUG_EVENT
+  D(CloseHandle);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
+  __DO (EventFile += addr);
+  WSASetLastError(WSA_IO_PENDING);
+  //MARK_ERROR_CLOSE
+__CATCH_(0)
 };
 
 BOOL        ReadFile(
-            HANDLE          hFile,
+            FILEHANDLE      hFile,
             LPVOID          lpBuffer,
             DWORD           nNumberOfBytesToRead,
             LPDWORD         lpNumberOfBytesRead,
             POLAP           lpOverlapped)
 {
+__TRY__
+  ADDR      addr;
+  PSIGN     psign = 0;
+  PWSABUF   wsabuff;
+
+  __DOe(hFile == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpBuffer == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(nNumberOfBytesToRead == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpNumberOfBytesRead == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+  wsabuff = lpOverlapped->InternalHigh;
+  __DOe(wsabuff == 0, GL_IOCP_INPUT_ZERO);
+
+  __DO (GetSign(psign));
+  addr = psign;
+  psign->sContext = hFile;
+  psign->sOverlap = lpOverlapped;
+  psign->sEvent = EPOLLFILEREAD;
+  psign->sSize = 0;
+
+  lpOverlapped->Internal = hFile;
+  lpOverlapped->InternalHigh = wsabuff;
+
+#ifndef   __GLdb_SELF_USE
+  wsabuff->buf = lpBuffer;
+  wsabuff->len = nNumberOfBytesToRead;
+#endif  //__GLdb_SELF_USE
+  *lpNumberOfBytesRead = nNumberOfBytesToRead;
+
+#ifdef    __DEBUG_EVENT
+  D(ReadFile);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
+  __DO (EventFile += addr);
+  WSASetLastError(WSA_IO_PENDING);
+__CATCH_(0)
 };
 
 BOOL        WriteFile(
-            HANDLE          hFile,
+            FILEHANDLE      hFile,
             LPVOID          lpBuffer,
             DWORD           nNumberOfBytesToWrite,
             LPDWORD         lpNumberOfBytesWritten,
-            LPOVERLAPPED    lpOverlapped)
+            POLAP           lpOverlapped)
 {
 };
 
@@ -853,15 +939,14 @@ __TRY
   __DO (threadEvent.ThreadClone(true));
   __DO (RThread::ThreadStart());
 
-  __DO (GlobalIOCP.StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
 /*
  * YES, this code may be execute before threadEvent initialized.
  * but threadEpoll is initialized surely.
  */
   epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
   eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
-  Dp(&EventFile);
-  //  pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
+  //  Dp(&EventFile);
+
 __CATCH
 };
 
