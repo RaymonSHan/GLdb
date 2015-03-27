@@ -49,6 +49,10 @@ inline      BOOL CloseSocket(SOCKET sock)
 {
   return close(sock->bHandle); 
 };
+inline      BOOL CloseFileHandle(SOCKET sock) 
+{
+  return close(sock->bHandle); 
+};
 inline      BOOL CloseOtherHandle(SOCKET sock) 
 {
   return close(sock->bHandle); 
@@ -136,6 +140,27 @@ public:
   RESULT    PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
 }GTCP, *PGTCP;
+
+typedef     class GFileProtocol : public GProtocol
+{
+public:
+  GFileProtocol() : GProtocol()
+  {
+    MyCloseHandle = CloseFileHandle;
+  };
+  RESULT    CreateNew(
+            PCONT pcont, ADDR para, UINT size);
+  RESULT    CreateRemote(
+            PCONT pcont, ADDR para, UINT size);
+  RESULT    PostAccept(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op);
+  RESULT    PostConnect(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op);
+  RESULT    PostSend(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
+  RESULT    PostReceive(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside);
+}GFILE, *PGFILEw;
 
 #endif   // GLdb_PROTOCOL_HPP
 

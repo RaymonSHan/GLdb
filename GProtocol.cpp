@@ -265,3 +265,152 @@ __TRY
   }
 __CATCH
 };
+
+RESULT      GFileProtocol::CreateNew(
+            PCONT pcont, ADDR para, UINT size)
+{
+  (void)    size;
+__TRY
+  PSOCK     sock = (PSOCK)para.pVoid;
+  HANDLE    iocphandle;
+  int       result;
+
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  pcont->dwFlags |= WSA_FLAG_ISLISTEN;
+  //  __DO (BindLocalSocket(pcont, this));
+  __DO1(result, 
+	    bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK)));
+  iocphandle = CreateIoCompletionPort(
+	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  __DO (iocphandle == 0);
+  ReflushTimeout(pcont, TIMEOUT_INFINITE);
+  __DO1(result,
+	    listen(pcont->bHandle, SOMAXCONN));
+  __INFO(MESSAGE_INFO, "Add TCP Listening %s:%d", 
+	    inet_ntoa(sock->saddrin.sin_addr), 
+	    ntohs(sock->saddrin.sin_port));
+__CATCH
+};
+
+RESULT      GFileProtocol::CreateRemote(
+            PCONT pcont, ADDR para, UINT size)
+{
+__TRY
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(para == ZERO,
+            GL_TCP_INPUT_ZERO);
+  memcpy(&(pcont->remoteSocket), para.pVoid, size);
+__CATCH
+};
+
+RESULT      GFileProtocol::PostAccept(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
+{
+  (void)    size;
+  (void)    op;
+__TRY
+  PCONT     clicont;
+  PWSABUF   wsabuf;
+  BOOL      result;
+
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pcont->bHandle == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(&pbuff->wsaBuf == NULL,
+            GL_TCP_INPUT_ZERO);
+  wsabuf = &(pbuff->wsaBuf);
+  __DO (GetDupContext(clicont, pcont));
+            /* MARK */  __MARK(AfterGetContext);
+
+  pbuff->oLapped.accSocket = clicont;
+  //  pbuff->oLapped.doneSize = 0;
+  wsabuf->len = 0;
+  result = AcceptEx(
+	    (SOCKET)pcont, clicont, wsabuf, 0, 0, 0, NULL, &(pbuff->oLapped));
+  __DO (result == 0);
+__CATCH_BEGIN
+  __AFTER(AfterGetContext) FreeContext(clicont);
+__CATCH_END
+};
+
+RESULT      GFileProtocol::PostConnect(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
+{
+  (void)    size;
+  (void)    op;
+__TRY
+  PWSABUF   wsabuf;
+  HANDLE    iocphandle;
+  BOOL      result;
+
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(&pbuff->wsaBuf == NULL,
+            GL_TCP_INPUT_ZERO);
+  wsabuf = &(pbuff->wsaBuf);
+  pcont->dwFlags |= WSA_FLAG_ISCONNECT;
+  //  __DO (BindLocalSocket(pcont, this));
+  //pbuff->oLapped.doneSize = 0;
+  wsabuf->len = 0;
+  result = ConnectEx(
+	    (SOCKET)pcont, &(pcont->remoteSocket), sizeof(SOCK), 
+	    wsabuf, 0, 0, &(pbuff->oLapped));
+  __DO (result == 0);
+  iocphandle = CreateIoCompletionPort(
+	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  __DO (iocphandle == 0);
+__CATCH
+};
+
+RESULT      GFileProtocol::PostSend(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
+{
+  (void)    op;
+  (void)    opside;
+__TRY
+  DWORD     dwflags = 0;
+  int       result;
+
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
+  pbuff->wsaBuf.len = size;
+  result = WSASend(
+            (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 
+	    dwflags, &(pbuff->oLapped), NULL);
+  if (!result && WSAGetLastError() != WSA_IO_PENDING) {
+    __BREAK;
+  }
+__CATCH
+};
+
+RESULT      GFileProtocol::PostReceive(
+            PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
+{
+  (void)    op;
+  (void)    opside;
+__TRY
+  DWORD     dwflags = 0;
+  int       result;
+
+  __DOe(pcont == 0,
+            GL_TCP_INPUT_ZERO);
+  __DOe(pbuff == 0,
+            GL_TCP_INPUT_ZERO);
+  pbuff->wsaBuf.len = size;
+  result = WSARecv(
+            (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 
+	    &dwflags, &(pbuff->oLapped), NULL);
+  if (!result && WSAGetLastError() != WSA_IO_PENDING) {
+    __BREAK;
+  }
+__CATCH
+};

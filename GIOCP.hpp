@@ -147,6 +147,30 @@ BOOL        DisconnectEx(
 	    DWORD           dwFlags,
 	    DWORD           reserved);
 
+HANDLE      CreateFile(
+            LPCTSTR         lpFileName,
+            DWORD           dwDesiredAccess,
+            DWORD           dwShareMode,
+            LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+            DWORD           dwCreationDisposition,
+            DWORD           dwFlagsAndAttributes,
+            HANDLE          hTemplateFile);
+BOOL        CloseHandle(
+            HANDLE          hObject);
+BOOL        ReadFile(
+            HANDLE          hFile,
+            LPVOID          lpBuffer,
+            DWORD           nNumberOfBytesToRead,
+            LPDWORD         lpNumberOfBytesRead,
+            POLAP           lpOverlapped);
+BOOL        WriteFile(
+            HANDLE          hFile,
+            LPVOID          lpBuffer,
+            DWORD           nNumberOfBytesToWrite,
+            LPDWORD         lpNumberOfBytesWritten,
+            POLAP           lpOverlapped);
+
+
 UINT        WSAGetLastError(void);
 void        WSASetLastError(UINT err);
 /*
@@ -420,6 +444,11 @@ public:
 #define     EPOLLACCEPT                         (1 << 21)
 #define     EPOLLCONNECT                        (1 << 22)
 
+#define     EPOLLFILEREAD                       (1 << 23)
+#define     EPOLLFILEWRITE                      (1 << 24)
+#define     EPOLLFILEOPEN                       (1 << 25)
+#define     EPOLLFILECLOSE                      (1 << 26)
+
 #ifndef   __linux
 #define     EPOLLIN                             (1 << 0)        // 0x0001
 #define     EPOLLPRI                            (1 << 1)        // 0x0002
@@ -585,17 +614,31 @@ public:
   RThreadWork() {};
   RESULT    ThreadInit(void);
   RESULT    ThreadDoing(void);
-  void      SetupHandle(HANDLE handle) {
-    handleIOCP = (PEVENT)handle;
+  void      SetupHandle(PEVENT handle) {
+    handleIOCP = handle;
   };
 }TWORK, *PTWORK;
 
 #endif // __GLdb_SELF_USE
 
+#define     EventFile                           RThreadFile::eventFile
+
+typedef   __class_ (RThreadFile, RThread)
+public:
+  static    EVENT eventFile;
+
+  RThreadFile() {};
+  RESULT    ThreadInit(void);
+  RESULT    ThreadDoing(void);
+
+}TFILE, *PTFILE;
+
 //#define     NUMBER_MAX_IOCP                     LIST_MIDDLE - 1
 #define     NUMBER_MAX_IOCP                     2
 // In debug it is 2
 #define     NUMBER_MAX_WORK                     32
+#define     NUMBER_MAX_FILE                     2
+//#define     NUMBER_MAX_FILE                     32
 
 /*
  * GLdbIOCP has only one instance
@@ -629,18 +672,22 @@ private:
   TEPOLL    threadEpoll;
   TEVENT    threadEvent;
   TWORK     threadWork[NUMBER_MAX_WORK];
+  TFILE     threadFile[NUMBER_MAX_FILE];
 
   volatile  UINT nowWorkThread;
+  volatile  UINT nowFileThread;
 public:
   int       epollHandle;
   PEVENT    eventHandle;
   PSTACK_S  pOverlapStack;
 
 public:
+  GLdbIOCP();
   RESULT    InitGLdbIOCP();
   RESULT    FreeGLdbIOCP();
   RESULT    GetIOCPItem(ADDR &addr);
-  RESULT    StartWork(HANDLE handle, UINT num);
+  RESULT    StartWork(PEVENT handle, UINT num);
+  RESULT    StartFile(UINT num);
 }IOCP, *PIOCP;
 
 

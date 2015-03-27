@@ -181,7 +181,7 @@ typedef     class GApplication*                 PAPP;
 
 
 #define     DSIGN(sign)						\
-  printf("%p Cont:%p, Buf:%p, event:%x, size:%lld\n",		\
+  printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld\n",		\
 	 sign, sign->sContext, sign->sOverlap,			\
 	 sign->sEvent, sign->sSize);
 
@@ -216,6 +216,10 @@ typedef     void                               *LPWSAPROTOCOL_INFO;
 typedef     void                               *GROUP;          // NOT konw
 typedef     void                               *LPWSAOVERLAPPED_COMPLETION_ROUTINE;
 typedef     void                               *POLAPCR;
+
+typedef     unsigned char                      *LPCTSTR;
+typedef     void                               *LPSECURITY_ATTRIBUTES;
+typedef     void                               *LPVOID;
 
 typedef     struct WSAData {
   WORD      wVersion;

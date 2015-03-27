@@ -443,6 +443,40 @@ __TRY__
 __CATCH_(1)
 };
 
+HANDLE      CreateFile(
+            LPCTSTR         lpFileName,
+            DWORD           dwDesiredAccess,
+            DWORD           dwShareMode,
+            LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+            DWORD           dwCreationDisposition,
+            DWORD           dwFlagsAndAttributes,
+            HANDLE          hTemplateFile)
+{
+};
+
+BOOL        CloseHandle(
+            HANDLE          hObject)
+{
+};
+
+BOOL        ReadFile(
+            HANDLE          hFile,
+            LPVOID          lpBuffer,
+            DWORD           nNumberOfBytesToRead,
+            LPDWORD         lpNumberOfBytesRead,
+            POLAP           lpOverlapped)
+{
+};
+
+BOOL        WriteFile(
+            HANDLE          hFile,
+            LPVOID          lpBuffer,
+            DWORD           nNumberOfBytesToWrite,
+            LPDWORD         lpNumberOfBytesWritten,
+            LPOVERLAPPED    lpOverlapped)
+{
+};
+
 UINT        WSAGetLastError(void)
 {
   PTINFO    ptinfo;
@@ -716,21 +750,9 @@ __TRY
       __BREAK_OK;                                               //(3)
     }
   }
-
-  endCall();
-  return 0;
-error_stop:
-
-
-error_ok:
-  endCall();
-
-  //__CATCH_BEGIN
-
-
-
-  return ret_err;
-  //__CATCH_END
+__CATCH_BEGIN
+  FreeSign(psign);
+__CATCH_END
 };
 
 
@@ -774,6 +796,48 @@ __CATCH
 
 #endif  //__GLdb_SELF_USE
 
+RESULT      RThreadFile::ThreadInit(void)
+{
+__TRY
+  __DO (GlobalMemory.InitThreadMemory(0));
+__CATCH
+};
+
+RESULT      RThreadFile::ThreadDoing(void)
+{
+__TRY
+  int       readed, writed, state;
+  ADDR      signaddr, olapaddr, contaddr;
+  PSIGN     &psign = (PSIGN &)signaddr;
+  POLAP     &polap = (POLAP &)olapaddr;
+  PCONT     &pcont = (PCONT &)contaddr;
+
+  __DO (EventFile -= signaddr);
+  // __DO1(state, GetQueuedCompletionStatus(
+  //           (HANDLE)handleIOCP, (DWORD*)&size, 
+  //           (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
+  //           WSA_INFINITE));
+
+  // Dp(pcont); Dp(pbuff); if (pbuff) Dlld(pbuff->nOper); Dd(size); Dn;
+
+  // if (size == NEGONE) __BREAK_OK;
+  // if (pbuff == 0) noper = 0;
+  // else noper = pbuff->nOper;
+
+  // if ((size == MARK_ERROR_CLOSE) || (noper == 0) ||
+  //           ((!size) && (noper != OP_ACCEPT) && (noper != OP_CONNECT))) {
+  //   __DO (NoneAppFunc(fOnClose)(pcont, pbuff, size));
+  // } else {
+  //   __DO (NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size));
+  // }
+__CATCH
+};
+
+GLdbIOCP::GLdbIOCP()
+{
+  nowWorkThread = nowFileThread = 0;
+};
+
 RESULT      GLdbIOCP::InitGLdbIOCP()
 {
 __TRY
@@ -789,13 +853,14 @@ __TRY
   __DO (threadEvent.ThreadClone(true));
   __DO (RThread::ThreadStart());
 
+  __DO (GlobalIOCP.StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
 /*
  * YES, this code may be execute before threadEvent initialized.
  * but threadEpoll is initialized surely.
  */
   epollHandle = threadEvent.epollHandle = threadEpoll.epollHandle;
   eventHandle = threadEpoll.peventHandle = &threadEvent.eventHandle;
-  Dp(eventHandle);
+  Dp(&EventFile);
   //  pOverlapStack = threadEvent.pOverlapStack = &threadEpoll.overlapStack;
 __CATCH
 };
@@ -830,7 +895,7 @@ __TRY
 __CATCH
 };
 
-RESULT      GLdbIOCP::StartWork(HANDLE handle, UINT num)
+RESULT      GLdbIOCP::StartWork(PEVENT handle, UINT num)
 {
   UINT      nowwork = LockAdd(nowWorkThread, num);
   UINT      i;
@@ -842,6 +907,17 @@ __TRY__
 __CATCH__
 };
 
+RESULT      GLdbIOCP::StartFile(UINT num)
+{
+  UINT      nowfile = LockAdd(nowFileThread, num);
+  UINT      i;
+__TRY__
+  for (i = nowfile; i < nowfile + num; i++) {
+    //    threadFile[i].SetupHandle(&eventFile);
+    threadFile[i].ThreadClone(false);
+  }
+__CATCH__
+};
 /*
  * for demo of GLdbIOCP initialize
  * NOT USED for my program

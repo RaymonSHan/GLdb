@@ -536,7 +536,7 @@ typedef     class RSign {
 public:
   PCONT     sContext;
   POLAP     sOverlap;
-  uint32_t  sEvent;
+  UINT      sEvent;
   UINT      sSize;
 }SIGN, *PSIGN;
 
@@ -604,8 +604,11 @@ public:
   };
   RESULT    InitThreadMemory(UINT need)
   {
-    UINT    getsize = 0, maxsize = 8, freesize = 4;
-    if (need) getsize = 4;
+    UINT    getsize = 0, maxsize = 4, freesize = 4;
+    if (need) {
+      getsize = 4;
+      maxsize = 8;
+    }
     GlobalSign.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalContext.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalBufferSmall.SetThreadArea(getsize, maxsize, freesize, 0);

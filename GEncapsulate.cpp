@@ -107,7 +107,7 @@ __TRY
 	    (PPROT)&tcpProt, addrser, sizeof(SOCK), 
 	    NULL, nulladdr, 0));
   __DO (GlobalIOCP.StartWork(
-            echoApp.handleIOCP, 1));
+            (PEVENT)echoApp.handleIOCP, 1));
 #endif   //  DOING_ECHO_APPLICATION
 
 #ifdef      DOING_FORWARD_APPLICATION
@@ -116,7 +116,7 @@ __TRY
 	    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
 	    (PPROT)&tcpProt, addrser, sizeof(SOCK)));
   __DO (GlobalIOCP.StartWork(
-            forwardApp.handleIOCP, 1));
+	    (PEVENT)forwardApp.handleIOCP, 1));
 #endif   // DOING_FORWARD_APPLICATION
 
 __CATCH

@@ -81,6 +81,12 @@ EVENT       ThreadMainFinish;
  */
 int         TimeoutEpollWait                  = NEGONE;
 
+/*
+ * Following in RThreadFile
+ *
+ * EventFile : all RThreafFile wait for this for asyn file
+ */
+EVENT       EventFile;
 
 #ifdef    __GLdb_SELF_USE
 /*
