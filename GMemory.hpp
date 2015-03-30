@@ -467,7 +467,6 @@ public:
   PCONT     pPeer;
   LQUERY    nextPeer;
   LQUERY    nextBuffer;
-  //  STR_M     localFilename;
   union {
     struct  { SOCKADDR lSocket; SOCKADDR rSocket; };
     PSTR_M  lFilename;

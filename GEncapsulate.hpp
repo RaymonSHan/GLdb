@@ -179,8 +179,10 @@ public:
   static    NAPP noneApp;
 public:
   GTCP      tcpProt;
+  GFILE     fileProt;
   ECHO      echoApp;
   FORWARD   forwardApp;
+  FORWARD   forwardSingle;
 public:
   RESULT    InitEncapsulate(void);
   RESULT    FreeEncapsulate(void);

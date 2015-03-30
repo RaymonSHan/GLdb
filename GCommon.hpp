@@ -394,13 +394,13 @@ public:
   PUCHAR    strEnd;
 public:
   void virtual operator = (STRING &one) {
-    this->strStart = one.strStart;
-    this->strEnd = one.strEnd;
+    strStart = one.strStart;
+    strEnd = one.strEnd;
   };
   void virtual operator = (const PUCHAR pchar) {
-    this->strEnd = this->strStart = pchar;
-    while (*this->strEnd++);
-    this->strEnd --;
+    strEnd = strStart = pchar;
+    while (*strEnd++);
+    strEnd --;
   };
   void virtual operator = (const PCHAR pchar) {
     return operator = ((PUCHAR)pchar);
@@ -417,12 +417,12 @@ public:
   typedef   class classname : public STRING			\
   {								\
   public:							\
-    UCHAR   string[size];					\
+    UCHAR   string[size + 1];					\
   public:							\
     void virtual operator = (STRING &one) {			\
       STRING::operator = (one);					\
-      UINT slen = strEnd - strStart + 1;			\
-      if (slen > sizeof(string)) slen = sizeof(string) - 1;	\
+      UINT  slen = strEnd - strStart + 1;			\
+      if (slen > size) slen = size;				\
       memcpy(string, strStart, slen);				\
       strStart = strEnd = string;				\
       strEnd += (slen - 1);					\
@@ -430,13 +430,33 @@ public:
       return;							\
     };								\
     void virtual operator = (const PUCHAR pchar) {		\
-      memcpy(string, pchar, sizeof(string));			\
-      string[sizeof(string)] = 0;				\
+      memcpy(string, pchar, size);				\
+      string[size + 1] = 0;					\
       STRING::operator = (string);				\
       return;							\
     };								\
     void virtual operator = (const PCHAR pchar) {		\
       return operator = ((PUCHAR)pchar);			\
+    };								\
+    void virtual operator += (STRING &one) {			\
+      UINT  slen = size - (strEnd - strStart) - 1;		\
+      UINT  dlen = one.strEnd - one.strStart + 1;		\
+      if (dlen > slen) dlen = slen;				\
+      memcpy(strEnd + 1, one.strStart, slen);			\
+      strEnd += slen;						\
+      *(strEnd + 1) = 0;					\
+      return;							\
+    };								\
+    void virtual operator += (const PUCHAR pchar) {		\
+      UINT  slen = size - (strEnd - strStart) - 1;		\
+      memcpy(strEnd + 1, pchar, slen);				\
+      string[size + 1] = 0;					\
+      while (*strEnd++);					\
+      strEnd --;						\
+      return;							\
+    };								\
+    void virtual operator += (const PCHAR pchar) {		\
+      return operator += ((PUCHAR)pchar);			\
     };								\
   }classname, *JOIN(P,classname);
 

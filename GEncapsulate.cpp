@@ -44,12 +44,16 @@ __TRY
             NPROT, nonePro, PROTOCOL_NONE, 0);
   RegisterProtocol(
             GTCP, tcpProt, PROTOCOL_TCP, 0);
+  RegisterProtocol(
+            GFILE, fileProt, PROTOCOL_FILE, 0);
   RegisterApplication(
             NAPP, noneApp, APPLICATION_NONE, 0);
   RegisterApplication(
             ECHO, echoApp, APPLICATION_ECHO, 0);
   RegisterApplication(
             FORWARD, forwardApp, APPLICATION_FORWARD, APPLICATION_FLAG_DUPLEX);
+  RegisterApplication(
+            FORWARD, forwardSingle, APPLICATION_FORWARD, 0);
 
   __DO (GlobalMemory.InitMemoryAlloc(
 	    NUMBER_SIGN, NUMBER_CONTEXT, NUMBER_BUFFER_SMALL, NUMBER_BUFFER_MIDDLE));
@@ -73,8 +77,8 @@ __CATCH_END
 };
 
 //#define     DOING_ECHO_APPLICATION
-#define     DOING_FORWARD_APPLICATION
-
+//#define     DOING_FORWARD_APPLICATION
+#define     DOING_FORWARDSINGLE_APPLICATION
 
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
@@ -86,6 +90,8 @@ __TRY
   int       remote_port = 8999;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser;
+  UCHAR     pname[] = "~/";
+  static    STR_M pathname;
   
   bzero(&sockcli.saddrin, sizeof(sockaddr_in));
   sockcli.saddrin.sin_family = AF_INET; 
@@ -118,6 +124,17 @@ __TRY
   __DO (GlobalIOCP.StartWork(
 	    (PEVENT)forwardApp.handleIOCP, 1));
 #endif   // DOING_FORWARD_APPLICATION
+
+#ifdef      DOING_FORWARDSINGLE_APPLICATION
+  pathname = pname;
+  addrser = &pathname;
+  __DO (CreateApplication(
+            forwardSingle.listenSocket, nullcont, (PAPP)&forwardSingle, 
+	    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
+	    (PPROT)&fileProt, addrser, 0));
+  __DO (GlobalIOCP.StartWork(
+	    (PEVENT)forwardSingle.handleIOCP, 1));
+#endif   // DOING_FORWARDSINGLE_APPLICATION
 
   __DO (GlobalIOCP.StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
 __CATCH

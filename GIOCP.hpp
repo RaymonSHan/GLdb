@@ -158,20 +158,21 @@ FILEHANDLE  CreateFile(
             LPSECURITY_ATTRIBUTES lpSecurityAttributes,
             DWORD           dwCreationDisposition,
             DWORD           dwFlagsAndAttributes,
-            HANDLE          hTemplateFile);
+            HANDLE          hTemplateFile,
+            POLAP           lpOverlapped = 0);
 BOOL        CloseHandle(
 	    FILEHANDLE      hObject);
 BOOL        ReadFile(
             FILEHANDLE      hFile,
             LPVOID          lpBuffer,
-            DWORD           nNumberOfBytesToRead,
-            LPDWORD         lpNumberOfBytesRead,
+            UINT            nNumberOfBytesToRead,
+            PUINT           lpNumberOfBytesRead,
             POLAP           lpOverlapped);
 BOOL        WriteFile(
             FILEHANDLE      hFile,
             LPVOID          lpBuffer,
-            DWORD           nNumberOfBytesToWrite,
-            LPDWORD         lpNumberOfBytesWritten,
+            UINT            nNumberOfBytesToWrite,
+            PUINT           lpNumberOfBytesWritten,
             POLAP           lpOverlapped);
 
 

@@ -313,13 +313,11 @@ __TRY
   BOOL      result;
 
   __DOe(pcont == 0,
-            GL_TCP_INPUT_ZERO);
-  __DOe(pcont->bHandle == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   __DOe(pbuff == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   __DOe(&pbuff->wsaBuf == NULL,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   wsabuf = &(pbuff->wsaBuf);
   __DO (GetDupContext(clicont, pcont));
             /* MARK */  __MARK(AfterGetContext);
@@ -335,34 +333,48 @@ __CATCH_BEGIN
 __CATCH_END
 };
 
+#define     TESTFILE                            "~/a.txt"
+
 RESULT      GFileProtocol::PostConnect(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
   (void)    size;
   (void)    op;
 __TRY
-  PWSABUF   wsabuf;
+  PWSABUF   pwsa;
+  POLAP     polap;
   HANDLE    iocphandle;
-  BOOL      result;
+  FILEHANDLE handle;
 
   __DOe(pcont == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   __DOe(pbuff == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   __DOe(&pbuff->wsaBuf == NULL,
-            GL_TCP_INPUT_ZERO);
-  wsabuf = &(pbuff->wsaBuf);
+            GL_FILE_INPUT_ZERO);
+  polap = &(pbuff->oLapped);
+  pwsa = &(pbuff->wsaBuf);
   pcont->dwFlags |= WSA_FLAG_ISCONNECT;
-  //  __DO (BindLocalSocket(pcont, this));
-  //pbuff->oLapped.doneSize = 0;
-  wsabuf->len = 0;
-  result = ConnectEx(
-	    (SOCKET)pcont, &(pcont->remoteSocket), sizeof(SOCK), 
-	    wsabuf, 0, 0, &(pbuff->oLapped));
-  __DO (result == 0);
+  polap->Internal = pcont;
+  polap->InternalHigh = pwsa;
+
+  // test try
+  strcpy((char*)pwsa->buf, TESTFILE);
+  pwsa->len = strlen(TESTFILE);
+
+  handle = CreateFile(
+            pwsa->buf, GENERIC_WRITE, FILE_SHARE_READ,
+	    NULL, CREATE_ALWAYS, FILE_FLAG_OVERLAPPED, 0, polap);
+
+  if (handle == FILE_ERROR && WSAGetLastError() != WSA_IO_PENDING) {
+    // error create
+  }
   iocphandle = CreateIoCompletionPort(
 	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
   __DO (iocphandle == 0);
+  if (handle != FILE_ERROR) {
+    // DO OnConnect()
+  }
 __CATCH
 };
 
@@ -372,7 +384,6 @@ RESULT      GFileProtocol::PostSend(
   (void)    op;
   (void)    opside;
 __TRY
-  DWORD     dwflags = 0;
   int       result;
 
   __DOe(pcont == 0,
@@ -380,9 +391,9 @@ __TRY
   __DOe(pbuff == 0,
             GL_TCP_INPUT_ZERO);
   pbuff->wsaBuf.len = size;
-  result = WSASend(
-            (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 
-	    dwflags, &(pbuff->oLapped), NULL);
+  result = WriteFile(
+            (FILEHANDLE)pcont, &(pbuff->wsaBuf), size, &(pbuff->nSize), 
+	    &(pbuff->oLapped));
   if (!result && WSAGetLastError() != WSA_IO_PENDING) {
     __BREAK;
   }

@@ -449,7 +449,8 @@ FILEHANDLE  CreateFile(
             LPSECURITY_ATTRIBUTES lpSecurityAttributes,
             DWORD           dwCreationDisposition,
             DWORD           dwFlagsAndAttributes,
-            HANDLE          hTemplateFile)
+            HANDLE          hTemplateFile,
+            POLAP           lpOverlapped)
 {
   (void)    dwShareMode;                        // always FILE_SHARE_READ
   (void)    lpSecurityAttributes;
@@ -457,23 +458,21 @@ FILEHANDLE  CreateFile(
 __TRY__
   ADDR      addr;
   PSIGN     psign = 0;
-  PCONT     pcont = 0;
-  PBUFF     pbuff = 0;
-  POLAP     polap = 0;
-  PWSABUF   pwsa = 0;
+  PCONT     pcont;
+  PWSABUF   pwsa;
+  POLAP     polap = lpOverlapped;
+
 
   __DOe(lpFileName == 0, GL_IOCP_INPUT_ZERO);
   __DOe(dwFlagsAndAttributes != FILE_FLAG_OVERLAPPED, GL_IOCP_INPUT_NOSUP);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+  pcont = polap->Internal;
+  pwsa = polap->InternalHigh;
+  __DOe(pcont == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(pwsa == 0, GL_IOCP_INPUT_ZERO);
 
-  __DO (GetContext(pcont));
-  __DO (GetBufferSmall(pbuff));
   __DO (GetSign(psign));
 
-  polap = &(pbuff->oLapped);
-  pwsa = &(pbuff->wsaBuf);
-
-  polap->Internal = pcont;
-  polap->InternalHigh = pwsa;
 
   psign->sContext = pcont;
   psign->sOverlap = polap;
@@ -481,10 +480,12 @@ __TRY__
   psign->sSize = 0;
   psign->dwAccess = dwDesiredAccess;
   psign->dwCreation = dwCreationDisposition;
-  //  pcont->localFilename = lpFileName;
 
+#ifndef   __GLdb_SELF_USE
   pwsa->len = strlen((char*)lpFileName);
   memcpy (pwsa->buf, lpFileName, pwsa->len);
+#endif  //__GLdb_SELF_USE
+
 #ifdef    __DEBUG_EVENT
   D(CreateFile);DSIGN(psign);Dn;
 #endif // __DEBUG_EVENT
@@ -523,8 +524,8 @@ __CATCH_(0)
 BOOL        ReadFile(
             FILEHANDLE      hFile,
             LPVOID          lpBuffer,
-            DWORD           nNumberOfBytesToRead,
-            LPDWORD         lpNumberOfBytesRead,
+            UINT            nNumberOfBytesToRead,
+            PUINT           lpNumberOfBytesRead,
             POLAP           lpOverlapped)
 {
 __TRY__
@@ -568,8 +569,8 @@ __CATCH_(0)
 BOOL        WriteFile(
             FILEHANDLE      hFile,
             LPVOID          lpBuffer,
-            DWORD           nNumberOfBytesToWrite,
-            LPDWORD         lpNumberOfBytesWritten,
+            UINT            nNumberOfBytesToWrite,
+            PUINT           lpNumberOfBytesWritten,
             POLAP           lpOverlapped)
 {
 __TRY__
