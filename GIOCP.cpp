@@ -97,7 +97,7 @@ SOCKET      WSASocket(
 #endif // __GLdb_SELF_USE
 
   if (handle == NEGONE) {
-    WSAERROR;
+    WSAERROR
     return INVALID_SOCKET;
   }
   result = GetContext(pcont);
@@ -163,7 +163,7 @@ __TRY__
 	    FileHandle->bHandle, 
 	    &ev);
   if (state) {
-    WSAERROR;
+    WSAERROR
   __RETURN_(0);
   }
 __CATCH_(ExistingCompletionPort)
@@ -294,13 +294,14 @@ __TRY__
   psign->sEvent = EPOLLWRITE;
   psign->sSize = 0;
 
-  overlap.pVoid = lpOverlapped;
   lpOverlapped->Internal = s;
   lpOverlapped->InternalHigh = lpBuffers;
 /*
  * now i set lpNumberOfBytesSent now, maybe should set after send
  */
   *lpNumberOfBytesSent = lpBuffers->len;
+
+  overlap.pVoid = lpOverlapped;
   __DO (s->writeBuffer += overlap);
 #ifdef    __DEBUG_EVENT
   D(WSASend);DSIGN(psign);Dn;
@@ -459,6 +460,7 @@ __TRY__
   PCONT     pcont = 0;
   PBUFF     pbuff = 0;
   POLAP     polap = 0;
+  PWSABUF   pwsa = 0;
 
   __DOe(lpFileName == 0, GL_IOCP_INPUT_ZERO);
   __DOe(dwFlagsAndAttributes != FILE_FLAG_OVERLAPPED, GL_IOCP_INPUT_NOSUP);
@@ -466,21 +468,27 @@ __TRY__
   __DO (GetContext(pcont));
   __DO (GetBufferSmall(pbuff));
   __DO (GetSign(psign));
-  addr = psign;
+
   polap = &(pbuff->oLapped);
+  pwsa = &(pbuff->wsaBuf);
+
+  polap->Internal = pcont;
+  polap->InternalHigh = pwsa;
 
   psign->sContext = pcont;
-  polap->Internal = pcont;
   psign->sOverlap = polap;
   psign->sEvent = EPOLLFILEOPEN;
   psign->sSize = 0;
   psign->dwAccess = dwDesiredAccess;
   psign->dwCreation = dwCreationDisposition;
-  pcont->localFilename = lpFileName;
+  //  pcont->localFilename = lpFileName;
 
+  pwsa->len = strlen((char*)lpFileName);
+  memcpy (pwsa->buf, lpFileName, pwsa->len);
 #ifdef    __DEBUG_EVENT
   D(CreateFile);DSIGN(psign);Dn;
 #endif // __DEBUG_EVENT
+  addr = psign;
   __DO (EventFile += addr);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH_(FILE_ERROR)
@@ -496,14 +504,16 @@ __TRY__
   __DOe(hObject == 0, GL_IOCP_INPUT_ZERO);
 
   __DO (GetSign(psign));
-  addr = psign;
+
   psign->sContext = hObject;
+  psign->sOverlap = 0;
   psign->sEvent = EPOLLFILECLOSE;
   psign->sSize = 0;
 
 #ifdef    __DEBUG_EVENT
   D(CloseHandle);DSIGN(psign);Dn;
 #endif // __DEBUG_EVENT
+  addr = psign;
   __DO (EventFile += addr);
   WSASetLastError(WSA_IO_PENDING);
   //MARK_ERROR_CLOSE
@@ -520,15 +530,16 @@ BOOL        ReadFile(
 __TRY__
   ADDR      addr;
   PSIGN     psign = 0;
+  PBUFF     pbuff = (PBUFF)lpOverlapped;
   PWSABUF   wsabuff;
 
   __DOe(hFile == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpBuffer == 0, GL_IOCP_INPUT_ZERO);
-  __DOe(nNumberOfBytesToRead == 0, GL_IOCP_INPUT_ZERO);
+  //  __DOe(nNumberOfBytesToRead == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpNumberOfBytesRead == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
-  wsabuff = lpOverlapped->InternalHigh;
-  __DOe(wsabuff == 0, GL_IOCP_INPUT_ZERO);
+
+  wsabuff = &(pbuff->wsaBuf);
 
   __DO (GetSign(psign));
   addr = psign;
@@ -561,6 +572,47 @@ BOOL        WriteFile(
             LPDWORD         lpNumberOfBytesWritten,
             POLAP           lpOverlapped)
 {
+__TRY__
+  ADDR      addr, overlap;
+  PSIGN     psign = 0;
+  PBUFF     pbuff = (PBUFF)lpOverlapped;
+  PWSABUF   wsabuff;
+
+  __DOe(hFile == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpBuffer == 0, GL_IOCP_INPUT_ZERO);
+  //  __DOe(nNumberOfBytesToWrite == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpNumberOfBytesWritten == 0, GL_IOCP_INPUT_ZERO);
+  __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
+
+  wsabuff = &(pbuff->wsaBuf);
+
+  __DO (GetSign(psign));
+  addr = psign;
+  psign->sContext = hFile;
+  psign->sOverlap = lpOverlapped;
+  psign->sEvent = EPOLLFILEWRITE;
+  psign->sSize = 0;
+
+  lpOverlapped->Internal = hFile;
+  lpOverlapped->InternalHigh = wsabuff;
+
+#ifndef   __GLdb_SELF_USE
+  wsabuff->buf = lpBuffer;
+  wsabuff->len = nNumberOfBytesToWrite;
+#endif  //__GLdb_SELF_USE
+  *lpNumberOfBytesWritten = nNumberOfBytesToWrite;
+
+/*
+ * all write buffer is cached in writeBuffer
+ */
+  overlap.pVoid = lpOverlapped;
+  __DO (hFile->writeBuffer += overlap);
+#ifdef    __DEBUG_EVENT
+  D(WriteFile);DSIGN(psign);Dn;
+#endif // __DEBUG_EVENT
+  __DO (EventFile += addr);
+  WSASetLastError(WSA_IO_PENDING);
+__CATCH_(0)
 };
 
 UINT        WSAGetLastError(void)
@@ -723,6 +775,7 @@ __TRY
     } else {                                                    // error
       psign->sSize = MARK_ERROR_CLOSE;
       __DO (*pcont->iocpHandle += signaddr);
+      WSAERROR
       __BREAK_OK;                                               //(3)
     }
   }
@@ -745,6 +798,7 @@ __TRY
     } else {                                                    // error
       psign->sSize = MARK_ERROR_CLOSE;
       __DO (*pcont->iocpHandle += signaddr);
+      WSAERROR
       __BREAK_OK;                                               //(6)
     }
   }
@@ -816,6 +870,7 @@ __TRY
       } else {                                                  // error
 	psign->sSize = MARK_ERROR_CLOSE;
 	__DO (*pcont->iocpHandle += signaddr);
+	WSAERROR
 	__BREAK_OK;                                             //(9)write error
       } 
     }
@@ -892,30 +947,67 @@ __CATCH
 RESULT      RThreadFile::ThreadDoing(void)
 {
 __TRY
-  int       readed, writed, state;
+  int       readed, writed, state = NEGONE;
   ADDR      signaddr, olapaddr, contaddr;
   PSIGN     &psign = (PSIGN &)signaddr;
   POLAP     &polap = (POLAP &)olapaddr;
   PCONT     &pcont = (PCONT &)contaddr;
+  PWSABUF   pwsa;
 
   __DO (EventFile -= signaddr);
-  // __DO1(state, GetQueuedCompletionStatus(
-  //           (HANDLE)handleIOCP, (DWORD*)&size, 
-  //           (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
-  //           WSA_INFINITE));
+  pcont = psign->sContext;
+  polap = psign->sOverlap;
 
-  // Dp(pcont); Dp(pbuff); if (pbuff) Dlld(pbuff->nOper); Dd(size); Dn;
+  __DO (pcont == 0);
+  if (psign->sEvent & EPOLLFILEOPEN) {
+    __DO (polap == 0);
+    pwsa = polap->InternalHigh;
+    __DO (pwsa == 0);
+    if (psign->dwAccess == GENERIC_READ) {
+      state = open((char*)pwsa->buf, O_RDONLY);
+    }
+    if (psign->dwAccess == GENERIC_WRITE) {
+      state = open((char*)pwsa->buf, O_WRONLY, O_TRUNC | O_CREAT);
+    }
+    pcont->bHandle = state;
+    if (state == NEGONE) {                                      // error open
+      WSAERROR
+      __BREAK_OK;
+    }
+    psign->sSize = 0;
+    __DO (*pcont->iocpHandle += signaddr);                      // open OK
+    __BREAK_OK; 
+  }
 
-  // if (size == NEGONE) __BREAK_OK;
-  // if (pbuff == 0) noper = 0;
-  // else noper = pbuff->nOper;
+  if (psign->sEvent & EPOLLFILECLOSE) {
+    state = close(pcont->bHandle);
+    pcont->bHandle = 0;
+    if (state == NEGONE) {                                      // error close
+      WSAERROR
+      __BREAK_OK;
+    }
+    __DO (*pcont->iocpHandle += signaddr);                      // close OK
+    __BREAK_OK; 
+  }
 
-  // if ((size == MARK_ERROR_CLOSE) || (noper == 0) ||
-  //           ((!size) && (noper != OP_ACCEPT) && (noper != OP_CONNECT))) {
-  //   __DO (NoneAppFunc(fOnClose)(pcont, pbuff, size));
-  // } else {
-  //   __DO (NoneAppFunc(noper - OP_BASE)(pcont, pbuff, size));
-  // }
+  if (psign->sEvent & EPOLLFILEREAD) {
+    __DO (polap == 0);
+  }
+
+  if (psign->sEvent & EPOLLFILECLOSE) {
+    __DO (pcont->writeBuffer -= olapaddr);
+    __DO (olapaddr == ZERO);
+    pwsa = polap->InternalHigh;
+    __DO (pwsa == 0);
+    writed = write(pcont->bHandle, (char*)pwsa->buf, pwsa->len);
+    if (state == NEGONE) {                                      // error write
+      WSAERROR
+      __BREAK_OK;
+    }
+    psign->sSize = writed;
+    __DO (*pcont->iocpHandle += signaddr);                      // write OK
+    __DO (polap == 0);
+  }
 __CATCH
 };
 

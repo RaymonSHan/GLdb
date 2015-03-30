@@ -441,6 +441,7 @@ public:                                         // statistics info for debug
 
 #define     localSocket                         addInfo.lSocket
 #define     remoteSocket                        addInfo.rSocket
+#define     localFilename                       addInfo.lFilename
 
 typedef     class CContextItem {
 /*
@@ -466,9 +467,10 @@ public:
   PCONT     pPeer;
   LQUERY    nextPeer;
   LQUERY    nextBuffer;
-  STR_M     localFilename;
+  //  STR_M     localFilename;
   union {
     struct  { SOCKADDR lSocket; SOCKADDR rSocket; };
+    PSTR_M  lFilename;
   }addInfo;
 
 #endif // __GLdb_SELF_USE

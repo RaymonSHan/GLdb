@@ -295,10 +295,8 @@ typedef     struct _WSAOVERLAPPED {
       DWORD OffsetHigh;
     };
     PVOID   Pointer;
-    //        UINT    doneSize;
   };
   HANDLE    hEvent;
-  //    UINT      events;
   SOCKET    accSocket;
 }WSAOVERLAPPED, *LPWSAOVERLAPPED, OVERLAPPED, *LPOVERLAPPED, OLAP, *POLAP;
 

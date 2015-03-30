@@ -153,6 +153,7 @@ __TRY
   __DOe(para == ZERO,
             GL_TCP_INPUT_ZERO);
   memcpy(&(pcont->remoteSocket), para.pVoid, size);
+  ReflushTimeout(pcont, TIMEOUT_INFINITE);
 __CATCH
 };
 
@@ -271,37 +272,33 @@ RESULT      GFileProtocol::CreateNew(
 {
   (void)    size;
 __TRY
-  PSOCK     sock = (PSOCK)para.pVoid;
   HANDLE    iocphandle;
-  int       result;
 
   __DOe(pcont == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
+  __DOe(para == ZERO,
+            GL_FILE_INPUT_ZERO);
+
   pcont->dwFlags |= WSA_FLAG_ISLISTEN;
-  //  __DO (BindLocalSocket(pcont, this));
-  __DO1(result, 
-	    bind(pcont->bHandle, (sockaddr*)sock, sizeof(SOCK)));
+  pcont->localFilename = (PSTR_M)para.pVoid;
   iocphandle = CreateIoCompletionPort(
 	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
   __DO (iocphandle == 0);
   ReflushTimeout(pcont, TIMEOUT_INFINITE);
-  __DO1(result,
-	    listen(pcont->bHandle, SOMAXCONN));
-  __INFO(MESSAGE_INFO, "Add TCP Listening %s:%d", 
-	    inet_ntoa(sock->saddrin.sin_addr), 
-	    ntohs(sock->saddrin.sin_port));
 __CATCH
 };
 
 RESULT      GFileProtocol::CreateRemote(
             PCONT pcont, ADDR para, UINT size)
 {
+  (void)    size;
 __TRY
   __DOe(pcont == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   __DOe(para == ZERO,
-            GL_TCP_INPUT_ZERO);
-  memcpy(&(pcont->remoteSocket), para.pVoid, size);
+            GL_FILE_INPUT_ZERO);
+  pcont->localFilename = (PSTR_M)para.pVoid;
+  ReflushTimeout(pcont, TIMEOUT_INFINITE);
 __CATCH
 };
 
