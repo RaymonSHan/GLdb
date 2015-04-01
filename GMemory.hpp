@@ -99,6 +99,10 @@ public:
   PMINFO    info;						\
   getThreadInfo(info, nowOffset);
 
+#define     GetGlobalThreadInfo()				\
+  PRINFO   info;						\
+  getThreadInfo(info, nowOffset);
+
 /*
  * I have tested, three thread do nothing but GET/FREE, 
  * no performance improve after thread local cache large than 10.
@@ -406,7 +410,7 @@ public:                                         // statistics info for debug
   UINT      GetCount, GetSuccessCount;
   UINT      FreeCount, FreeSuccessCount;
   UINT      MinFree;  
-  void      DisplayLocal(PMEMINFO info);
+  void      DisplayLocal(PMINFO info);
   void      DisplayArray(void);
   void      DisplayInfo(void);
   void      DisplayContext(void);
@@ -635,5 +639,20 @@ public:
  * should add Timeout, to CountTimeout all memory pool
  */
 }MEMORY, *PMEMORY;
+
+typedef     class RThreadInfo : public RThreadResource {
+private:
+  UINT      test;
+
+public:
+  RThreadInfo() : RThreadResource(sizeof(RThreadInfo))
+  {
+  };
+  void GetOne(void) {
+    GetGlobalThreadInfo();
+  };
+}RINFO, *PRINFO;
+
+
 
 #endif   // GLdb_MEMORY_HPP

@@ -62,8 +62,9 @@ __TRY
   __DO (InitEncapsulate());
 
   while (!GlobalShouldQuit) {
+    GlobalTime = time(NULL);
     //    GlobalMemory.DisplayMemoryInfo();
-    sleep(5);
+    sleep(1);
   }
   __DO (FreeEncapsulate());
   __DO (GlobalIOCP.FreeGLdbIOCP());
@@ -167,10 +168,8 @@ __TRY
             GL_APPLICATION_ZERO);
   cliCont = serCont = 0;
   if (!pApp->handleIOCP) {
-//    __DO (globalIOCP.GetIOCPItem((ADDR &)pApp->handleIOCP));
     pApp->handleIOCP = CreateIoCompletionPort(0, 0, 0, 0);
     __DO (pApp->handleIOCP == 0);
-
   }
 
   __DO (pApp->handleIOCP == 0);

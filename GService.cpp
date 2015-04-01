@@ -52,7 +52,7 @@ void        SIGSEGV_Handle(int sig, siginfo_t *info, void *secret)
   if (stack == erroraddr) {
     stack.pVoid = mmap (
             stack.pChar + PAD_THREAD_STACK, 
-	    sizeof(TINFO) + 4 * sizeof(MINFO),
+	    sizeof(RINFO) + sizeof(TINFO) + 4 * sizeof(MINFO),
 	    PROT_READ | PROT_WRITE,
 	    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
   } else {

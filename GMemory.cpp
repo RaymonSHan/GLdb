@@ -155,7 +155,6 @@ __CATCH
 RESULT      CMemoryBlock::TimeoutAll(void)
 {
 __TRY
-  GlobalTime = time(NULL);
   PMINFO    list = threadListStart;
   while (list) {
     __DO (CountTimeout(list->localUsedList));
@@ -451,7 +450,7 @@ RESULT      FreeSign(PSIGN psign)
 #define PRINT_COLOR(p) printf("\e[0;%sm", p)
 #define RESTORE_COLOR printf("\e[0;37m")
 
-void        CMemoryBlock::DisplayLocal(PMEMINFO info)
+void        CMemoryBlock::DisplayLocal(PMINFO info)
 {
   ADDR list;
 
@@ -512,8 +511,8 @@ void        CMemoryBlock::DisplayContext(void)
 {
   INT       i = 0;
   ADDR      nlist;
-  PMEMINFO  info;
-  GlobalTime = time(NULL);
+  PMINFO    info;
+  //  GlobalTime = time(NULL);
 
   info = threadListStart;
   while (info) {

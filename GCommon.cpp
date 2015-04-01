@@ -88,6 +88,9 @@ int         TimeoutEpollWait                  = NEGONE;
  */
 EVENT       EventFile;
 
+
+
+
 #ifdef    __GLdb_SELF_USE
 /*
  * it is for GLdbDatabase use, not for GLdbIOCP,
@@ -108,6 +111,8 @@ BLOCK       GlobalBufferMiddle;
  */
 MEMORY      GlobalMemory;
 IOCP        GlobalIOCP;
+RINFO       GlobalThreadInfo;
+
 PHANDLE     FPHandle[MAX_PROTOCOL];
 AHANDLE     FAHandle[MAX_APPLICATION];
 NPROT       NonePro;

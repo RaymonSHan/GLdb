@@ -46,6 +46,7 @@
 
 #define     GlobalMemory                        GEncapsulate::globalMemory
 #define     GlobalIOCP                          GEncapsulate::globalIOCP
+#define     GlobalThreadInfo                    GEncapsulate::globalThreadInfo
 
 #define     FPHandle                            GEncapsulate::fPHandle
 #define     FAHandle                            GEncapsulate::fAHandle
@@ -171,6 +172,7 @@ typedef     class GEncapsulate
 public:
   static    MEMORY globalMemory;
   static    IOCP globalIOCP;
+  static    RINFO globalThreadInfo;
 
   static    PHANDLE fPHandle[MAX_PROTOCOL];
   static    AHANDLE fAHandle[MAX_APPLICATION];

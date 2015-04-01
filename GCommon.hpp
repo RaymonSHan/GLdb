@@ -156,6 +156,7 @@ typedef     class  RArrayStack                 *PSTACK;
 typedef     class  RArrayQuery                 *PQUERY;
 typedef     class  RMultiEvent                 *PEVENT;
 typedef     class  RSign                       *PSIGN;
+typedef     class  RThreadInfo                 *PRINFO;
 
 /*
  * GLdbDatabase interface used 
