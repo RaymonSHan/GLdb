@@ -642,7 +642,7 @@ public:
 #define     NUMBER_MAX_IOCP                     2
 // In debug it is 2
 #define     NUMBER_MAX_WORK                     32
-#define     NUMBER_MAX_FILE                     2
+#define     NUMBER_MAX_FILE                     1               // test try
 //#define     NUMBER_MAX_FILE                     32
 
 /*

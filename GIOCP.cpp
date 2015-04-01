@@ -462,7 +462,7 @@ __TRY__
   PWSABUF   pwsa;
   POLAP     polap = lpOverlapped;
 
-
+  D(CreateFile);Dn;
   __DOe(lpFileName == 0, GL_IOCP_INPUT_ZERO);
   __DOe(dwFlagsAndAttributes != FILE_FLAG_OVERLAPPED, GL_IOCP_INPUT_NOSUP);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
@@ -958,17 +958,19 @@ __TRY
   __DO (EventFile -= signaddr);
   pcont = psign->sContext;
   polap = psign->sOverlap;
+  D(ThreadFileDoing);Dp(pcont->iocpHandle);Dn;
 
   __DO (pcont == 0);
   if (psign->sEvent & EPOLLFILEOPEN) {
     __DO (polap == 0);
     pwsa = polap->InternalHigh;
     __DO (pwsa == 0);
+    Dx(psign->dwAccess);Ds(pwsa->buf);Dn;
     if (psign->dwAccess == GENERIC_READ) {
       state = open((char*)pwsa->buf, O_RDONLY);
     }
     if (psign->dwAccess == GENERIC_WRITE) {
-      state = open((char*)pwsa->buf, O_WRONLY, O_TRUNC | O_CREAT);
+      state = open((char*)pwsa->buf, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
     }
     pcont->bHandle = state;
     if (state == NEGONE) {                                      // error open
@@ -987,6 +989,7 @@ __TRY
       WSAERROR
       __BREAK_OK;
     }
+    Dp(pcont->iocpHandle);
     __DO (*pcont->iocpHandle += signaddr);                      // close OK
     __BREAK_OK; 
   }
@@ -995,19 +998,21 @@ __TRY
     __DO (polap == 0);
   }
 
-  if (psign->sEvent & EPOLLFILECLOSE) {
+  if (psign->sEvent & EPOLLFILEWRITE) {
+    D(inFileWrite);Dn;
     __DO (pcont->writeBuffer -= olapaddr);
     __DO (olapaddr == ZERO);
     pwsa = polap->InternalHigh;
     __DO (pwsa == 0);
     writed = write(pcont->bHandle, (char*)pwsa->buf, pwsa->len);
-    if (state == NEGONE) {                                      // error write
+    if (writed == NEGONE) {                                     // error write
       WSAERROR
       __BREAK_OK;
     }
     psign->sSize = writed;
+    D(AfterFileWrite);Dn;
     __DO (*pcont->iocpHandle += signaddr);                      // write OK
-    __DO (polap == 0);
+    //    __DO (polap == 0);
   }
 __CATCH
 };
@@ -1090,12 +1095,14 @@ RESULT      GLdbIOCP::StartFile(UINT num)
   UINT      nowfile = LockAdd(nowFileThread, num);
   UINT      i;
 __TRY__
+  EventFile.InitArrayEvent();
   for (i = nowfile; i < nowfile + num; i++) {
-    //    threadFile[i].SetupHandle(&eventFile);
     threadFile[i].ThreadClone(false);
   }
 __CATCH__
 };
+
+
 /*
  * for demo of GLdbIOCP initialize
  * NOT USED for my program
@@ -1121,7 +1128,6 @@ __TRY__
 			       NUMBER_BUFFER_MIDDLE);
   GlobalIOCP.InitGLdbIOCP();
   rtime += &timestruct;
-
 
   GlobalShouldQuit = 1;
   rtime.OutputTime();

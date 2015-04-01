@@ -120,6 +120,7 @@ __TRY
 	    (pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 
   if (IS_DUPLEX(pcont)) {
+    D(SHOULDNOTINHERE);Dn;
     __DO (GetBufferSmall(newbuff));
             /* MARK */  __MARK_(AfterGetBuffer);
     __DO (NoneProFunc(fPostReceive)
@@ -164,6 +165,7 @@ RESULT      GNoneApplication::OnServerWrite(
 { 
   (void)    size;
 __TRY
+  D(ServerWrite);Dn;
   __DO (NoneProFunc(fPostReceive)
 	    (pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
 __CATCH

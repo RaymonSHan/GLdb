@@ -253,6 +253,7 @@ __TRY
   DWORD     dwflags = 0;
   int       result;
 
+  D(InTCPPostReceive);Dn;
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
   __DOe(pbuff == 0,
@@ -293,6 +294,7 @@ RESULT      GFileProtocol::CreateRemote(
 {
   (void)    size;
 __TRY
+  D(FileCreateRemote);Dn;
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
   __DOe(para == ZERO,
@@ -333,7 +335,7 @@ __CATCH_BEGIN
 __CATCH_END
 };
 
-#define     TESTFILE                            "~/a.txt"
+#define     TESTFILE                            "/home/raymon/a.txt"
 
 RESULT      GFileProtocol::PostConnect(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
@@ -341,6 +343,7 @@ RESULT      GFileProtocol::PostConnect(
   (void)    size;
   (void)    op;
 __TRY
+  D(FilePostConnect);Dn;
   PWSABUF   pwsa;
   POLAP     polap;
   HANDLE    iocphandle;
@@ -362,6 +365,12 @@ __TRY
   strcpy((char*)pwsa->buf, TESTFILE);
   pwsa->len = strlen(TESTFILE);
 
+  iocphandle = CreateIoCompletionPort(
+	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  __DO (iocphandle == 0);
+  if (handle != FILE_ERROR) {
+    // DO OnConnect()
+  }
   handle = CreateFile(
             pwsa->buf, GENERIC_WRITE, FILE_SHARE_READ,
 	    NULL, CREATE_ALWAYS, FILE_FLAG_OVERLAPPED, 0, polap);
@@ -369,12 +378,7 @@ __TRY
   if (handle == FILE_ERROR && WSAGetLastError() != WSA_IO_PENDING) {
     // error create
   }
-  iocphandle = CreateIoCompletionPort(
-	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
-  __DO (iocphandle == 0);
-  if (handle != FILE_ERROR) {
-    // DO OnConnect()
-  }
+
 __CATCH
 };
 
