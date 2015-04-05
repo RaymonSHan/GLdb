@@ -303,6 +303,9 @@ public:
 #define     ThreadStartEvent                    RThread::threadStartEvent
 #define     ThreadInitFinish                    RThread::threadInitFinish
 #define     ThreadMainFinish                    RThread::threadMainFinish
+#define     GlobalStackPlace                    RThread::globalStackPlace
+
+#define     MAX_THREAD_NUMBER                   256
 
 typedef   __class(RThread)
 private:
@@ -319,7 +322,7 @@ public:
   static    EVENT threadStartEvent;
   static    EVENT threadInitFinish;
   static    EVENT threadMainFinish;
-
+  static    ADDR  globalStackPlace[MAX_THREAD_NUMBER];
 public:
   RThread()
   {
@@ -342,6 +345,8 @@ public:
   {
   __TRY
     ADDR    result = {0};
+    UINT    oldThreadNubmer;
+
     if (init) {
       if (ThreadStartEvent.eventFd) {
 	__DO (ThreadStartEvent -= result);
@@ -356,8 +361,9 @@ public:
       }
     }
 
-    LockInc(GlobalThreadNumber);
+    oldThreadNubmer = LockInc(GlobalThreadNumber);
     __DO (GetStack(threadStack));
+    globalStackPlace[oldThreadNubmer] = (threadStack & NEG_SIZE_THREAD_STACK);
     __DO1(threadId,
 	    clone(&(RThread::RThreadFunc), 
 	    threadStack.pChar + REAL_SIZE_THREAD_STACK,
@@ -411,7 +417,9 @@ public:
       __DO (ThreadMainFinish += result);
     }
     __DO (result.aLong);
+    __DO (InitThreadInfo());
     while ((!thread->shouldQuit) && (!GlobalShouldQuit)) {
+      __DO (CalcThreadTime());
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
     }
     __DO (thread->ThreadFree());

@@ -185,6 +185,10 @@ public:
   ECHO      echoApp;
   FORWARD   forwardApp;
   FORWARD   forwardSingle;
+protected:
+  PTINFO    threadInfo;
+  const     char* getThreadName(void) {
+            return "MainThread"; };
 public:
   RESULT    InitEncapsulate(void);
   RESULT    FreeEncapsulate(void);

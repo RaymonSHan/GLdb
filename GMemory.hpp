@@ -99,9 +99,9 @@ public:
   PMINFO    info;						\
   getThreadInfo(info, nowOffset);
 
-#define     GetGlobalThreadInfo()				\
+#define     GetThreadOtherInfo()				\
   PRINFO   info;						\
-  getThreadInfo(info, nowOffset);
+  getThreadInfo(info, ThreadOffset);
 
 /*
  * I have tested, three thread do nothing but GET/FREE, 
@@ -640,19 +640,55 @@ public:
  */
 }MEMORY, *PMEMORY;
 
-typedef     class RThreadInfo : public RThreadResource {
-private:
-  UINT      test;
+#define     ThreadOffset                        RThreadInfo::threadOffset
 
+typedef     class RThreadInfo : public RThreadResource {
+public:
+  UINT      lastGlobalTime;
+  struct    timespec threadRunStart;
+  struct    timespec threadRunTimeLast;
+  struct    timespec threadRunTimeNow;
+  struct    timespec threadRealStart;
+  struct    timespec threadRealTimeLast;
+  struct    timespec threadRealTimeNow;
+  ADDR      threadRunTime;
+  ADDR      threadRunTimeDiff;
+  ADDR      threadRealTimeDiff;
+  double    threadRunPercent;
+public:
+  static    UINT  threadOffset;
 public:
   RThreadInfo() : RThreadResource(sizeof(RThreadInfo))
   {
+    threadOffset = nowOffset;
   };
-  void GetOne(void) {
-    GetGlobalThreadInfo();
-  };
+
 }RINFO, *PRINFO;
 
+inline      PRINFO GetThreadInfo(void) 
+{
+  GetThreadOtherInfo();
+  return info;
+};
 
+inline      PRINFO GetThreadInfo(ADDR addr)
+{
+  return PRINFO(addr.pChar + ThreadOffset);
+};
+
+inline      PTINFO GetTraceInfo(void)
+{
+  PTINFO    info;
+  getTraceInfo(info);
+  return info;
+};
+
+inline      PTINFO GetTraceInfo(ADDR addr)
+{
+  return PTINFO(addr.pChar + PAD_THREAD_STACK);
+};
+
+RESULT      InitThreadInfo(void);
+RESULT      CalcThreadTime(void);
 
 #endif   // GLdb_MEMORY_HPP

@@ -198,6 +198,7 @@ typedef     class GApplication*                 PAPP;
 	 inet_ntoa(sock.saddrin.sin_addr),			\
 	 ntohs(sock.saddrin.sin_port));
 
+
 /*
  * typedef for IOCP, compatible for Windows
  * 
@@ -1076,6 +1077,10 @@ QUERY_CLASS(QUERY_l, LIST_LARGE, SINGLE_THREAD)
 #define     MAX_TIME_QUERY                      LIST_MIDDLE
 #define     NANO_SECOND                         (1000 * 1000 * 1000)
 
+#define     DIFF_TIME(now, last)				\
+  ((now).tv_sec - (last).tv_sec) * NANO_SECOND +		\
+  ((now).tv_nsec - (last).tv_nsec);
+
 typedef     class RArrayTime {
 private:
   clockid_t timeType;
@@ -1092,8 +1097,7 @@ public:
   {
     ADDR    diff;
     clock_gettime(timeType, timenow);
-    diff = (timenow->tv_sec - timeStart.tv_sec) * NANO_SECOND 
-         + timenow->tv_nsec - timeStart.tv_nsec;
+    diff = DIFF_TIME(*timenow, timeStart);
     return timeQuery += diff;
   };
   RESULT    operator -= (ADDR &addr)

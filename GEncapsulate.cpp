@@ -40,6 +40,11 @@
 RESULT      GEncapsulate::Doing(void)
 {
 __TRY
+  UINT      nowt;
+  PTINFO    tinfo;
+  PRINFO    rinfo;
+  ADDR      tstack;
+
   RegisterProtocol(
             NPROT, nonePro, PROTOCOL_NONE, 0);
   RegisterProtocol(
@@ -60,9 +65,23 @@ __TRY
   __DO (GlobalMemory.InitThreadMemory(1));
   __DO (GlobalIOCP.InitGLdbIOCP());
   __DO (InitEncapsulate());
+  setThreadName();
+  __DO (InitThreadInfo());
 
   while (!GlobalShouldQuit) {
+    __DO (CalcThreadTime());
     GlobalTime = time(NULL);
+    for (nowt = 0; nowt < GlobalThreadNumber; nowt++) {
+      tstack = GlobalStackPlace[nowt];
+      tinfo = GetTraceInfo(tstack);
+      rinfo = GetThreadInfo(tstack);
+      printf("%s:%lld:%f\n", tinfo->threadName, 
+	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent);
+    }
+    tinfo = GetTraceInfo();
+    rinfo = GetThreadInfo();
+    printf("%s:%lld:%f\n", tinfo->threadName, 
+	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent);
     //    GlobalMemory.DisplayMemoryInfo();
     sleep(1);
   }

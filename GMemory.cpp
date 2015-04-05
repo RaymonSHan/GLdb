@@ -442,6 +442,40 @@ RESULT      FreeSign(PSIGN psign)
   //return addr.DecRefCount();
 };
 
+RESULT      InitThreadInfo(void)
+{
+  PRINFO  info = GetThreadInfo();
+  memset(info, 0, sizeof(RThreadInfo));
+  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &info->threadRunTimeLast);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &info->threadRealTimeLast);
+  info->threadRunStart = info->threadRunTimeLast;
+  info->threadRealStart = info->threadRealTimeLast;
+  info->lastGlobalTime = GlobalTime;
+  return 0;
+};
+
+RESULT      CalcThreadTime(void)
+{
+  PRINFO  info = GetThreadInfo();
+  if (info->lastGlobalTime != GlobalTime) {
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &info->threadRunTimeNow);
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &info->threadRealTimeNow);
+    info->threadRunTime = 
+            DIFF_TIME(info->threadRunTimeNow, info->threadRunStart);
+    info->threadRunTimeDiff = 
+            DIFF_TIME(info->threadRunTimeNow, info->threadRunTimeLast);
+    info->threadRealTimeDiff = 
+            DIFF_TIME(info->threadRealTimeNow, info->threadRealTimeLast);
+
+    info->threadRunPercent = (double)info->threadRunTimeDiff.aLong /
+            (double)info->threadRealTimeDiff.aLong;
+    info->lastGlobalTime = GlobalTime;
+  }
+  return 0;
+};
+
+
+
 /*
  * Following is for debug memory pool program
  */

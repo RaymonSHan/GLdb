@@ -71,7 +71,7 @@ volatile    UINT GlobalShouldQuit             = 0;
 EVENT       ThreadStartEvent;
 EVENT       ThreadInitFinish;
 EVENT       ThreadMainFinish;
-
+ADDR        GlobalStackPlace[MAX_THREAD_NUMBER];
 /*
  * Following in RThreadEpoll
  *
@@ -120,6 +120,11 @@ NAPP        NoneApp;
 
 #endif  //__GLdb_SELF_USE
 
+
+/*
+ * For RThreadInfo
+ */
+UINT        ThreadOffset;
 
 /*
  * STRING version of strcmp()
