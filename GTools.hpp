@@ -39,5 +39,20 @@
   bzero(desc, sizeof(desc))
 
 
+#define     ESC_SAVE_CURSOR                     "\e[s"
+#define     ESC_RESTORE_CURSOR                  "\e[u"
+#define     ESC_SET_CURSOR                      "\e[1;1f"
+#define     ESC_RESTORE_COLOR                   "\e[0;37m"
+#define     ESC_SET_COLOR                       "\e[0;36m"
+
+#define     ESC_PRINT(mess)					\
+  printf("%s%s%s%s%s%s",					\
+	   ESC_SAVE_CURSOR, ESC_SET_CURSOR, ESC_SET_COLOR,	\
+	   mess, ESC_RESTORE_COLOR, ESC_RESTORE_CURSOR)
+
+#define     ESC_WRITE(str, mess)				\
+  snprintf(str, sizeof(str), "%s%s%s%s%s%s",			\
+	   ESC_SAVE_CURSOR, ESC_SET_CURSOR, ESC_SET_COLOR,	\
+	   mess, ESC_RESTORE_COLOR, ESC_RESTORE_CURSOR)
 
 #endif   // GLdb_TOOLS_HPP

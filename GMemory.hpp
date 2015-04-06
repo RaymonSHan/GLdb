@@ -74,7 +74,7 @@ public:
 public:
   RThreadResource(UINT size) {
     nowOffset = LockAdd(RThreadResource::globalResourceOffset, 
-			PAD_INT(size, 0, SIZE_CACHE));
+	    PAD_INT(size, 0, SIZE_CACHE));
   };
 };
 
@@ -94,14 +94,6 @@ public:
 		"addq %1, %0;"					\
 		: "=r" (info)					\
 		: "m" (off), "i"(NEG_SIZE_THREAD_STACK));
-
-#define     GetThreadMemoryInfo()		                \
-  PMINFO    info;						\
-  getThreadInfo(info, nowOffset);
-
-#define     GetThreadOtherInfo()				\
-  PRINFO   info;						\
-  getThreadInfo(info, ThreadOffset);
 
 /*
  * I have tested, three thread do nothing but GET/FREE, 
@@ -301,13 +293,44 @@ public:
 #endif // _TESTCOUNT
   };
 
+  inline    PMINFO GetThreadMemoryInfo()
+  {
+    PMINFO    info;
+    getThreadInfo(info, nowOffset);
+    return info;
+  };
+
+  inline    PMINFO GetThreadMemoryInfo(ADDR tstack)
+  {
+    PMINFO    info;
+    if (tstack == ZERO) {
+      getThreadInfo(info, nowOffset);
+    } else {
+      info = (PMINFO)(tstack.pChar + nowOffset);
+    }
+    return info;
+  };
+
+  inline    UINT GetFreeNumber(ADDR tstack)
+  {
+    PMINFO    info;
+    info = GetThreadMemoryInfo(tstack);
+    return (info->memoryStack.GetNumber());
+  };
+
+  inline    UINT GetGlobalFreeNumber()
+  {
+    return globalStack.GetNumber();
+  }
+
 /*
  * GetOneList is public for NO-free class, 
  *   It only alloc memory without any initialize.
  */
   RESULT     GetOneList(ADDR &nlist)
   {
-    GetThreadMemoryInfo();
+    PMINFO    info;
+    info = GetThreadMemoryInfo();
 
   __TRY
 #ifdef _TESTCOUNT
@@ -328,7 +351,8 @@ private:
  */
   RESULT      FreeOneList(ADDR nlist)
   {
-    GetThreadMemoryInfo();
+    PMINFO    info;
+    info = GetThreadMemoryInfo();
 
   __TRY
 #ifdef _TESTCOUNT
@@ -366,7 +390,8 @@ public:
   RESULT    GetMemoryList(
             ADDR &addr, UINT timeout = 0)
   {
-    GetThreadMemoryInfo();
+    PMINFO    info;
+    info = GetThreadMemoryInfo();
   __TRY
     __DO (info->memoryStack -= addr);
     if (TimeoutInit) {
@@ -387,7 +412,8 @@ public:
  */
   RESULT    FreeMemoryList(ADDR addr)
   {
-    GetThreadMemoryInfo();
+    PMINFO    info;
+    info = GetThreadMemoryInfo();
   __TRY
     if (TimeoutInit) {
       addr.CountDown = TIMEOUT_QUIT;
@@ -667,13 +693,20 @@ public:
 
 inline      PRINFO GetThreadInfo(void) 
 {
-  GetThreadOtherInfo();
+  PRINFO   info;
+  getThreadInfo(info, ThreadOffset);
   return info;
 };
 
 inline      PRINFO GetThreadInfo(ADDR addr)
 {
-  return PRINFO(addr.pChar + ThreadOffset);
+  PRINFO   info;
+  if (addr == ZERO) {
+    getThreadInfo(info, ThreadOffset);
+  } else {
+    info = PRINFO(addr.pChar + ThreadOffset);
+  }
+  return info;
 };
 
 inline      PTINFO GetTraceInfo(void)
@@ -685,10 +718,18 @@ inline      PTINFO GetTraceInfo(void)
 
 inline      PTINFO GetTraceInfo(ADDR addr)
 {
-  return PTINFO(addr.pChar + PAD_THREAD_STACK);
+  PTINFO    info;
+  if (addr == ZERO) {
+    getTraceInfo(info);
+  } else {
+    info = PTINFO(addr.pChar + PAD_THREAD_STACK);
+  }
+  return info;
 };
 
 RESULT      InitThreadInfo(void);
 RESULT      CalcThreadTime(void);
+RESULT      DisplayThreadInfo(ADDR tstack);
+RESULT      DisplayThreadInfo(void);
 
 #endif   // GLdb_MEMORY_HPP

@@ -106,10 +106,11 @@ BEGIN_ENUM(GLdbError, GLdb_ERROR_BASE)
 
   ENUM(GL_IP_BINDZEROSOCKET,"IP BindLocalSocket, input is 0"),
   ENUM(GL_TCP_INPUT_ZERO,   "PROTOCOL_TCP input parameter is invalid"),
-  ENUM(GL_FILE_INPUT_ZERO,   "PROTOCOL_FILE input parameter is invalid"),
+  ENUM(GL_FILE_INPUT_ZERO,  "PROTOCOL_FILE input parameter is invalid"),
   
   ENUM(GL_APPLICATION_ZERO, "Application input parameter is invalid"),
 
+  ENUM(GL_CLONE_NUMBER_OVER,"Thread Number reach MAX"),
   ENUM(GL_CLONE_INIT_ERROR, "ThreadClone error"),
 
 END_ENUM(GLdbError, GLdb_ERROR_BASE, GERROR)

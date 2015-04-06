@@ -362,6 +362,8 @@ public:
     }
 
     oldThreadNubmer = LockInc(GlobalThreadNumber);
+    __DOe(GlobalThreadNumber == MAX_THREAD_NUMBER,
+	    GL_CLONE_NUMBER_OVER);
     __DO (GetStack(threadStack));
     globalStackPlace[oldThreadNubmer] = (threadStack & NEG_SIZE_THREAD_STACK);
     __DO1(threadId,
@@ -650,6 +652,7 @@ public:
 #define     NUMBER_MAX_IOCP                     2
 // In debug it is 2
 #define     NUMBER_MAX_WORK                     32
+#define     NUMBER_NOW_WORK                     3
 #define     NUMBER_MAX_FILE                     1               // test try
 //#define     NUMBER_MAX_FILE                     32
 

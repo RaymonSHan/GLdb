@@ -30,7 +30,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#include    "GTools.hpp"
 #include    "GMemory.hpp"
+#include    "GIOCP.hpp"
 
 /*
  * In Linux, I get memory by mmap(), all memory are MAP_FIXED.
@@ -175,6 +177,7 @@ RESULT      CMemoryBlock::SetThreadArea(
   static LOCK lockList = NOT_IN_PROCESS;
   ADDR      start;
 
+  PMINFO    info;
 /*
  * THIS is a BUG for g++
  *
@@ -187,8 +190,8 @@ RESULT      CMemoryBlock::SetThreadArea(
  * whick rax is be used for lea of nowOffset, and val of sp, so crash
  * It cost me ten hours.
  */
-  GetThreadMemoryInfo();
 __TRY__
+  info = GetThreadMemoryInfo();
   start.pAddr = &(info->localCache[0]);
   info->memoryStack.InitArrayStack(
             start, maxsize, SINGLE_THREAD,
@@ -445,7 +448,7 @@ RESULT      FreeSign(PSIGN psign)
 RESULT      InitThreadInfo(void)
 {
   PRINFO  info = GetThreadInfo();
-  memset(info, 0, sizeof(RThreadInfo));
+  bzero(info, sizeof(RThreadInfo));
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &info->threadRunTimeLast);
   clock_gettime(CLOCK_MONOTONIC_COARSE, &info->threadRealTimeLast);
   info->threadRunStart = info->threadRunTimeLast;
@@ -474,7 +477,71 @@ RESULT      CalcThreadTime(void)
   return 0;
 };
 
+RESULT      DisplayThreadInfo(ADDR tstack)
+{
+  PTINFO    tinfo;
+  PRINFO    rinfo;
+  char      message[CHAR_NORMAL];
 
+  if (tstack == ZERO) {
+    tinfo = GetTraceInfo();
+    rinfo = GetThreadInfo();
+  } else {
+    tinfo = GetTraceInfo(tstack);
+    rinfo = GetThreadInfo(tstack);
+  }
+  snprintf(message, CHAR_NORMAL, "%10s:%12lld:%5f\n", 
+            tinfo->threadName, 
+	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent);
+  ESC_PRINT(message);
+  return 0;
+};
+
+RESULT      DisplayThreadInfo(void)
+{
+  UINT      nowt;
+  UINT      theSign = 0, theCont = 0, theBuff = 0;
+  UINT      nowSign = 0, nowCont = 0, nowBuff = 0;
+  PTINFO    tinfo;
+  PRINFO    rinfo;
+  ADDR      tstack;
+  char      message[CHAR_LARGE];
+  char*     nowmessage = message;
+
+  nowmessage += snprintf(message, CHAR_LARGE, "%s%s%s",
+	    ESC_SAVE_CURSOR, ESC_SET_CURSOR, ESC_SET_COLOR);
+  nowt = 0;
+  tstack = ZERO;
+  tinfo = GetTraceInfo();
+  rinfo = GetThreadInfo();
+  do {
+    theSign = GlobalSign.GetFreeNumber(tstack);
+    nowSign += theSign;
+    theCont = GlobalContext.GetFreeNumber(tstack);
+    nowCont += theCont;
+    theBuff = GlobalBufferSmall.GetFreeNumber(tstack);
+    nowBuff += theBuff;
+    nowmessage += snprintf(nowmessage, CHAR_LARGE, 
+	    "%14s:%14lld:%7f%%;  %4lld%4lld%4lld \n", 
+	    tinfo->threadName, 
+	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent * 100,
+	    theSign, theCont, theBuff);
+    if (nowt >= GlobalThreadNumber) break;
+    tstack = GlobalStackPlace[nowt];
+    tinfo = GetTraceInfo(tstack);
+    rinfo = GetThreadInfo(tstack);
+    nowt++;
+  } while (true);
+
+  nowmessage += snprintf(nowmessage, CHAR_LARGE, "%46lld%4lld%4lld \n",
+	    GlobalSign.GetGlobalFreeNumber() + nowSign,
+	    GlobalContext.GetGlobalFreeNumber() + nowCont,
+	    GlobalBufferSmall.GetGlobalFreeNumber() + nowBuff);
+  nowmessage += snprintf(nowmessage, CHAR_LARGE, "%s%s",
+	    ESC_RESTORE_COLOR, ESC_RESTORE_CURSOR);
+  printf("%s", message);
+  return 0;
+};
 
 /*
  * Following is for debug memory pool program

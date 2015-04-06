@@ -99,10 +99,10 @@
 #define     FILE_ERROR                          ((FILEHANDLE)-1)
 
 /*
- * for STRING use, constant len string
+ * for SACKRING use, constant len string
  */
 #define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR-1)
-#define     CHAR_MIDDLE                         ((1<<9)-2*SIZEADDR-1)
+#define     CHAR_NORMAL                         ((1<<9)-2*SIZEADDR-1)
 #define     CHAR_LARGE                          ((1<<12)-2*SIZEADDR-1)
 /*
  * for STACK & QUERY use, constant len stack & query
@@ -463,7 +463,7 @@ public:
   }classname, *JOIN(P,classname);
 
 STRING_FUNCTION(STR_S, CHAR_SMALL)
-STRING_FUNCTION(STR_M, CHAR_MIDDLE)
+STRING_FUNCTION(STR_M, CHAR_NORMAL)
 STRING_FUNCTION(STR_L, CHAR_LARGE)
 
 

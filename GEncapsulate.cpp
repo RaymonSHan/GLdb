@@ -69,20 +69,12 @@ __TRY
   __DO (InitThreadInfo());
 
   while (!GlobalShouldQuit) {
+/*
+ * update mainthread info
+ */
     __DO (CalcThreadTime());
     GlobalTime = time(NULL);
-    for (nowt = 0; nowt < GlobalThreadNumber; nowt++) {
-      tstack = GlobalStackPlace[nowt];
-      tinfo = GetTraceInfo(tstack);
-      rinfo = GetThreadInfo(tstack);
-      printf("%s:%lld:%f\n", tinfo->threadName, 
-	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent);
-    }
-    tinfo = GetTraceInfo();
-    rinfo = GetThreadInfo();
-    printf("%s:%lld:%f\n", tinfo->threadName, 
-	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent);
-    //    GlobalMemory.DisplayMemoryInfo();
+    DisplayThreadInfo();
     sleep(1);
   }
   __DO (FreeEncapsulate());
@@ -133,7 +125,7 @@ __TRY
 	    (PPROT)&tcpProt, addrser, sizeof(SOCK), 
 	    NULL, nulladdr, 0));
   __DO (GlobalIOCP.StartWork(
-            (PEVENT)echoApp.handleIOCP, 1));
+            (PEVENT)echoApp.handleIOCP, NUMBER_NOW_WORK));
 #endif   //  DOING_ECHO_APPLICATION
 
 #ifdef      DOING_FORWARD_APPLICATION
@@ -142,7 +134,7 @@ __TRY
 	    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
 	    (PPROT)&tcpProt, addrser, sizeof(SOCK)));
   __DO (GlobalIOCP.StartWork(
-	    (PEVENT)forwardApp.handleIOCP, 1));
+	    (PEVENT)forwardApp.handleIOCP, NUMBER_NOW_WORK));
 #endif   // DOING_FORWARD_APPLICATION
 
 #ifdef      DOING_FORWARDSINGLE_APPLICATION
@@ -153,7 +145,7 @@ __TRY
 	    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
 	    (PPROT)&fileProt, addrser, 0));
   __DO (GlobalIOCP.StartWork(
-	    (PEVENT)forwardSingle.handleIOCP, 1));
+	    (PEVENT)forwardSingle.handleIOCP, NUMBER_NOW_WORK));
 #endif   // DOING_FORWARDSINGLE_APPLICATION
 
   __DO (GlobalIOCP.StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
