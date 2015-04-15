@@ -415,6 +415,7 @@ public:
     PMINFO    info;
     info = GetThreadMemoryInfo();
   __TRY
+    //   D(InFree);Dllx(addr.aLong);Dn;
     if (TimeoutInit) {
       addr.CountDown = TIMEOUT_QUIT;
       __BREAK_OK;
@@ -644,6 +645,7 @@ public:
   };
   RESULT    InitThreadMemory(UINT need)
   {
+  __TRY__
     UINT    getsize = 0, maxsize = 4, freesize = 4;
     if (need) {
       getsize = 4;
@@ -653,7 +655,7 @@ public:
     GlobalContext.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalBufferSmall.SetThreadArea(getsize, maxsize, freesize, 0);
     GlobalBufferMiddle.SetThreadArea(getsize, maxsize, freesize, 0);
-    return 0;
+  __CATCH__
   };
   void      DisplayMemoryInfo(void)
   {

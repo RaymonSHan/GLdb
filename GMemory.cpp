@@ -318,7 +318,6 @@ RESULT      GetDupContext(
 	    PCONT &newcont, PCONT pcont, BOOL copy)
 {
 __TRY
-
   __DO (GetContext(newcont, 0));
   newcont->pProtocol = pcont->pProtocol;
   newcont->pApplication = pcont->pApplication;
@@ -333,18 +332,20 @@ __CATCH
 
 RESULT      ReferenceContext(PCONT pcont)
 {
+__TRY__
   ADDR      addr;
   addr = PCONT_TO_ADDR(pcont);
   addr.IncRefCount();
-  return 0;
+__CATCH__
 };
 
 RESULT      FreeContext(PCONT pcont)
 {
+__TRY__
   ADDR      addr;
   DEBUG_CONTEXT_FREE
   addr = PCONT_TO_ADDR(pcont);
-  return addr.DecRefCount();
+__RETURN_(addr.DecRefCount());
 };
 
 void        ReflushTimeout(
@@ -359,7 +360,7 @@ void        ReflushTimeout(
 
 #ifdef    __DEBUG_BUFFER
 #define     DEBUG_BUFFER_GET					\
-  D(GetBuffer);Dp(pbuff);Dn;TRACE
+  D(GetBuffer);Dp(pbuff);Dn;
 #define     DEBUG_BUFFER_FREE					\
   D(FreeBuffer);Dp(pbuff);Dn;
 #else  // __DEBUG_BUFFER
@@ -370,16 +371,18 @@ void        ReflushTimeout(
 #define     BUFFER_FUNCTION(name, tname)			\
   RESULT    JOIN(Init, name)(PBUFF pbuff)			\
   {								\
+  __TRY							        \
     JOIN(P, tname) psbuff = (JOIN(P, tname)) pbuff;		\
+    __DOe(pbuff == NULL, GL_IOCP_INPUT_ZERO);			\
     pbuff->wsaBuf.len = JOIN(SIZE_, tname);			\
     pbuff->wsaBuf.buf = psbuff->bufferData;			\
-    return (pbuff == NULL);					\
+  __CATCH							\
   };								\
   RESULT    JOIN(Get, name)(PBUFF &pbuff)			\
   {								\
   __TRY								\
     ADDR    addr;						\
-    __DO(JOIN(Global, name).GetMemoryList(addr, 0));		\
+    __DO (JOIN(Global, name).GetMemoryList(addr, 0));		\
     addr.AllocType = &JOIN(Global, name);		        \
     addr.RefCount = INIT_REFCOUNT;				\
     pbuff = ADDR_TO_PBUFF(addr);				\
@@ -389,10 +392,11 @@ void        ReflushTimeout(
   };								\
   RESULT    JOIN(Free,name)(PBUFF pbuff)			\
   {								\
+  __TRY__							\
     ADDR    addr;						\
     DEBUG_BUFFER_FREE						\
     addr = PBUFF_TO_ADDR(pbuff);				\
-    return JOIN(Global, name).FreeMemoryList(addr);		\
+  __RETURN_(JOIN(Global, name).FreeMemoryList(addr));		\
   };
 
 BUFFER_FUNCTION(BufferSmall, BUFF_S)
@@ -400,25 +404,27 @@ BUFFER_FUNCTION(BufferMiddle, BUFF_M)
 
 RESULT      ReferenceBuffer(PBUFF pbuff)
 {
+__TRY__
   ADDR      addr;
   addr = PBUFF_TO_ADDR(pbuff);
   addr.IncRefCount();
-  return 0;
+__CATCH__
 };
 
 RESULT      FreeBuffer(PBUFF pbuff)
 {
+__TRY__
   ADDR      addr;
   DEBUG_BUFFER_FREE
   addr = PBUFF_TO_ADDR(pbuff);
-  return addr.DecRefCount();
+__RETURN_( addr.DecRefCount());
 };
 
 #ifdef    __DEBUG_SIGN
 #define     DEBUG_SIGN_GET					\
-  D(GetSign);Dp(psign);Dn;TRACE;
+  D(GetSign);Dp(psign);Dn;
 #define     DEBUG_SIGN_FREE					\
-  D(FreeSign);Dp(psign);Dn;TRACE;
+  D(FreeSign);Dp(psign);Dn;
 #else  // __DEBUG_SIGN
 #define     DEBUG_SIGN_GET
 #define     DEBUG_SIGN_FREE
@@ -438,15 +444,16 @@ __CATCH
 
 RESULT      FreeSign(PSIGN psign)
 {
+__TRY__
   ADDR      addr;
   DEBUG_SIGN_FREE
   addr = PSIGN_TO_ADDR(psign);
-  return GlobalSign.FreeMemoryList(addr);
-  //return addr.DecRefCount();
+__RETURN_(GlobalSign.FreeMemoryList(addr));
 };
 
 RESULT      InitThreadInfo(void)
 {
+__TRY__
   PRINFO  info = GetThreadInfo();
   bzero(info, sizeof(RThreadInfo));
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &info->threadRunTimeLast);
@@ -454,11 +461,12 @@ RESULT      InitThreadInfo(void)
   info->threadRunStart = info->threadRunTimeLast;
   info->threadRealStart = info->threadRealTimeLast;
   info->lastGlobalTime = GlobalTime;
-  return 0;
+__CATCH__
 };
 
 RESULT      CalcThreadTime(void)
 {
+__TRY__
   PRINFO  info = GetThreadInfo();
   if (info->lastGlobalTime != GlobalTime) {
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &info->threadRunTimeNow);
@@ -474,7 +482,7 @@ RESULT      CalcThreadTime(void)
             (double)info->threadRealTimeDiff.aLong;
     info->lastGlobalTime = GlobalTime;
   }
-  return 0;
+__CATCH__
 };
 
 RESULT      DisplayThreadInfo(ADDR tstack)
@@ -483,6 +491,7 @@ RESULT      DisplayThreadInfo(ADDR tstack)
   PRINFO    rinfo;
   char      message[CHAR_NORMAL];
 
+__TRY__
   if (tstack == ZERO) {
     tinfo = GetTraceInfo();
     rinfo = GetThreadInfo();
@@ -494,7 +503,7 @@ RESULT      DisplayThreadInfo(ADDR tstack)
             tinfo->threadName, 
 	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent);
   ESC_PRINT(message);
-  return 0;
+__CATCH__
 };
 
 RESULT      DisplayThreadInfo(void)
@@ -508,6 +517,7 @@ RESULT      DisplayThreadInfo(void)
   char      message[CHAR_LARGE];
   char*     nowmessage = message;
 
+__TRY__
   nowmessage += snprintf(message, CHAR_LARGE, "%s%s%s",
 	    ESC_SAVE_CURSOR, ESC_SET_CURSOR, ESC_SET_COLOR);
   nowt = 0;
@@ -540,13 +550,13 @@ RESULT      DisplayThreadInfo(void)
   nowmessage += snprintf(nowmessage, CHAR_LARGE, "%s%s",
 	    ESC_RESTORE_COLOR, ESC_RESTORE_CURSOR);
   printf("%s", message);
-  return 0;
+__CATCH__
 };
 
 /*
  * Following is for debug memory pool program
  */
-#ifdef _TESTCOUNT
+#ifdef      _TESTCOUNT
 
 #define PRINT_COLOR(p) printf("\e[0;%sm", p)
 #define RESTORE_COLOR printf("\e[0;37m")
@@ -630,5 +640,5 @@ void        CMemoryBlock::DisplayContext(void)
   }
 };
 
-#endif // _TESTCOUNT
+#endif   // _TESTCOUNT
 

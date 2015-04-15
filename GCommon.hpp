@@ -75,8 +75,9 @@
  * #define   __DEBUG_EPOLL
  * #define   __DEBUG_EVENT
  * #define   __DEBUG_IOCP
+ * #define   __DEBUG_THREAD
  */
-
+#define   __DEBUG_SIGN
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
@@ -99,7 +100,7 @@
 #define     FILE_ERROR                          ((FILEHANDLE)-1)
 
 /*
- * for SACKRING use, constant len string
+ * for STRING use, constant len string
  */
 #define     CHAR_SMALL                          ((1<<6)-2*SIZEADDR-1)
 #define     CHAR_NORMAL                         ((1<<9)-2*SIZEADDR-1)
@@ -1095,14 +1096,16 @@ public:
   };
   RESULT    operator += (struct timespec *timenow)
   {
+  __TRY__
     ADDR    diff;
     clock_gettime(timeType, timenow);
     diff = DIFF_TIME(*timenow, timeStart);
-    return timeQuery += diff;
+  __RETURN_(timeQuery += diff);
   };
   RESULT    operator -= (ADDR &addr)
   {
-    return timeQuery -= addr;
+  __TRY__
+  __RETURN_(timeQuery -= addr);
   };
   void      OutputTime(void)
   {

@@ -158,10 +158,12 @@ __TRY__
     FileHandle->waitEpollOut = 0;
   }
   ev.data.ptr = FileHandle;
-  state = epoll_ctl(GlobalIOCP.epollHandle,
+  if (FileHandle->bHandle) {
+    state = epoll_ctl(GlobalIOCP.epollHandle,
 	    EPOLL_CTL_ADD, 
 	    FileHandle->bHandle, 
 	    &ev);
+  }
   if (state) {
     WSAERROR
   __RETURN_(0);
@@ -822,7 +824,7 @@ __TRY
 
       if (polap == ZERO) {
 	if (!pcont->waitEpollOut) {
-	  FreeSign(psign);
+	  __DO (FreeSign(psign));
 	  __BREAK_OK;
 	}
 	ev.events = EPOLLET | EPOLLIN | EPOLLRDHUP;
@@ -850,7 +852,7 @@ __TRY
 	newsign->sSize = writed;
 	if (*pcont->iocpHandle += newaddr) {
 	  __DO (FreeSign(newsign));
-	  __BREAK;
+	  __BREAK_OK;
 	}
 	else {
 	  continue;
@@ -866,7 +868,7 @@ __TRY
 	    pcont->bHandle, &ev));
 	pcont->waitEpollOut = 1;
 	__DO (FreeSign(psign));
-	__BREAK;
+	__BREAK_OK;
 	break;                                                  //(8)EAGAIN ok
       } else {                                                  // error
 	psign->sSize = MARK_ERROR_CLOSE;
@@ -893,6 +895,7 @@ __TRY
     }
   }
 __CATCH_BEGIN
+  D(InCatchForFree);Dn;TRACE;
   FreeSign(psign);
 __CATCH_END
 };
@@ -921,7 +924,9 @@ __TRY
             (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
             WSA_INFINITE));
 
+#ifdef      __DEBUG_IOCP
   Dp(pcont); Dp(pbuff); if (pbuff) Dlld(pbuff->nOper); Dd(size); Dn;
+#endif   // __DEBUG_IOCP
 
   if (size == NEGONE) __BREAK_OK;
   if (pbuff == 0) noper = 0;

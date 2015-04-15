@@ -89,8 +89,6 @@ int         TimeoutEpollWait                  = NEGONE;
 EVENT       EventFile;
 
 
-
-
 #ifdef    __GLdb_SELF_USE
 /*
  * it is for GLdbDatabase use, not for GLdbIOCP,

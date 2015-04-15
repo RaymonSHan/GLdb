@@ -40,11 +40,6 @@
 RESULT      GEncapsulate::Doing(void)
 {
 __TRY
-  UINT      nowt;
-  PTINFO    tinfo;
-  PRINFO    rinfo;
-  ADDR      tstack;
-
   RegisterProtocol(
             NPROT, nonePro, PROTOCOL_NONE, 0);
   RegisterProtocol(
@@ -74,7 +69,11 @@ __TRY
  */
     __DO (CalcThreadTime());
     GlobalTime = time(NULL);
+
+#ifdef      __DEBUG_THREAD
     DisplayThreadInfo();
+#endif   // __DEBUG_THREAD
+
     sleep(1);
   }
   __DO (FreeEncapsulate());
@@ -89,21 +88,20 @@ __CATCH_END
 };
 
 //#define     DOING_ECHO_APPLICATION
-//#define     DOING_FORWARD_APPLICATION
-#define     DOING_FORWARDSINGLE_APPLICATION
+#define     DOING_FORWARD_APPLICATION
+//#define     DOING_FORWARDSINGLE_APPLICATION
+//#define     DOING_FILECOPY_APPLICATION
 
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
 __TRY
   PCONT     nullcont = NULL;
   char      local_addr[] = "0.0.0.0";
-  int       local_port = 8998;
-  char      remote_addr[] = "127.0.0.1";
-  int       remote_port = 8999;
+  int       local_port = 3389;
+  char      remote_addr[] = "10.32.209.144";
+  int       remote_port = 3389;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser;
-  UCHAR     pname[] = "~/";
-  static    STR_M pathname;
   
   bzero(&sockcli.saddrin, sizeof(sockaddr_in));
   sockcli.saddrin.sin_family = AF_INET; 
@@ -138,6 +136,21 @@ __TRY
 #endif   // DOING_FORWARD_APPLICATION
 
 #ifdef      DOING_FORWARDSINGLE_APPLICATION
+  UCHAR     pname[] = "~/";
+  static    STR_M pathname;
+  pathname = pname;
+  addrser = &pathname;
+  __DO (CreateApplication(
+            forwardSingle.listenSocket, nullcont, (PAPP)&forwardSingle, 
+	    (PPROT)&filePort, addrcli, sizeof(SOCK), 
+	    (PPROT)&fileProt, addrser, 0));
+  __DO (GlobalIOCP.StartWork(
+	    (PEVENT)forwardSingle.handleIOCP, NUMBER_NOW_WORK));
+#endif   // DOING_FORWARDSINGLE_APPLICATION
+
+#ifdef      DOING_FILECOPY_APPLICATION
+  UCHAR     pname[] = "~/";
+  static    STR_M pathname;
   pathname = pname;
   addrser = &pathname;
   __DO (CreateApplication(
@@ -146,7 +159,7 @@ __TRY
 	    (PPROT)&fileProt, addrser, 0));
   __DO (GlobalIOCP.StartWork(
 	    (PEVENT)forwardSingle.handleIOCP, NUMBER_NOW_WORK));
-#endif   // DOING_FORWARDSINGLE_APPLICATION
+#endif   // DOING_FILECOPY_APPLICATION
 
   __DO (GlobalIOCP.StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
 __CATCH

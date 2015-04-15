@@ -246,9 +246,10 @@ public:
   };
   RESULT    FreeArrayEvent()
   {
+  __TRY__
     if (eventFd) close(eventFd);
     eventFd = 0;
-    return 0;
+  __CATCH__
   };
   RESULT    IsInitArrayEvent()
   {
@@ -423,14 +424,16 @@ public:
     while ((!thread->shouldQuit) && (!GlobalShouldQuit)) {
       __DO (CalcThreadTime());
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
+setLine();
     }
     __DO (thread->ThreadFree());
   __CATCH
   };
   RESULT    SystemThreadInit(void)
   {
+  __TRY__
     setThreadName();
-    return ThreadInit();
+  __RETURN_(ThreadInit());
   };
   virtual   RESULT ThreadInit(void) = 0;
   virtual   RESULT ThreadDoing(void) = 0;
@@ -531,8 +534,9 @@ public:
   RESULT    ThreadDoing(void);
   RESULT    ThreadFree(void)
   {
+  __TRY__
     close(epollHandle);
-    return 0;
+  __CATCH__
   };
 }TEPOLL, *PTEPOLL;
 
@@ -609,8 +613,9 @@ public:
   RESULT    ThreadDoing(void);
   RESULT    ThreadFree(void)
   {
+  __TRY__
     eventHandle.FreeArrayEvent();
-    return 0;
+  __CATCH__
   };
 }TEVENT, *PTEVENT;
 

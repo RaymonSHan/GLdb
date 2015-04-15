@@ -253,7 +253,7 @@ __TRY
   DWORD     dwflags = 0;
   int       result;
 
-  D(InTCPPostReceive);Dn;
+  //  D(InTCPPostReceive);Dn;
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
   __DOe(pbuff == 0,
@@ -273,7 +273,7 @@ RESULT      GFileProtocol::CreateNew(
 {
   (void)    size;
 __TRY
-  HANDLE    iocphandle;
+  //  HANDLE    iocphandle;
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
@@ -282,9 +282,11 @@ __TRY
 
   pcont->dwFlags |= WSA_FLAG_ISLISTEN;
   pcont->localFilename = (PSTR_M)para.pVoid;
+  /*
   iocphandle = CreateIoCompletionPort(
 	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
   __DO (iocphandle == 0);
+  */
   ReflushTimeout(pcont, TIMEOUT_INFINITE);
 __CATCH
 };
@@ -294,7 +296,7 @@ RESULT      GFileProtocol::CreateRemote(
 {
   (void)    size;
 __TRY
-  D(FileCreateRemote);Dn;
+  //  D(FileCreateRemote);Dn;
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
   __DOe(para == ZERO,
@@ -304,6 +306,8 @@ __TRY
 __CATCH
 };
 
+#define     TESTFILE                            "/home/raymon/a.txt"
+
 RESULT      GFileProtocol::PostAccept(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
@@ -311,8 +315,10 @@ RESULT      GFileProtocol::PostAccept(
   (void)    op;
 __TRY
   PCONT     clicont;
-  PWSABUF   wsabuf;
-  BOOL      result;
+  PWSABUF   pwsa;
+  POLAP     polap;
+  HANDLE    iocphandle;
+  FILEHANDLE handle;
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
@@ -320,22 +326,36 @@ __TRY
             GL_FILE_INPUT_ZERO);
   __DOe(&pbuff->wsaBuf == NULL,
             GL_FILE_INPUT_ZERO);
-  wsabuf = &(pbuff->wsaBuf);
+  polap = &(pbuff->oLapped);
+  pwsa = &(pbuff->wsaBuf);
+  pcont->dwFlags |= WSA_FLAG_ISCONNECT;
+  polap->Internal = pcont;
+  polap->InternalHigh = pwsa;
+
   __DO (GetDupContext(clicont, pcont));
             /* MARK */  __MARK(AfterGetContext);
 
-  pbuff->oLapped.accSocket = clicont;
-  //  pbuff->oLapped.doneSize = 0;
-  wsabuf->len = 0;
-  result = AcceptEx(
-	    (SOCKET)pcont, clicont, wsabuf, 0, 0, 0, NULL, &(pbuff->oLapped));
-  __DO (result == 0);
+  strcpy((char*)pwsa->buf, TESTFILE);
+  pwsa->len = strlen(TESTFILE);
+
+  iocphandle = CreateIoCompletionPort(
+	    pcont, pcont->pApplication->handleIOCP, (ULONG_PTR)pcont, 0);
+  __DO (iocphandle == 0);
+  if (handle != FILE_ERROR) {
+    // DO OnAccept()
+  }
+  handle = CreateFile(
+            pwsa->buf, GENERIC_READ, FILE_SHARE_READ,
+	    NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0, polap);
+
+  if (handle == FILE_ERROR && WSAGetLastError() != WSA_IO_PENDING) {
+    // error create
+  }
+
 __CATCH_BEGIN
   __AFTER(AfterGetContext) FreeContext(clicont);
 __CATCH_END
 };
-
-#define     TESTFILE                            "/home/raymon/a.txt"
 
 RESULT      GFileProtocol::PostConnect(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
@@ -343,7 +363,7 @@ RESULT      GFileProtocol::PostConnect(
   (void)    size;
   (void)    op;
 __TRY
-  D(FilePostConnect);Dn;
+  //  D(FilePostConnect);Dn;
   PWSABUF   pwsa;
   POLAP     polap;
   HANDLE    iocphandle;
@@ -391,9 +411,9 @@ __TRY
   int       result;
 
   __DOe(pcont == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   __DOe(pbuff == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   pbuff->wsaBuf.len = size;
   result = WriteFile(
             (FILEHANDLE)pcont, &(pbuff->wsaBuf), size, &(pbuff->nSize), 
@@ -410,17 +430,16 @@ RESULT      GFileProtocol::PostReceive(
   (void)    op;
   (void)    opside;
 __TRY
-  DWORD     dwflags = 0;
   int       result;
 
   __DOe(pcont == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   __DOe(pbuff == 0,
-            GL_TCP_INPUT_ZERO);
+            GL_FILE_INPUT_ZERO);
   pbuff->wsaBuf.len = size;
-  result = WSARecv(
-            (SOCKET)pcont, &(pbuff->wsaBuf), 1, &(pbuff->nSize), 
-	    &dwflags, &(pbuff->oLapped), NULL);
+  result = ReadFile(
+            (FILEHANDLE)pcont, &(pbuff->wsaBuf), size, &(pbuff->nSize), 
+	    &(pbuff->oLapped));
   if (!result && WSAGetLastError() != WSA_IO_PENDING) {
     __BREAK;
   }
