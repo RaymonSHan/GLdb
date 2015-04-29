@@ -74,10 +74,21 @@
  * #define   __DEBUG_SIGN
  * #define   __DEBUG_EPOLL
  * #define   __DEBUG_EVENT
- * #define   __DEBUG_IOCP
  * #define   __DEBUG_THREAD
+ * #define   __PROCESS_IOCP
  */
-#define   __DEBUG_SIGN
+#define   __PROCESS_ALL
+
+#ifdef    __PROCESS_ALL
+#define   __PROCESS_IOCP
+#define   __PROCESS_EPOLL
+#define   __PROCESS_EVENT
+#define   __PROCESS_FILE
+#define   __PROCESS_WORK
+#define   __PROCESS_PROCOTOL
+#define   __PROCESS_APPLICATION
+#endif // __PROCESS_ALL
+
 
 /*
  * In GLdb, money is signed int64, 1 million means 1 dollar, 
@@ -181,9 +192,10 @@ typedef     class GApplication*                 PAPP;
 #define     Dllx(a)                             printf("%s:%llx  ", #a, a);
 #define     Dp(a)                               printf("%s:%p  ", #a, a);
 #define     Ds(a)                               printf("%s:%s  ", #a, a);
-#define     Dn                                  printf("\n");
 #define     DD                                  printf
+#define     DN                                  printf("\n");
 
+#define     DF(mess)                            displayProcessInfo(mess)
 
 #define     DSIGN(sign)						\
   printf("%p Cont:%p, Buf:%p, event:%llx, size:%lld\n",		\
@@ -581,7 +593,7 @@ typedef     struct perTraceInfo {
   PUCHAR    fileInfo;
   PUCHAR    funcInfo;
   UINT      lineInfo;
-  UINT      pad;
+  PUCHAR    minFuncInfo;
 }OTINFO;
 
 typedef     struct threadTraceInfo {
@@ -594,16 +606,17 @@ typedef     struct threadTraceInfo {
 
 #define     beginCall()						\
   asm volatile ("movq %%rsp, %%rcx;"				\
-		"andq %3, %%rcx;"				\
-		"addq %4, %%rcx;"				\
-		"addq %5, (%%rcx);"				\
+		"andq %4, %%rcx;"				\
+		"addq %5, %%rcx;"				\
+		"addq %6, (%%rcx);"				\
 		"addq (%%rcx), %%rcx;"				\
 		"movq %0, (%%rcx);"				\
 		"movq %1, 8(%%rcx);"				\
 		"movq %2, 16(%%rcx);"				\
+		"movq %3, 24(%%rcx);"				\
 		:						\
 		: "i" (__FILE__), "i"(__PRETTY_FUNCTION__),	\
-		  "i" (__LINE__),				\
+		  "i" (__LINE__), "i"(__FUNCTION__),		\
 		  "i" (NEG_SIZE_THREAD_STACK),			\
 		  "i" (PAD_THREAD_STACK),			\
 		  "i" (sizeof(perTraceInfo))			\
@@ -651,7 +664,7 @@ typedef     struct threadTraceInfo {
   if (info->threadName)						\
     printf("In %p, threa: %s\n", info, info->threadName);	\
   else								\
-    printf("In %p, thread:MainThread\n", info);			\
+    printf("In %p, thread: MainThread\n", info);		\
   for (int i=info->nowLevel/sizeof(perTraceInfo)-1; i>=0; i--)	\
     printf("  %d, in file:%14s, line:%4lld, func: %s\n",	\
 	    i,							\
@@ -659,6 +672,21 @@ typedef     struct threadTraceInfo {
 	    info->calledInfo[i].lineInfo,			\
 	    info->calledInfo[i].funcInfo);
 
+#define     funcName						\
+  info->calledInfo[info->nowLevel/sizeof(perTraceInfo)-1]	\
+  .minFuncInfo
+
+#define     displayProcessInfo(mess)				\
+{								\
+  PTINFO    info;						\
+  getTraceInfo(info);						\
+  if (info->threadName)						\
+    printf("%16s. %14s:%s ",					\
+	   #mess, info->threadName, funcName);			\
+  else								\
+    printf("%16s.     MainThread:%s ",				\
+	   #mess, funcName);					\
+}
 
 /*
  * class for working thread use following declare,

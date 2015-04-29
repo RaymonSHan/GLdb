@@ -34,7 +34,7 @@
 #include    "GEncapsulate.hpp"
 
 /*
- * for use GLdbIOCP instead of GLdbDatabase, should define this two as GLOBAL var.
+ * for use GLdbIOCP instead of GLdbDatabase, should define this two as GRLOBAL var.
  *
  * for GLdbDatabase, already define it in GCommon.hpp
  */
@@ -127,13 +127,19 @@ HANDLE      CreateIoCompletionPort(
 __TRY__
 
   ADDR      addr;
-  int       state;
+  int       state = 0;
   struct    epoll_event ev;
 
   if (!FileHandle && !ExistingCompletionPort && !CompletionKey) {
     if (GlobalIOCP.GetIOCPItem(addr)) {
+#ifdef      __PROCESS_IOCP
+      DF(CREATE_ZERO);DN;
+#endif   // __PROCESS_IOCP
     __RETURN_(0);
     }
+#ifdef      __PROCESS_IOCP
+    DF(CREATE_OK);Dllx(addr.aLong);DN;
+#endif   // __PROCESS_IOCP
   __RETURN_(addr.aLong);
   }
   __DOe(FileHandle == 0,  GL_IOCP_INPUT_ZERO);
@@ -158,13 +164,19 @@ __TRY__
     FileHandle->waitEpollOut = 0;
   }
   ev.data.ptr = FileHandle;
-  if (FileHandle->bHandle) {
+  if ((FileHandle->bHandle) && IS_NETWORK(FileHandle)) {
+#ifdef      __PROCESS_IOCP
+    DF(IsEpollHandle);DN;
+#endif   // __PROCESS_IOCP
     state = epoll_ctl(GlobalIOCP.epollHandle,
 	    EPOLL_CTL_ADD, 
 	    FileHandle->bHandle, 
 	    &ev);
   }
   if (state) {
+#ifdef      __PROCESS_IOCP
+    DF(EpollCtl_ERR);DN;
+#endif   // __PROCESS_IOCP
     WSAERROR
   __RETURN_(0);
   }
@@ -197,11 +209,20 @@ __TRY__
   __DOe(lpNumberOfBytes == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpCompletionKey == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
-
   iocpHandle = (PEVENT)CompletionPort;
-  __DO (*iocpHandle -= addr);
 
+#ifdef      __PROCESS_IOCP
+  DF(Waiting...);DN;
+#endif   // __PROCESS_IOCP
+
+  __DO (*iocpHandle -= addr);
   psign = addr.pSign;
+#ifdef      __PROCESS_IOCP
+  DF(GetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_IOCP
+
+
   addr = psign->sContext;
   if (addr.aLong & MAX_64BIT) {
     addr &= ~MAX_64BIT;
@@ -257,6 +278,10 @@ __TRY__
     psign->sContext = addr.pCont;
   }
 
+#ifdef      __PROCESS_IOCP
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_IOCP
   addr = psign;
   __DO (*iocpHandle += addr);
 __CATCH_(1)
@@ -306,7 +331,7 @@ __TRY__
   overlap.pVoid = lpOverlapped;
   __DO (s->writeBuffer += overlap);
 #ifdef    __DEBUG_EVENT
-  D(WSASend);DSIGN(psign);Dn;
+  D(WSASend);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
   __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
@@ -345,7 +370,7 @@ __TRY__
   lpOverlapped->InternalHigh = lpBuffers;
   *lpNumberOfBytesRecvd = lpBuffers->len;
 #ifdef    __DEBUG_EVENT
-  D(WSARecv);DSIGN(psign);Dn;
+  D(WSARecv);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
   __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
@@ -378,8 +403,8 @@ __TRY__
   __DOe(sAcceptSocket == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpOutputBuffer == 0, GL_IOCP_INPUT_ZERO);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
-
   __DO (GetSign(psign));
+
   addr = psign;
   psign->sContext = sListenSocket;
   psign->sOverlap = lpOverlapped;
@@ -390,8 +415,9 @@ __TRY__
   lpOverlapped->InternalHigh = (PWSABUF)lpOutputBuffer;
   lpOverlapped->accSocket = sAcceptSocket;
 #ifdef    __DEBUG_EVENT
-  D(AcceptEx);DSIGN(psign);Dn;
+  D(AcceptEx);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
+
   __DO (*(GlobalIOCP.eventHandle) += addr);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH_(1)
@@ -437,7 +463,7 @@ __TRY__
   memcpy(&(s->remoteSocket), name, namelen);
 
 #ifdef    __DEBUG_EVENT
-  D(ConnectEx);DSIGN(psign);Dn;
+  D(ConnectEx);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
   __DO (*GlobalIOCP.eventHandle += addr);
   WSASetLastError(WSA_IO_PENDING);
@@ -464,7 +490,7 @@ __TRY__
   PWSABUF   pwsa;
   POLAP     polap = lpOverlapped;
 
-  D(CreateFile);Dn;
+
   __DOe(lpFileName == 0, GL_IOCP_INPUT_ZERO);
   __DOe(dwFlagsAndAttributes != FILE_FLAG_OVERLAPPED, GL_IOCP_INPUT_NOSUP);
   __DOe(lpOverlapped == 0, GL_IOCP_INPUT_ZERO);
@@ -474,7 +500,6 @@ __TRY__
   __DOe(pwsa == 0, GL_IOCP_INPUT_ZERO);
 
   __DO (GetSign(psign));
-
 
   psign->sContext = pcont;
   psign->sOverlap = polap;
@@ -489,9 +514,10 @@ __TRY__
 #endif  //__GLdb_SELF_USE
 
 #ifdef    __DEBUG_EVENT
-  D(CreateFile);DSIGN(psign);Dn;
+  D(CreateFile);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
   addr = psign;
+
   __DO (EventFile += addr);
   WSASetLastError(WSA_IO_PENDING);
 __CATCH_(FILE_ERROR)
@@ -514,7 +540,7 @@ __TRY__
   psign->sSize = 0;
 
 #ifdef    __DEBUG_EVENT
-  D(CloseHandle);DSIGN(psign);Dn;
+  D(CloseHandle);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
   addr = psign;
   __DO (EventFile += addr);
@@ -561,7 +587,7 @@ __TRY__
   *lpNumberOfBytesRead = nNumberOfBytesToRead;
 
 #ifdef    __DEBUG_EVENT
-  D(ReadFile);DSIGN(psign);Dn;
+  D(ReadFile);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
   __DO (EventFile += addr);
   WSASetLastError(WSA_IO_PENDING);
@@ -611,7 +637,7 @@ __TRY__
   overlap.pVoid = lpOverlapped;
   __DO (hFile->writeBuffer += overlap);
 #ifdef    __DEBUG_EVENT
-  D(WriteFile);DSIGN(psign);Dn;
+  D(WriteFile);DSIGN(psign);DN;
 #endif // __DEBUG_EVENT
   __DO (EventFile += addr);
   WSASetLastError(WSA_IO_PENDING);
@@ -653,6 +679,8 @@ __TRY
 	    epoll_wait(epollHandle, waitEv, NUMBER_MAX_EV, TimeoutEpollWait));
   if (evNumber == 0) {
     __DO (GetSign(psign));
+
+
     psign->sContext = 0;
     psign->sOverlap = 0;
     psign->sEvent = EPOLLTIMEOUT;
@@ -672,10 +700,11 @@ __TRY
       psign->sEvent = waitEv[i].events;
       psign->sSize = 0;
       addr = psign;
+#ifdef      __PROCESS_EPOLL
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EPOLL
       __DO (*peventHandle += addr);
-#ifdef    __DEBUG_EPOLL
-      D(RThreadEpoll);DSIGN(psign);
-#endif // __DEBUG_EPOLL
     }
   }
 __CATCH
@@ -712,6 +741,10 @@ __TRY
   __DO (eventHandle -= signaddr);
   pcont = psign->sContext;
   polap = psign->sOverlap;
+#ifdef      __PROCESS_EVENT
+  DF(GetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EVENT
   if (psign->sEvent & EPOLLTIMEOUT) {
     // set some
     __DO (FreeSign(psign));
@@ -723,6 +756,10 @@ __TRY
     psign->sEvent &= ((~EPOLLERR) & (~EPOLLHUP) & (~EPOLLRDHUP));
     if (psign->sEvent == 0) {
       psign->sSize = MARK_ERROR_CLOSE;
+#ifdef      __PROCESS_EVENT
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EVENT
       __DO (*pcont->iocpHandle += signaddr);
       __BREAK_OK;
     }
@@ -777,6 +814,10 @@ __TRY
       __BREAK_OK;                                               //(2)
     } else {                                                    // error
       psign->sSize = MARK_ERROR_CLOSE;
+#ifdef      __PROCESS_EVENT
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EVENT
       __DO (*pcont->iocpHandle += signaddr);
       WSAERROR
       __BREAK_OK;                                               //(3)
@@ -792,6 +833,10 @@ __TRY
     readed = read(pcont->bHandle, pbuff->buf, pbuff->len);
     if (readed != NEGONE) {                                     // read ok
       psign->sSize = readed;
+#ifdef      __PROCESS_EVENT
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EVENT
       __DO (*pcont->iocpHandle += signaddr);
       __BREAK_OK;                                               //(4)
     } else if (errno == EAGAIN) {                               // no read ok
@@ -850,6 +895,10 @@ __TRY
 	newsign->sOverlap = polap;
 	newsign->sEvent = psign->sEvent;
 	newsign->sSize = writed;
+#ifdef      __PROCESS_EVENT
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EVENT
 	if (*pcont->iocpHandle += newaddr) {
 	  __DO (FreeSign(newsign));
 	  __BREAK_OK;
@@ -872,6 +921,10 @@ __TRY
 	break;                                                  //(8)EAGAIN ok
       } else {                                                  // error
 	psign->sSize = MARK_ERROR_CLOSE;
+#ifdef      __PROCESS_EVENT
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EVENT
 	__DO (*pcont->iocpHandle += signaddr);
 	WSAERROR
 	__BREAK_OK;                                             //(9)write error
@@ -890,12 +943,15 @@ __TRY
       __BREAK_OK;
     } else {
       psign->sSize = MARK_ERROR_CLOSE;
+#ifdef      __PROCESS_EVENT
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_EVENT
       __DO (*pcont->iocpHandle += signaddr);
       __BREAK_OK;                                               //(3)
     }
   }
 __CATCH_BEGIN
-  D(InCatchForFree);Dn;TRACE;
   FreeSign(psign);
 __CATCH_END
 };
@@ -924,9 +980,9 @@ __TRY
             (PULONG_PTR)&pcont, (LPOVERLAPPED*)&pbuff, 
             WSA_INFINITE));
 
-#ifdef      __DEBUG_IOCP
-  Dp(pcont); Dp(pbuff); if (pbuff) Dlld(pbuff->nOper); Dd(size); Dn;
-#endif   // __DEBUG_IOCP
+#ifdef      __PROCESS_WORK
+  Dp(pcont); Dp(pbuff); if (pbuff) Dlld(pbuff->nOper); Dd(size); DN;
+#endif   // __PROCESS_WORK
 
   if (size == NEGONE) __BREAK_OK;
   if (pbuff == 0) noper = 0;
@@ -958,31 +1014,49 @@ __TRY
   PSIGN     &psign = (PSIGN &)signaddr;
   POLAP     &polap = (POLAP &)olapaddr;
   PCONT     &pcont = (PCONT &)contaddr;
-  PWSABUF   pwsa;
+  PWSABUF   pwsa = 0;
+
 
   __DO (EventFile -= signaddr);
+#ifdef      __PROCESS_FILE
+  DF(GetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_FILE
   pcont = psign->sContext;
   polap = psign->sOverlap;
-  D(ThreadFileDoing);Dp(pcont->iocpHandle);Dn;
+  if (polap) {
+    pwsa = polap->InternalHigh;
+  }
 
   __DO (pcont == 0);
   if (psign->sEvent & EPOLLFILEOPEN) {
     __DO (polap == 0);
-    pwsa = polap->InternalHigh;
     __DO (pwsa == 0);
-    Dx(psign->dwAccess);Ds(pwsa->buf);Dn;
+
     if (psign->dwAccess == GENERIC_READ) {
       state = open((char*)pwsa->buf, O_RDONLY);
     }
     if (psign->dwAccess == GENERIC_WRITE) {
       state = open((char*)pwsa->buf, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
     }
-    pcont->bHandle = state;
+
+    if (polap->accSocket) {
+      // for accept
+      polap->accSocket->bHandle = state;
+    } else {
+      // for connect
+      pcont->bHandle = state;
+    }
+
     if (state == NEGONE) {                                      // error open
       WSAERROR
       __BREAK_OK;
     }
     psign->sSize = 0;
+#ifdef      __PROCESS_FILE
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_FILE
     __DO (*pcont->iocpHandle += signaddr);                      // open OK
     __BREAK_OK; 
   }
@@ -994,20 +1068,37 @@ __TRY
       WSAERROR
       __BREAK_OK;
     }
-    Dp(pcont->iocpHandle);
+#ifdef      __PROCESS_FILE
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_FILE
     __DO (*pcont->iocpHandle += signaddr);                      // close OK
     __BREAK_OK; 
   }
 
   if (psign->sEvent & EPOLLFILEREAD) {
-    __DO (polap == 0);
+    __DO (olapaddr == ZERO);
+    //    pwsa = polap->InternalHigh;
+    __DO (pwsa == 0);
+    readed = read(pcont->bHandle, (char*)pwsa->buf, pwsa->len);
+    if (readed == NEGONE) {
+      WSAERROR
+      __BREAK_OK;
+     }
+
+    psign->sSize = readed;
+#ifdef      __PROCESS_FILE
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_FILE
+    __DO (*pcont->iocpHandle += signaddr);
+
   }
 
   if (psign->sEvent & EPOLLFILEWRITE) {
-    D(inFileWrite);Dn;
     __DO (pcont->writeBuffer -= olapaddr);
     __DO (olapaddr == ZERO);
-    pwsa = polap->InternalHigh;
+    //    pwsa = polap->InternalHigh;
     __DO (pwsa == 0);
     writed = write(pcont->bHandle, (char*)pwsa->buf, pwsa->len);
     if (writed == NEGONE) {                                     // error write
@@ -1015,7 +1106,10 @@ __TRY
       __BREAK_OK;
     }
     psign->sSize = writed;
-    D(AfterFileWrite);Dn;
+#ifdef      __PROCESS_FILE
+  DF(SetSign);DN;
+  DSIGN(psign);
+#endif   // __PROCESS_FILE
     __DO (*pcont->iocpHandle += signaddr);                      // write OK
     //    __DO (polap == 0);
   }
@@ -1041,6 +1135,8 @@ __TRY
   __DO (threadEpoll.ThreadClone(true));
   __DO (threadEvent.ThreadClone(true));
   __DO (RThread::ThreadStart());
+
+  __DO (StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
 
 /*
  * YES, this code may be execute before threadEvent initialized.

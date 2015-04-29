@@ -415,7 +415,6 @@ public:
     PMINFO    info;
     info = GetThreadMemoryInfo();
   __TRY
-    //   D(InFree);Dllx(addr.aLong);Dn;
     if (TimeoutInit) {
       addr.CountDown = TIMEOUT_QUIT;
       __BREAK_OK;

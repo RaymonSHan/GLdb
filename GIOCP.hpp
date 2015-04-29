@@ -196,6 +196,8 @@ inline UINT ToWSAError(UINT err) { return err; };
 #define     WSA_FLAG_ISLISTEN                   (1 << 10)
 #define     WSA_FLAG_ISACCEPT                   (1 << 11)
 #define     WSA_FLAG_ISCONNECT                  (1 << 12)
+#define     WSA_FLAG_ISNETWORK                  (1 << 13)
+#define     WSA_FLAG_ISFILE                     (1 << 14)
 
 #define     IS_LISTEN(pcont)					\
             (pcont->dwFlags & WSA_FLAG_ISLISTEN)
@@ -203,6 +205,10 @@ inline UINT ToWSAError(UINT err) { return err; };
             (pcont->dwFlags & WSA_FLAG_ISACCEPT)
 #define     IS_CONNECT(pcont)					\
             (pcont->dwFlags & WSA_FLAG_ISCONNECT)
+#define     IS_NETWORK(pcont)					\
+            (pcont->dwFlags & WSA_FLAG_ISNETWORK)
+#define     IS_FILE(pcont)					\
+            (pcont->dwFlags & WSA_FLAG_ISFILE)
 
 #define     IS_DUPLEX(pcont)					\
             (pcont->pApplication->ApplicationFlag &		\

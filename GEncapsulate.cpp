@@ -43,9 +43,9 @@ __TRY
   RegisterProtocol(
             NPROT, nonePro, PROTOCOL_NONE, 0);
   RegisterProtocol(
-            GTCP, tcpProt, PROTOCOL_TCP, 0);
+	    GTCP, tcpProt, PROTOCOL_TCP, WSA_FLAG_ISNETWORK);
   RegisterProtocol(
-            GFILE, fileProt, PROTOCOL_FILE, 0);
+            GFILE, fileProt, PROTOCOL_FILE, WSA_FLAG_ISFILE);
   RegisterApplication(
             NAPP, noneApp, APPLICATION_NONE, 0);
   RegisterApplication(
@@ -87,8 +87,8 @@ __CATCH_BEGIN
 __CATCH_END
 };
 
-//#define     DOING_ECHO_APPLICATION
-#define     DOING_FORWARD_APPLICATION
+#define     DOING_ECHO_APPLICATION
+//#define     DOING_FORWARD_APPLICATION
 //#define     DOING_FORWARDSINGLE_APPLICATION
 //#define     DOING_FILECOPY_APPLICATION
 
@@ -98,7 +98,7 @@ __TRY
   PCONT     nullcont = NULL;
   char      local_addr[] = "0.0.0.0";
   int       local_port = 3389;
-  char      remote_addr[] = "10.32.209.144";
+  char      remote_addr[] = "0.0.0.0";
   int       remote_port = 3389;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser;
@@ -142,7 +142,7 @@ __TRY
   addrser = &pathname;
   __DO (CreateApplication(
             forwardSingle.listenSocket, nullcont, (PAPP)&forwardSingle, 
-	    (PPROT)&filePort, addrcli, sizeof(SOCK), 
+	    (PPROT)&tcpPort, addrcli, sizeof(SOCK), 
 	    (PPROT)&fileProt, addrser, 0));
   __DO (GlobalIOCP.StartWork(
 	    (PEVENT)forwardSingle.handleIOCP, NUMBER_NOW_WORK));
@@ -150,18 +150,20 @@ __TRY
 
 #ifdef      DOING_FILECOPY_APPLICATION
   UCHAR     pname[] = "~/";
+  ADDR      addrname;
+  addrname.pChar = pname;
   static    STR_M pathname;
   pathname = pname;
   addrser = &pathname;
   __DO (CreateApplication(
             forwardSingle.listenSocket, nullcont, (PAPP)&forwardSingle, 
-	    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
-	    (PPROT)&fileProt, addrser, 0));
+	    (PPROT)&fileProt, addrname, 2, 
+	    (PPROT)&fileProt, addrname, 2));
   __DO (GlobalIOCP.StartWork(
 	    (PEVENT)forwardSingle.handleIOCP, NUMBER_NOW_WORK));
 #endif   // DOING_FILECOPY_APPLICATION
 
-  __DO (GlobalIOCP.StartFile(NUMBER_MAX_FILE));                 // ThreadClone(false)
+
 __CATCH
 };
 

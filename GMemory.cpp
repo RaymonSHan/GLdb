@@ -288,9 +288,9 @@ __CATCH__
 
 #ifdef    __DEBUG_CONTEXT
 #define     DEBUG_CONTEXT_GET					\
-  D(GetContext);Dp(pcont);Dn;
+  D(GetContext);Dp(pcont);DN;
 #define     DEBUG_CONTEXT_FREE					\
-  D(FreeContext);Dp(pcont);Dn;
+  D(FreeContext);Dp(pcont);DN;
 #else  // __DEBUG_CONTEXT
 #define     DEBUG_CONTEXT_GET
 #define     DEBUG_CONTEXT_FREE
@@ -360,9 +360,9 @@ void        ReflushTimeout(
 
 #ifdef    __DEBUG_BUFFER
 #define     DEBUG_BUFFER_GET					\
-  D(GetBuffer);Dp(pbuff);Dn;
+  D(GetBuffer);Dp(pbuff);DN;
 #define     DEBUG_BUFFER_FREE					\
-  D(FreeBuffer);Dp(pbuff);Dn;
+  D(FreeBuffer);Dp(pbuff);DN;
 #else  // __DEBUG_BUFFER
 #define     DEBUG_BUFFER_GET
 #define     DEBUG_BUFFER_FREE
@@ -422,9 +422,9 @@ __RETURN_( addr.DecRefCount());
 
 #ifdef    __DEBUG_SIGN
 #define     DEBUG_SIGN_GET					\
-  D(GetSign);Dp(psign);Dn;
+  D(GetSign);Dp(psign);DN;
 #define     DEBUG_SIGN_FREE					\
-  D(FreeSign);Dp(psign);Dn;
+  D(FreeSign);Dp(psign);DN;
 #else  // __DEBUG_SIGN
 #define     DEBUG_SIGN_GET
 #define     DEBUG_SIGN_FREE

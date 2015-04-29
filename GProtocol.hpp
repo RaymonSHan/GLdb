@@ -78,20 +78,48 @@ public:
     ProtocolFlag = 0;
     MyCloseHandle = CloseOtherHandle;
   };
-  RESULT    CreateNew(PCONT, ADDR, UINT)
-  { return 0; };
-  RESULT    CreateRemote(PCONT, ADDR, UINT)
-  { return 0; };
-  RESULT    PostAccept(PCONT, PBUFF&, UINT, UINT)
-  { return 0; };
-  RESULT    PostConnect(PCONT, PBUFF&, UINT, UINT)
-  { return 0; };
-  RESULT    PostSend(PCONT, PBUFF&, UINT, UINT, UINT)
-  { return 0; };
-  RESULT    PostReceive(PCONT, PBUFF&, UINT, UINT, UINT)
-  { return 0; };
-  RESULT    PostClose(PCONT, PBUFF&, UINT, UINT)
-  { return 0; };
+  RESULT    CreateNew(PCONT, ADDR, UINT) {
+#ifdef      __PROCESS_PROTOCOL
+    DF(CreateNew);DN;
+#endif   // __PROCESS_PROTOCOL
+    return 0; 
+  };
+  RESULT    CreateRemote(PCONT, ADDR, UINT) {
+#ifdef      __PROCESS_PROTOCOL
+    DF(CreateRemote);DN;
+#endif   // __PROCESS_PROTOCOL
+    return 0; 
+  };
+  RESULT    PostAccept(PCONT, PBUFF&, UINT, UINT) {
+#ifdef      __PROCESS_PROTOCOL
+    DF(PostAccept);DN;
+#endif   // __PROCESS_PROTOCOL
+    return 0; 
+  };
+  RESULT    PostConnect(PCONT, PBUFF&, UINT, UINT) {
+#ifdef      __PROCESS_PROTOCOL
+    DF(PostConnect);DN;
+#endif   // __PROCESS_PROTOCOL
+    return 0; 
+  };
+  RESULT    PostSend(PCONT, PBUFF&, UINT, UINT, UINT) {
+#ifdef      __PROCESS_PROTOCOL
+    DF(PostSend);DN;
+#endif   // __PROCESS_PROTOCOL
+    return 0; 
+  };
+  RESULT    PostReceive(PCONT, PBUFF&, UINT, UINT, UINT) {
+#ifdef      __PROCESS_PROTOCOL
+    DF(PostReceive);DN;
+#endif   // __PROCESS_PROTOCOL
+    return 0; 
+  };
+  RESULT    PostClose(PCONT, PBUFF&, UINT, UINT) {
+#ifdef      __PROCESS_PROTOCOL
+    DF(PostClose);DN;
+#endif   // __PROCESS_PROTOCOL
+    return 0; 
+  };
 
   //  UINT virtual GetContextLength(PCONT pcont, PBUFF pbuff);
 }PROT, *PPROT;
