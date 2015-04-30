@@ -57,27 +57,27 @@ __CATCH
 RESULT      GNoneProtocol::CreateNew(
             PCONT pcont, ADDR addr, UINT size)
 {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(NoneCreateNew);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
   return ProFunc(pcont, fCreateNew)(pcont, addr, size);
 };
 
 RESULT      GNoneProtocol::CreateRemote(
             PCONT pcont, ADDR addr, UINT size)
 {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(NoneCreateRemote);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
   return ProFunc(pcont, fCreateRemote)(pcont, addr, size);
 };
 
 RESULT      GNoneProtocol::PostAccept(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(NonePostAccept);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
   pbuff->nOper = op;
   return ProFunc(pcont, fPostAccept)(pcont, pbuff, size, op);
 };
@@ -85,9 +85,9 @@ RESULT      GNoneProtocol::PostAccept(
 RESULT      GNoneProtocol::PostConnect(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op)
 {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(NonePostConnect);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
   pbuff->nOper = op;
   return ProFunc(pcont, fPostConnect)(pcont, pbuff, size, op);
 };
@@ -95,9 +95,9 @@ RESULT      GNoneProtocol::PostConnect(
 RESULT      GNoneProtocol::PostSend(
 	    PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(NonePostSend);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
   pbuff->nOper = op;
   ReflushTimeout(pcont, 0);
   return ProFunc(pcont, fPostSend)(pcont, pbuff, size, op, opside);
@@ -106,9 +106,9 @@ RESULT      GNoneProtocol::PostSend(
 RESULT      GNoneProtocol::PostReceive(
             PCONT pcont, PBUFF &pbuff, UINT size, UINT op, UINT opside)
 {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(NonePostReceive);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
   pbuff->nOper = op;
   ReflushTimeout(pcont, 0);
   return ProFunc(pcont, fPostReceive)(pcont, pbuff, size, op, opside);
@@ -144,9 +144,9 @@ __TRY
   HANDLE    iocphandle;
   int       result;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(TCPCreateNew);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
@@ -170,9 +170,9 @@ RESULT      GTCPProtocol::CreateRemote(
             PCONT pcont, ADDR para, UINT size)
 {
 __TRY
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(TCPCreateRemote);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
@@ -193,9 +193,9 @@ __TRY
   PWSABUF   wsabuf;
   BOOL      result;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(TCPPostAccept);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
@@ -230,9 +230,9 @@ __TRY
   HANDLE    iocphandle;
   BOOL      result;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(TCPPostConnect);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
@@ -264,9 +264,9 @@ __TRY
   DWORD     dwflags = 0;
   int       result;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(TCPPostSend);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
@@ -291,9 +291,9 @@ __TRY
   DWORD     dwflags = 0;
   int       result;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(TCPPostReceive);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_TCP_INPUT_ZERO);
@@ -316,9 +316,9 @@ RESULT      GFileProtocol::CreateNew(
 __TRY
   HANDLE    iocphandle;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(FileCreateNew);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
@@ -341,9 +341,9 @@ RESULT      GFileProtocol::CreateRemote(
   (void)    size;
 __TRY
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(FileCreateRemote);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
@@ -369,9 +369,9 @@ __TRY
   HANDLE    iocphandle;
   FILEHANDLE handle;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(FileRostAccept);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
@@ -425,9 +425,9 @@ __TRY
   HANDLE    iocphandle;
   FILEHANDLE handle;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(FilePostConnect);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
@@ -470,9 +470,9 @@ RESULT      GFileProtocol::PostSend(
 __TRY
   int       result;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(FilePostSend);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);
@@ -496,9 +496,9 @@ RESULT      GFileProtocol::PostReceive(
 __TRY
   int       result;
 
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
   DF(FilePostReceive);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
 
   __DOe(pcont == 0,
             GL_FILE_INPUT_ZERO);

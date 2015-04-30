@@ -79,45 +79,45 @@ public:
     MyCloseHandle = CloseOtherHandle;
   };
   RESULT    CreateNew(PCONT, ADDR, UINT) {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(CreateNew);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
     return 0; 
   };
   RESULT    CreateRemote(PCONT, ADDR, UINT) {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(CreateRemote);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
     return 0; 
   };
   RESULT    PostAccept(PCONT, PBUFF&, UINT, UINT) {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(PostAccept);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
     return 0; 
   };
   RESULT    PostConnect(PCONT, PBUFF&, UINT, UINT) {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(PostConnect);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
     return 0; 
   };
   RESULT    PostSend(PCONT, PBUFF&, UINT, UINT, UINT) {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(PostSend);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
     return 0; 
   };
   RESULT    PostReceive(PCONT, PBUFF&, UINT, UINT, UINT) {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(PostReceive);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
     return 0; 
   };
   RESULT    PostClose(PCONT, PBUFF&, UINT, UINT) {
-#ifdef      __PROCESS_PROTOCOL
+#ifdef    __PROCESS_PROTOCOL
     DF(PostClose);DN;
-#endif   // __PROCESS_PROTOCOL
+#endif // __PROCESS_PROTOCOL
     return 0; 
   };
 

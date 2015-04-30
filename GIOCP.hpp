@@ -196,8 +196,15 @@ inline UINT ToWSAError(UINT err) { return err; };
 #define     WSA_FLAG_ISLISTEN                   (1 << 10)
 #define     WSA_FLAG_ISACCEPT                   (1 << 11)
 #define     WSA_FLAG_ISCONNECT                  (1 << 12)
-#define     WSA_FLAG_ISNETWORK                  (1 << 13)
-#define     WSA_FLAG_ISFILE                     (1 << 14)
+
+#define     WSA_FLAG_ISNETWORK                  (1 << 16)
+#define     WSA_FLAG_ISFILE                     (1 << 17)
+/*
+ * This means, these flags is for different protocol, not for state
+ */
+#define     WSA_FLAG_PROTOCOL                   (0xffff0000)
+
+
 
 #define     IS_LISTEN(pcont)					\
             (pcont->dwFlags & WSA_FLAG_ISLISTEN)
@@ -425,12 +432,12 @@ public:
       __DO (ThreadInitFinish -= result);
       __DO (ThreadMainFinish += result);
     }
-    __DO (result.aLong);
     __DO (InitThreadInfo());
+    __DO (result.aLong);
+
     while ((!thread->shouldQuit) && (!GlobalShouldQuit)) {
       __DO (CalcThreadTime());
       __DOc_(thread->ThreadDoing(), "Thread Doing Error\n");
-setLine();
     }
     __DO (thread->ThreadFree());
   __CATCH

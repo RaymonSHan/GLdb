@@ -61,51 +61,51 @@ public:
     handleIOCP = 0;
   };
   RESULT    OnAccept(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnAccept);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
   RESULT    OnConnect(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnConnect);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
   RESULT    OnClientRead(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnClientRead);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
   RESULT    OnClientWrite(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnClientWrite);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
   RESULT    OnServerRead(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnServerRead);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
   RESULT    OnServerWrite(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnServerWrite);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
   RESULT    OnClose(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnClose);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
   RESULT    OnPassby(PCONT, PBUFF&, UINT) {
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
     DF(OnPassby);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
     return 0; 
   };
 }APP, *PAPP;

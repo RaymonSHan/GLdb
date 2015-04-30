@@ -60,9 +60,9 @@ __TRY
   PBUFF     newbuff = 0;
   HANDLE    iocphandle;
 
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
   DF(NoneOnAccept);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
 
   __DOe(pcont == 0,
             GL_IOCP_INPUT_ZERO);
@@ -114,9 +114,9 @@ RESULT      GNoneApplication::OnConnect(
 __TRY
   PBUFF     newbuff = 0;
 
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
   DF(NoneOnConnect);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
 
   __DO (NoneProFunc(fPostReceive)
 	    (pcont->pPeer, pbuff, SIZE_BUFF_S, OP_CLIENT_READ, OPSIDE_CLIENT));
@@ -179,9 +179,9 @@ __TRY
   static    PBUFF isNULL = NULL;
   PCONT     peer;
 
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
   DF(NoneOnClose);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
   if (pbuff) {
     FreeBuffer(pbuff);
   }
@@ -250,9 +250,9 @@ RESULT      GEchoApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
   DF(EchoOnClientRead);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
   __DO (NoneProFunc(fPostSend)
             (pcont, pbuff, size, OP_SERVER_WRITE, OPSIDE_CLIENT));
 __CATCH
@@ -262,9 +262,9 @@ RESULT      GForwardApplication::OnClientRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
   DF(ForwardOnClientRead);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
   __DO (NoneProFunc(fPostSend)
             (pcont->pPeer, pbuff, size, OP_SERVER_WRITE, OPSIDE_SERVER));
 __CATCH
@@ -274,9 +274,9 @@ RESULT      GForwardApplication::OnServerRead(
             PCONT pcont, PBUFF &pbuff, UINT size)
 {
 __TRY
-#ifdef      __PROCESS_APPLICATION
+#ifdef    __PROCESS_APPLICATION
   DF(ForwardOnServerRead);DN;
-#endif   // __PROCESS_APPLICATION
+#endif // __PROCESS_APPLICATION
   __DO (NoneProFunc(fPostSend)
             (pcont->pPeer, pbuff, size, OP_CLIENT_WRITE, OPSIDE_CLIENT));
 __CATCH

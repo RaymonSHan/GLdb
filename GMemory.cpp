@@ -278,9 +278,11 @@ RESULT      InitContextItem(PCONT pcont)
 {
 __TRY__
   pcont->bHandle = 0;
-  pcont->waitEpollOut = 0;
   pcont->iocpHandle = 0;
   pcont->completionKey = 0;
+  pcont->waitEpollOut = 0;
+  //  pcont->dwFlags = SHOULD BE PROTOCOL FLAGS;
+
   pcont->readBuffer.InitQUERY_S();
   pcont->writeBuffer.InitQUERY_S();
 __CATCH__
@@ -321,6 +323,7 @@ __TRY
   __DO (GetContext(newcont, 0));
   newcont->pProtocol = pcont->pProtocol;
   newcont->pApplication = pcont->pApplication;
+  newcont->dwFlags = pcont->dwFlags & WSA_FLAG_PROTOCOL;
   if (copy) {
 /*
  * copy  both localSocket & remoteSocket, and localFilename, 
@@ -525,17 +528,19 @@ __TRY__
   tinfo = GetTraceInfo();
   rinfo = GetThreadInfo();
   do {
-    theSign = GlobalSign.GetFreeNumber(tstack);
-    nowSign += theSign;
-    theCont = GlobalContext.GetFreeNumber(tstack);
-    nowCont += theCont;
-    theBuff = GlobalBufferSmall.GetFreeNumber(tstack);
-    nowBuff += theBuff;
-    nowmessage += snprintf(nowmessage, CHAR_LARGE, 
-	    "%14s:%14lld:%7f%%;  %4lld%4lld%4lld \n", 
+    if (tinfo->threadName) {
+      theSign = GlobalSign.GetFreeNumber(tstack);
+      nowSign += theSign;
+      theCont = GlobalContext.GetFreeNumber(tstack);
+      nowCont += theCont;
+      theBuff = GlobalBufferSmall.GetFreeNumber(tstack);
+      nowBuff += theBuff;
+      nowmessage += snprintf(nowmessage, CHAR_LARGE, 
+	    "%14s:%8lld:%7f%%;  %4lld%4lld%4lld \n", 
 	    tinfo->threadName, 
-	    rinfo->threadRunTime.aLong, rinfo->threadRunPercent * 100,
+	    rinfo->threadRunTime.aLong / 100, rinfo->threadRunPercent * 100,
 	    theSign, theCont, theBuff);
+    }
     if (nowt >= GlobalThreadNumber) break;
     tstack = GlobalStackPlace[nowt];
     tinfo = GetTraceInfo(tstack);
@@ -543,7 +548,7 @@ __TRY__
     nowt++;
   } while (true);
 
-  nowmessage += snprintf(nowmessage, CHAR_LARGE, "%46lld%4lld%4lld \n",
+  nowmessage += snprintf(nowmessage, CHAR_LARGE, "%40lld%4lld%4lld \n",
 	    GlobalSign.GetGlobalFreeNumber() + nowSign,
 	    GlobalContext.GetGlobalFreeNumber() + nowCont,
 	    GlobalBufferSmall.GetGlobalFreeNumber() + nowBuff);

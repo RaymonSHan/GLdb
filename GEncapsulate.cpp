@@ -87,19 +87,19 @@ __CATCH_BEGIN
 __CATCH_END
 };
 
-#define     DOING_ECHO_APPLICATION
+//#define     DOING_ECHO_APPLICATION
 //#define     DOING_FORWARD_APPLICATION
 //#define     DOING_FORWARDSINGLE_APPLICATION
-//#define     DOING_FILECOPY_APPLICATION
+#define     DOING_FILECOPY_APPLICATION
 
 RESULT      GEncapsulate::InitEncapsulate(void)
 {
 __TRY
   PCONT     nullcont = NULL;
   char      local_addr[] = "0.0.0.0";
-  int       local_port = 3389;
+  int       local_port = 8998;
   char      remote_addr[] = "0.0.0.0";
-  int       remote_port = 3389;
+  int       remote_port = 8999;
   SOCK      sockcli, sockser;
   ADDR      addrcli, addrser;
   
@@ -124,7 +124,7 @@ __TRY
 	    NULL, nulladdr, 0));
   __DO (GlobalIOCP.StartWork(
             (PEVENT)echoApp.handleIOCP, NUMBER_NOW_WORK));
-#endif   //  DOING_ECHO_APPLICATION
+#endif   // DOING_ECHO_APPLICATION
 
 #ifdef      DOING_FORWARD_APPLICATION
   __DO (CreateApplication(
@@ -142,7 +142,7 @@ __TRY
   addrser = &pathname;
   __DO (CreateApplication(
             forwardSingle.listenSocket, nullcont, (PAPP)&forwardSingle, 
-	    (PPROT)&tcpPort, addrcli, sizeof(SOCK), 
+	    (PPROT)&tcpProt, addrcli, sizeof(SOCK), 
 	    (PPROT)&fileProt, addrser, 0));
   __DO (GlobalIOCP.StartWork(
 	    (PEVENT)forwardSingle.handleIOCP, NUMBER_NOW_WORK));
@@ -201,6 +201,7 @@ __TRY
   __DO (pApp->handleIOCP == 0);
   if (cliProt) {
     __DO (GetContext(cliCont));
+    cliCont->dwFlags = cliProt->ProtocolFlag;
     cliCont->pApplication = pApp;
     cliCont->pProtocol = cliProt;
     __DO (NoneProFunc(fCreateNew)
@@ -214,6 +215,7 @@ __TRY
   }
   if (serProt) {
     __DO (GetContext(serCont));
+    serCont->dwFlags = serProt->ProtocolFlag;
     serCont->pApplication = pApp;
     serCont->pProtocol = serProt;
     __DO (NoneProFunc(fCreateRemote)

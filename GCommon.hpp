@@ -77,7 +77,9 @@
  * #define   __DEBUG_THREAD
  * #define   __PROCESS_IOCP
  */
-#define   __PROCESS_ALL
+//#define   __PROCESS_ALL
+
+ #define   __DEBUG_THREAD
 
 #ifdef    __PROCESS_ALL
 #define   __PROCESS_IOCP
@@ -203,8 +205,8 @@ typedef     class GApplication*                 PAPP;
 	 sign->sEvent, sign->sSize);
 
 #define     DCONT(cont)						\
-  printf("%p handle:%d, Peer:%p\n",				\
-	 cont, cont->bHandle, cont->pPeer);
+  printf("%p handle:%d, Peer:%p, Flag:%x\n",			\
+	 cont, cont->bHandle, cont->pPeer, cont->dwFlags);
 
 #define     DSOCK(sock)						\
   printf("sock addr:%s port:%d\n",				\
